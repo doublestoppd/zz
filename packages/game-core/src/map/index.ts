@@ -1,6 +1,7 @@
 export type { GameMap, Position, Tile, TileType } from "./types.js";
 export { TILE_DEFINITIONS } from "./types.js";
 export {
+  chebyshevDistance,
   isInBounds,
   orthogonalNeighbours,
   positionKey,

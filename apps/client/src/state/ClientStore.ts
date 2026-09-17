@@ -20,6 +20,8 @@ export interface ClientState {
   readonly lastRejection: RejectionReason | undefined;
   readonly lastError: string | undefined;
   readonly log: readonly string[];
+  /** Events that produced the current snapshot; the renderer animates them once. */
+  readonly lastEvents: readonly GameEvent[];
 }
 
 const MAX_LOG_LINES = 60;
@@ -33,6 +35,7 @@ const INITIAL: ClientState = {
   lastRejection: undefined,
   lastError: undefined,
   log: [],
+  lastEvents: [],
 };
 
 /**
@@ -63,7 +66,18 @@ export class ClientStore {
 
   /** Forget the current identity (after leaving a match or a failed rejoin). */
   clearIdentity(): void {
-    this.patch({ me: undefined, lobby: undefined, game: undefined, pendingSeq: undefined });
+    this.patch({
+      me: undefined,
+      lobby: undefined,
+      game: undefined,
+      pendingSeq: undefined,
+      lastEvents: [],
+    });
+  }
+
+  /** Clears the rejection text (the HUD calls this after a short delay). */
+  clearRejection(): void {
+    if (this.state.lastRejection !== undefined) this.patch({ lastRejection: undefined });
   }
 
   applyServerMessage(message: ServerMessage): void {
@@ -88,6 +102,7 @@ export class ClientStore {
           game: { version: message.version, state: message.state },
           pendingSeq: undefined,
           log: [...this.state.log, ...lines].slice(-MAX_LOG_LINES),
+          lastEvents: message.events,
         });
         return;
       }

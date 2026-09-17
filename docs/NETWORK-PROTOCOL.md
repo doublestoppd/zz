@@ -42,7 +42,8 @@ Errors: `MATCH_NOT_FOUND`, `MATCH_ALREADY_STARTED`, `MATCH_FULL`, `INVALID_PLAYE
 { "t": "rejoin_match", "matchCode": "QMCN", "rejoinToken": "…" }
 ```
 
-Reattaches a new socket to the slot whose token matches. Any older socket on that slot is
+Reattaches a new socket to the slot whose token matches. The client sends this on its own
+whenever a socket opens while it remembers a slot from `joined`. Any older socket on that slot is
 detached. Response: `joined`, `lobby` to everyone, and if the match has started an `update`
 with the latest snapshot (the player is marked present; the resulting events go to
 everyone). Errors: `MATCH_NOT_FOUND`, `INVALID_REJOIN_TOKEN`, `ALREADY_IN_MATCH`.

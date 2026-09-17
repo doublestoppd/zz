@@ -1,4 +1,6 @@
 import { isInExtractionZone, itemsUnderPlayer, type ItemType } from "@zombie/game-core";
+import type { SoundPlayer } from "../audio/SoundPlayer.js";
+import { KEY_HELP } from "../input/keyboard.js";
 import type { CommandSender } from "../net/CommandSender.js";
 import type { GameConnection } from "../net/GameConnection.js";
 import type { ClientState, ClientStore } from "../state/ClientStore.js";
@@ -24,8 +26,23 @@ export class Hud {
   private readonly endTurnButton: HTMLButtonElement;
   private readonly messageLine = el("div", { className: "error" });
   private readonly log = el("ul", { className: "log" });
+  private readonly muteButton: HTMLButtonElement;
+  private rejectionTimer: ReturnType<typeof setTimeout> | undefined;
+  private wasMyTurn = false;
 
-  constructor(store: ClientStore, sender: CommandSender, connection: GameConnection) {
+  constructor(
+    private readonly store: ClientStore,
+    sender: CommandSender,
+    connection: GameConnection,
+    sounds: SoundPlayer,
+  ) {
+    this.muteButton = button(sounds.isMuted() ? "Unmute" : "Mute", () => {
+      sounds.setMuted(!sounds.isMuted());
+    });
+    sounds.onMuteChange((muted) => {
+      this.muteButton.textContent = muted ? "Unmute" : "Mute";
+    });
+    this.muteButton.setAttribute("aria-label", "Toggle sound");
     this.backButton = button("Back to lobby", () => {
       connection.send({ t: "leave_match" });
       clearIdentity();
@@ -71,11 +88,23 @@ export class Hud {
         " ",
         ...[...this.useButtons.values()].flatMap((b) => [b, " "]),
       ]),
-      el("div", {}, [this.reloadButton, " ", this.endTurnButton]),
+      el("div", {}, [this.reloadButton, " ", this.endTurnButton, " ", this.muteButton]),
       this.messageLine,
+      el("details", {}, [
+        el("summary", { textContent: "Keyboard controls" }),
+        el(
+          "ul",
+          { className: "help" },
+          KEY_HELP.map(([key, what]) => el("li", { textContent: `${key}: ${what}` })),
+        ),
+      ]),
       el("h3", { textContent: "Log" }),
       this.log,
     );
+    // Screen readers announce turn changes and rejections without reading the whole log.
+    this.turnLine.setAttribute("aria-live", "polite");
+    this.messageLine.setAttribute("aria-live", "assertive");
+    this.log.setAttribute("aria-label", "Match log");
     store.subscribe((state) => {
       this.render(state);
     });
@@ -111,6 +140,13 @@ export class Hud {
             : "");
 
     this.roundLine.textContent = `Round ${game.round}`;
+    const myTurn = active === me && !finished;
+    this.turnLine.classList.toggle("your-turn", myTurn);
+    if (myTurn && !this.wasMyTurn) {
+      // Reading the layout forces a reflow so the CSS animation restarts.
+      restartAnimation(this.turnLine);
+    }
+    this.wasMyTurn = myTurn;
     this.turnLine.textContent =
       game.phase.kind === "finished"
         ? `Match over: ${game.phase.outcome}`
@@ -154,10 +190,22 @@ export class Hud {
       state.lastRejection !== undefined
         ? REJECTION_MESSAGES[state.lastRejection]
         : (state.lastError ?? "");
+    if (state.lastRejection !== undefined && this.rejectionTimer === undefined) {
+      this.rejectionTimer = setTimeout(() => {
+        this.rejectionTimer = undefined;
+        this.store.clearRejection();
+      }, 3000);
+    }
 
     this.log.replaceChildren(
       ...state.log.filter((line) => line !== "").map((line) => el("li", { textContent: line })),
     );
     this.log.scrollTop = this.log.scrollHeight;
   }
+}
+
+function restartAnimation(element: HTMLElement): void {
+  element.classList.remove("pulse");
+  element.getBoundingClientRect();
+  element.classList.add("pulse");
 }

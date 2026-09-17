@@ -139,6 +139,21 @@ own layout in `testing/makeTestState.ts`.
 Do not build a generic quest or scripting engine for this; one function per mode is the
 intended shape until a third mode proves otherwise.
 
+## Animate or voice a new event
+
+1. `apps/client/src/render/animationPlan.ts`: add a `case` for the event in `planAnimations`
+   returning `move`, `shot`, `flash`, `vanish`, or `sound` steps (or add a new step kind and
+   handle it in `BoardRenderer.playSteps`). The switch is exhaustive, so a new event type
+   will not compile until it is listed, even if it maps to nothing.
+2. For a new sound, add the name to `SoundName` and its tones to `TONES` in
+   `apps/client/src/audio/SoundPlayer.ts`. Sounds are synthesized; there are no audio files.
+3. Add a case to `animationPlan.test.ts`; it runs without Phaser.
+
+## Add a keyboard shortcut
+
+`keyToCommand` in `apps/client/src/input/keyboard.ts` maps a key to a command using the same
+rule helpers as clicks. Add the key there and a line to `KEY_HELP`; test in `keyboard.test.ts`.
+
 ## Add a phase or change the turn sequence
 
 `packages/game-core/src/state/types.ts` (`GamePhase`) and `turn/phases.ts`. Keep transitions
