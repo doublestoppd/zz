@@ -1,0 +1,16 @@
+{
+  "name": "@zombie/game-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Authoritative game rules and simulation. Framework-free and deterministic.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

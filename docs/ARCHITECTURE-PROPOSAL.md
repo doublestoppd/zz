@@ -10,18 +10,18 @@ This proposal answers Section 12 of the project starter brief, item by item.
 
 ## 1. Technology stack
 
-| Concern | Recommendation | Why | Alternatives considered |
-|---|---|---|---|
-| Language | TypeScript, `strict: true`, plus `noUncheckedIndexedAccess` | Discriminated unions and readonly types are the main tool for keeping rules explicit. `noUncheckedIndexedAccess` forces `tiles[y][x]` bounds checks to be written down. | Plain JS: rejected, loses the contract-by-types benefit. |
-| Runtime | Node 20 LTS or newer | Long-term support, native `fetch`, stable ESM. | Deno/Bun: rejected, smaller ecosystem for Phaser tooling, no real gain. |
-| Monorepo | pnpm workspaces, no Turborepo/Nx | Strict `node_modules` means a package can only import what its own `package.json` declares. That single property enforces most of the dependency-direction rules for free. Four packages and two apps do not need a task orchestrator. | npm workspaces: workable but hoists dependencies, so `game-core` could accidentally import Phaser and still compile. |
-| Client rendering | Phaser 3 | Tilemaps, sprites, tweens, input, and scene lifecycle out of the box. For a 2D tile game this removes the most boilerplate for the least framework lock-in, and it is confined to `apps/client`. | PixiJS: lower level, more hand-written scene/input code. Raw canvas: too much boilerplate for animation. |
-| Client bundler | Vite | Fast dev server, TS out of the box, standard pairing with Phaser. | Webpack: heavier config for no benefit. |
-| Server transport | `ws` library on Node, native `WebSocket` in the browser, JSON messages defined in `packages/protocol` | The game is turn-based with tiny state (a few KB). A hand-written room/session layer is ~300 lines and keeps every message explicit and documented. Zero coupling between `game-core` and any networking framework. | Colyseus: gives rooms, matchmaking, and delta sync, but its `@colyseus/schema` requires class-based decorated state, which conflicts with "plain serializable state" and forces a mapping layer. Deferred; the adapter boundary in `apps/server` lets it be introduced later. Socket.IO: adds a protocol we do not need. |
-| Message validation | Hand-written type guards in `packages/protocol` (`decodeClientMessage(raw): ClientMessage \| DecodeError`) | ~8 message types. A human can read the guard and see exactly what a message may contain. Keeps `protocol` dependency-free. | Zod: reasonable if message count grows; revisit at Milestone 6 (inventory) when payloads get richer. |
-| Tests | Vitest | Runs TS directly, shares Vite config with the client, fast watch mode. | Jest: needs ts-jest/babel config for no gain. |
-| Lint/format | ESLint (typescript-eslint) + Prettier, plus `no-restricted-imports` and `no-restricted-properties` (bans `Math.random`) per package | Mechanical enforcement of the two rules most likely to erode silently: forbidden imports and unseeded randomness. | dependency-cruiser: good tool, but pnpm strictness plus ESLint covers our needs with one fewer dependency. |
-| Server dev runner | `tsx` (watch) for dev, `tsc` build for production | Minimal. | ts-node: slower, ESM friction. |
+| Concern            | Recommendation                                                                                                                      | Why                                                                                                                                                                                                                                    | Alternatives considered                                                                                                                                                                                                                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Language           | TypeScript, `strict: true`, plus `noUncheckedIndexedAccess`                                                                         | Discriminated unions and readonly types are the main tool for keeping rules explicit. `noUncheckedIndexedAccess` forces `tiles[y][x]` bounds checks to be written down.                                                                | Plain JS: rejected, loses the contract-by-types benefit.                                                                                                                                                                                                                                                                 |
+| Runtime            | Node 20 LTS or newer                                                                                                                | Long-term support, native `fetch`, stable ESM.                                                                                                                                                                                         | Deno/Bun: rejected, smaller ecosystem for Phaser tooling, no real gain.                                                                                                                                                                                                                                                  |
+| Monorepo           | pnpm workspaces, no Turborepo/Nx                                                                                                    | Strict `node_modules` means a package can only import what its own `package.json` declares. That single property enforces most of the dependency-direction rules for free. Four packages and two apps do not need a task orchestrator. | npm workspaces: workable but hoists dependencies, so `game-core` could accidentally import Phaser and still compile.                                                                                                                                                                                                     |
+| Client rendering   | Phaser 3                                                                                                                            | Tilemaps, sprites, tweens, input, and scene lifecycle out of the box. For a 2D tile game this removes the most boilerplate for the least framework lock-in, and it is confined to `apps/client`.                                       | PixiJS: lower level, more hand-written scene/input code. Raw canvas: too much boilerplate for animation.                                                                                                                                                                                                                 |
+| Client bundler     | Vite                                                                                                                                | Fast dev server, TS out of the box, standard pairing with Phaser.                                                                                                                                                                      | Webpack: heavier config for no benefit.                                                                                                                                                                                                                                                                                  |
+| Server transport   | `ws` library on Node, native `WebSocket` in the browser, JSON messages defined in `packages/protocol`                               | The game is turn-based with tiny state (a few KB). A hand-written room/session layer is ~300 lines and keeps every message explicit and documented. Zero coupling between `game-core` and any networking framework.                    | Colyseus: gives rooms, matchmaking, and delta sync, but its `@colyseus/schema` requires class-based decorated state, which conflicts with "plain serializable state" and forces a mapping layer. Deferred; the adapter boundary in `apps/server` lets it be introduced later. Socket.IO: adds a protocol we do not need. |
+| Message validation | Hand-written type guards in `packages/protocol` (`decodeClientMessage(raw): ClientMessage \| DecodeError`)                          | ~8 message types. A human can read the guard and see exactly what a message may contain. Keeps `protocol` dependency-free.                                                                                                             | Zod: reasonable if message count grows; revisit at Milestone 6 (inventory) when payloads get richer.                                                                                                                                                                                                                     |
+| Tests              | Vitest                                                                                                                              | Runs TS directly, shares Vite config with the client, fast watch mode.                                                                                                                                                                 | Jest: needs ts-jest/babel config for no gain.                                                                                                                                                                                                                                                                            |
+| Lint/format        | ESLint (typescript-eslint) + Prettier, plus `no-restricted-imports` and `no-restricted-properties` (bans `Math.random`) per package | Mechanical enforcement of the two rules most likely to erode silently: forbidden imports and unseeded randomness.                                                                                                                      | dependency-cruiser: good tool, but pnpm strictness plus ESLint covers our needs with one fewer dependency.                                                                                                                                                                                                               |
+| Server dev runner  | `tsx` (watch) for dev, `tsc` build for production                                                                                   | Minimal.                                                                                                                                                                                                                               | ts-node: slower, ESM friction.                                                                                                                                                                                                                                                                                           |
 
 Deliberately no: state-management library, dependency-injection container,
 ORM/database, immer (see risk R3), Turborepo, Docker in Milestone 1.
@@ -73,17 +73,17 @@ Packages expose a single `index.ts`. `apps/*` may not deep-import
 
 ### Owner map (the "where is X?" table)
 
-| Question | Owner |
-|---|---|
-| Where is movement validated? | `packages/game-core/src/rules/movement.ts` |
-| Where is weapon damage calculated? | `packages/game-core/src/rules/combat.ts` (M3); numbers in `packages/game-data/src/weapons.ts` |
-| Where does a turn advance? | `packages/game-core/src/turn/phases.ts` |
-| Where is zombie behaviour selected? | `packages/game-core/src/zombies/targetSelection.ts` (M2) |
-| Where are weapon stats stored? | `packages/game-data/src/weapons.ts` |
-| Where are client/server messages defined? | `packages/protocol/src/messages.ts` |
-| Where is map connectivity validated? | `packages/map-generation/src/validate/connectivity.ts` (M5); BFS itself in `game-core/pathfinding` |
-| Where does the server decide who a command came from? | `apps/server/src/session/` |
-| Where does the client turn a click into a command? | `apps/client/src/input/` |
+| Question                                              | Owner                                                                                              |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Where is movement validated?                          | `packages/game-core/src/rules/movement.ts`                                                         |
+| Where is weapon damage calculated?                    | `packages/game-core/src/rules/combat.ts` (M3); numbers in `packages/game-data/src/weapons.ts`      |
+| Where does a turn advance?                            | `packages/game-core/src/turn/phases.ts`                                                            |
+| Where is zombie behaviour selected?                   | `packages/game-core/src/zombies/targetSelection.ts` (M2)                                           |
+| Where are weapon stats stored?                        | `packages/game-data/src/weapons.ts`                                                                |
+| Where are client/server messages defined?             | `packages/protocol/src/messages.ts`                                                                |
+| Where is map connectivity validated?                  | `packages/map-generation/src/validate/connectivity.ts` (M5); BFS itself in `game-core/pathfinding` |
+| Where does the server decide who a command came from? | `apps/server/src/session/`                                                                         |
+| Where does the client turn a click into a command?    | `apps/client/src/input/`                                                                           |
 
 ## 3. Dependency direction
 
@@ -120,7 +120,7 @@ a one-liner and what makes tests trivially writeable as object literals.
 // ids.ts — branded strings: a PlayerId cannot be passed where a ZombieId is expected.
 type PlayerId = string & { readonly __brand: "PlayerId" };
 type ZombieId = string & { readonly __brand: "ZombieId" };
-type MatchId  = string & { readonly __brand: "MatchId" };
+type MatchId = string & { readonly __brand: "MatchId" };
 
 type GamePhase =
   | { kind: "player_turn"; activePlayerId: PlayerId }
@@ -130,20 +130,23 @@ type GamePhase =
 
 interface GameState {
   readonly matchId: MatchId;
-  readonly seed: number;          // the seed the match was created with (map + gameplay)
-  readonly rngState: number;      // current cursor of the gameplay RNG (see §9)
-  readonly round: number;         // starts at 1
+  readonly seed: number; // the seed the match was created with (map + gameplay)
+  readonly rngState: number; // current cursor of the gameplay RNG (see §9)
+  readonly round: number; // starts at 1
   readonly phase: GamePhase;
-  readonly turnOrder: readonly PlayerId[];   // fixed at match start; skipping is computed, not mutated
+  readonly turnOrder: readonly PlayerId[]; // fixed at match start; skipping is computed, not mutated
   readonly map: GameMap;
   readonly players: readonly PlayerState[];
-  readonly zombies: readonly ZombieState[];  // empty in M1
+  readonly zombies: readonly ZombieState[]; // empty in M1
   readonly objective: ObjectiveState;
 }
 
-interface Position { readonly x: number; readonly y: number; }
+interface Position {
+  readonly x: number;
+  readonly y: number;
+}
 
-type TileType = "floor" | "wall";  // M1. Later: "road" | "sidewalk" | "door" | ...
+type TileType = "floor" | "wall"; // M1. Later: "road" | "sidewalk" | "door" | ...
 interface Tile {
   readonly type: TileType;
   readonly walkable: boolean;
@@ -152,7 +155,7 @@ interface Tile {
 interface GameMap {
   readonly width: number;
   readonly height: number;
-  readonly tiles: readonly (readonly Tile[])[];  // tiles[y][x]
+  readonly tiles: readonly (readonly Tile[])[]; // tiles[y][x]
 }
 
 type PlayerStatus = "active" | "down" | "extracted";
@@ -166,10 +169,10 @@ interface PlayerState {
   readonly actionPoints: number;
   readonly maxActionPoints: number;
   readonly status: PlayerStatus;
-  readonly present: boolean;      // false when disconnected; turn order skips absent players
+  readonly present: boolean; // false when disconnected; turn order skips absent players
 }
 
-type ZombieType = "walker";       // M2; more types are data, not code
+type ZombieType = "walker"; // M2; more types are data, not code
 interface ZombieState {
   readonly id: ZombieId;
   readonly type: ZombieType;
@@ -178,13 +181,15 @@ interface ZombieState {
 }
 
 // Objective is a discriminated union so a second mode can be added without a quest engine.
-type ObjectiveState =
-  | { readonly kind: "extraction";
-      readonly extractionZone: readonly Position[];
-      readonly status: "in_progress" | "complete" | "failed" };
+type ObjectiveState = {
+  readonly kind: "extraction";
+  readonly extractionZone: readonly Position[];
+  readonly status: "in_progress" | "complete" | "failed";
+};
 ```
 
 Notes:
+
 - `activePlayerId` lives inside the `player_turn` phase variant rather than as a
   nullable top-level field, so "there is an active player" and "it is a player turn"
   cannot disagree. This deviates from the brief's sketch on purpose.
@@ -221,13 +226,14 @@ Notes:
 ```
 
 Ownership:
+
 - **All transition logic is in `game-core/src/turn/`** as pure functions:
   `endActiveTurn(state)`, `resolveZombiePhase(state, rng)`, `resolveEndOfRound(state)`,
   and `advanceUntilPlayerInput(state, rng)` which loops the non-player phases until
   the state is waiting on a player or finished.
-- **The server decides *when* to call them.** After any accepted command,
+- **The server decides _when_ to call them.** After any accepted command,
   `MatchRuntime` calls `advanceUntilPlayerInput` and broadcasts the result. The
-  server contains no rule about *who* is next or *whether* the round ends.
+  server contains no rule about _who_ is next or _whether_ the round ends.
 - A player turn ends only by explicit `EndTurnCommand` or by the active player
   becoming absent/down. Reaching 0 AP does not end the turn (the player may still
   perform 0-AP actions later, e.g. interact). Owner may change this; see review list.
@@ -240,27 +246,37 @@ Ownership:
 // commands/ — what a client is allowed to *ask* for. playerId is stamped by the server
 // from the session, never taken from the client payload.
 type PlayerCommand =
-  | { readonly type: "move";     readonly playerId: PlayerId; readonly to: Position }
-  | { readonly type: "end_turn"; readonly playerId: PlayerId }
-  // M3: | { type: "fire_weapon"; playerId; targetId: ZombieId }
-  //     | { type: "reload"; playerId }
-  // M4+: | { type: "interact"; playerId; targetPosition: Position }
+  | { readonly type: "move"; readonly playerId: PlayerId; readonly to: Position }
+  | { readonly type: "end_turn"; readonly playerId: PlayerId };
+// M3: | { type: "fire_weapon"; playerId; targetId: ZombieId }
+//     | { type: "reload"; playerId }
+// M4+: | { type: "interact"; playerId; targetPosition: Position }
 
 // Commands only the server may issue (never accepted from a socket).
-type ServerCommand =
-  | { readonly type: "set_player_presence"; readonly playerId: PlayerId; readonly present: boolean };
+type ServerCommand = {
+  readonly type: "set_player_presence";
+  readonly playerId: PlayerId;
+  readonly present: boolean;
+};
 
 type Command = PlayerCommand | ServerCommand;
 
 type CommandResult =
-  | { readonly ok: true;  readonly state: GameState; readonly events: readonly GameEvent[] }
+  | { readonly ok: true; readonly state: GameState; readonly events: readonly GameEvent[] }
   | { readonly ok: false; readonly reason: RejectionReason };
 
 // One typed union for all rejections; each command validator returns its own subset.
 type RejectionReason =
-  | "NOT_YOUR_TURN" | "WRONG_PHASE" | "MATCH_FINISHED" | "PLAYER_NOT_ACTIVE"
-  | "INSUFFICIENT_ACTION_POINTS" | "DESTINATION_OUT_OF_BOUNDS" | "DESTINATION_BLOCKED"
-  | "DESTINATION_OCCUPIED" | "OUT_OF_RANGE" | "UNKNOWN_PLAYER";
+  | "NOT_YOUR_TURN"
+  | "WRONG_PHASE"
+  | "MATCH_FINISHED"
+  | "PLAYER_NOT_ACTIVE"
+  | "INSUFFICIENT_ACTION_POINTS"
+  | "DESTINATION_OUT_OF_BOUNDS"
+  | "DESTINATION_BLOCKED"
+  | "DESTINATION_OCCUPIED"
+  | "OUT_OF_RANGE"
+  | "UNKNOWN_PLAYER";
 
 function applyCommand(state: GameState, command: Command): CommandResult;
 ```
@@ -274,14 +290,23 @@ server computes the path, not the client, so the client sends only the destinati
 // events/ — what *happened*. Emitted by game-core, consumed by client (animation, log, audio)
 // and by tests. Events never carry Phaser objects or presentation hints.
 type GameEvent =
-  | { readonly type: "player_moved";  readonly playerId: PlayerId; readonly path: readonly Position[]; readonly apSpent: number }
-  | { readonly type: "turn_ended";    readonly playerId: PlayerId }
-  | { readonly type: "turn_started";  readonly playerId: PlayerId; readonly round: number }
+  | {
+      readonly type: "player_moved";
+      readonly playerId: PlayerId;
+      readonly path: readonly Position[];
+      readonly apSpent: number;
+    }
+  | { readonly type: "turn_ended"; readonly playerId: PlayerId }
+  | { readonly type: "turn_started"; readonly playerId: PlayerId; readonly round: number }
   | { readonly type: "round_started"; readonly round: number }
   | { readonly type: "phase_changed"; readonly phase: GamePhase }
-  | { readonly type: "player_presence_changed"; readonly playerId: PlayerId; readonly present: boolean }
-  | { readonly type: "match_ended";   readonly outcome: "victory" | "defeat" }
-  // M2: zombie_moved, zombie_attacked  M3: weapon_fired, entity_damaged, entity_died
+  | {
+      readonly type: "player_presence_changed";
+      readonly playerId: PlayerId;
+      readonly present: boolean;
+    }
+  | { readonly type: "match_ended"; readonly outcome: "victory" | "defeat" };
+// M2: zombie_moved, zombie_attacked  M3: weapon_fired, entity_damaged, entity_died
 ```
 
 Why: a `CommandResult` is a value, so every rule is testable as
@@ -322,17 +347,17 @@ client-side prediction or rollback in a turn-based game.
 
 Message catalogue (M1, to be documented in `NETWORK-PROTOCOL.md`):
 
-| Direction | Message | Payload | Response |
-|---|---|---|---|
-| C→S | `join` | `{ matchCode, playerName }` | `joined` or `error` |
-| C→S | `start_match` | `{}` (host only) | `update` to all, or `error` |
-| C→S | `command` | `{ seq, command: ClientCommand }` | `update` to all, or `rejected` to sender |
-| C→S | `leave` | `{}` | `lobby` to remaining players |
-| S→C | `joined` | `{ playerId, matchId, protocolVersion }` | – |
-| S→C | `lobby` | `{ players: [{id,name,present}], hostId }` | – |
-| S→C | `update` | `{ version, state, events }` | – |
-| S→C | `rejected` | `{ seq, reason }` | – |
-| S→C | `error` | `{ seq?, code, message }` | – |
+| Direction | Message       | Payload                                    | Response                                 |
+| --------- | ------------- | ------------------------------------------ | ---------------------------------------- |
+| C→S       | `join`        | `{ matchCode, playerName }`                | `joined` or `error`                      |
+| C→S       | `start_match` | `{}` (host only)                           | `update` to all, or `error`              |
+| C→S       | `command`     | `{ seq, command: ClientCommand }`          | `update` to all, or `rejected` to sender |
+| C→S       | `leave`       | `{}`                                       | `lobby` to remaining players             |
+| S→C       | `joined`      | `{ playerId, matchId, protocolVersion }`   | –                                        |
+| S→C       | `lobby`       | `{ players: [{id,name,present}], hostId }` | –                                        |
+| S→C       | `update`      | `{ version, state, events }`               | –                                        |
+| S→C       | `rejected`    | `{ seq, reason }`                          | –                                        |
+| S→C       | `error`       | `{ seq?, code, message }`                  | –                                        |
 
 `ClientCommand` is `PlayerCommand` with `playerId` omitted (`Omit<PlayerCommand, "playerId">`
 distributed over the union), defined in `protocol`.
@@ -345,6 +370,7 @@ is always correct (no divergence bugs, trivial reconnection: send the latest
 snapshot). Delta sync is a measured optimisation for later, if ever.
 
 How `game-core` stays unaware of networking:
+
 - `game-core` exports pure functions over plain data. It has no notion of clients,
   sockets, or broadcasting.
 - `apps/server/src/match/MatchRuntime.ts` is the only place that holds mutable
@@ -384,14 +410,14 @@ still be correct after the next snapshot.
 
 ## 10. Testing strategy and boundaries
 
-| Package | What is tested | How | Not tested |
-|---|---|---|---|
-| `game-core` | Every rule as observable behaviour: command validation, movement legality, AP accounting, turn/phase transitions, presence skipping, determinism (same state + commands twice → deep-equal), later LOS/combat/objective/zombie decisions | Vitest unit tests; a `makeTestState({...overrides})` builder over a hard-coded 10×10 fixture map so tests read as scenarios | Private helpers; no mocks anywhere |
-| `protocol` | `decodeClientMessage` accepts every valid shape and rejects malformed/extra/missing fields; encode→decode round-trip | Table-driven unit tests | – |
-| `game-data` | Every union member has a definition; values are within sane bounds | One test per catalogue (compile-time `Record<...>` does most of it) | – |
-| `map-generation` (M5) | Same seed → identical map; N seeds → all pass connectivity/spawn/extraction validation | Property-style loops over seeds | Aesthetics |
-| `apps/server` | Two in-process fake `ws` clients: join, start, move, end turn, receive broadcasts; rejection goes only to sender; disconnect skips turn | A handful of integration tests with a real `ws` server on an ephemeral port | Load, latency |
-| `apps/client` | Pure helpers only (tile↔pixel maths, event→animation mapping) | Unit tests | Phaser scenes (typecheck only) |
+| Package               | What is tested                                                                                                                                                                                                                           | How                                                                                                                         | Not tested                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `game-core`           | Every rule as observable behaviour: command validation, movement legality, AP accounting, turn/phase transitions, presence skipping, determinism (same state + commands twice → deep-equal), later LOS/combat/objective/zombie decisions | Vitest unit tests; a `makeTestState({...overrides})` builder over a hard-coded 10×10 fixture map so tests read as scenarios | Private helpers; no mocks anywhere |
+| `protocol`            | `decodeClientMessage` accepts every valid shape and rejects malformed/extra/missing fields; encode→decode round-trip                                                                                                                     | Table-driven unit tests                                                                                                     | –                                  |
+| `game-data`           | Every union member has a definition; values are within sane bounds                                                                                                                                                                       | One test per catalogue (compile-time `Record<...>` does most of it)                                                         | –                                  |
+| `map-generation` (M5) | Same seed → identical map; N seeds → all pass connectivity/spawn/extraction validation                                                                                                                                                   | Property-style loops over seeds                                                                                             | Aesthetics                         |
+| `apps/server`         | Two in-process fake `ws` clients: join, start, move, end turn, receive broadcasts; rejection goes only to sender; disconnect skips turn                                                                                                  | A handful of integration tests with a real `ws` server on an ephemeral port                                                 | Load, latency                      |
+| `apps/client`         | Pure helpers only (tile↔pixel maths, event→animation mapping)                                                                                                                                                                            | Unit tests                                                                                                                  | Phaser scenes (typecheck only)     |
 
 Rules: no test may import Phaser or start a browser. `game-core` tests must run
 in under a second. A reproducible bug gets a regression test that replays the
@@ -400,6 +426,7 @@ failing state + command.
 ## 11. Documentation structure and synchronisation
 
 Files exactly as the brief lists. Mechanisms that keep them honest:
+
 1. The feature-task template (brief §13) ends with a "documentation" step; the
    completion report must name which of the four docs changed or state "none affected".
 2. `docs/ARCHITECTURE.md` contains the owner map from §2 above; adding a module
@@ -428,6 +455,7 @@ documented before the next starts.
 empty docs skeleton.
 
 **M1 — Multiplayer movement slice.** Delivered as three reviewable steps:
+
 - 1a `game-core`: ids, state, test map fixture, `createInitialState`, `applyCommand`
   for `move`/`end_turn`/`set_player_presence`, turn/phase functions, BFS, Rng, tests.
   Runnable entirely in Vitest.

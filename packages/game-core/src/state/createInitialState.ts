@@ -1,0 +1,75 @@
+import type { MatchId, PlayerId } from "../ids.js";
+import type { MapLayout } from "../map/asciiMap.js";
+import { deriveSeed, RNG_STREAM } from "../random/rng.js";
+import { firstEligiblePlayer } from "../turn/turnOrder.js";
+import type { GameRules, GameState, PlayerState } from "./types.js";
+
+export interface SurvivorDefinition {
+  readonly maxHealth: number;
+  readonly maxActionPoints: number;
+}
+
+export interface MatchSetup {
+  readonly matchId: MatchId;
+  readonly seed: number;
+  readonly rules: GameRules;
+  readonly survivor: SurvivorDefinition;
+  readonly layout: MapLayout;
+  /** In turn order. Between 1 and the number of spawn positions in the layout. */
+  readonly players: readonly { readonly id: PlayerId; readonly name: string }[];
+}
+
+/**
+ * Builds the state for round 1 with the first player active.
+ * Throws on configuration errors (these are programmer mistakes, not player rejections).
+ */
+export function createInitialState(setup: MatchSetup): GameState {
+  const { layout, players } = setup;
+  if (players.length === 0) {
+    throw new Error("createInitialState: a match needs at least one player");
+  }
+  if (players.length > layout.spawnPositions.length) {
+    throw new Error(
+      `createInitialState: ${players.length} players but only ${layout.spawnPositions.length} spawn positions`,
+    );
+  }
+  const ids = new Set(players.map((p) => p.id));
+  if (ids.size !== players.length) {
+    throw new Error("createInitialState: duplicate player ids");
+  }
+
+  const playerStates: PlayerState[] = players.map((p, index) => {
+    const spawn = layout.spawnPositions[index];
+    if (spawn === undefined) throw new Error(`createInitialState: no spawn for player ${index}`);
+    return {
+      id: p.id,
+      name: p.name,
+      position: spawn,
+      health: setup.survivor.maxHealth,
+      maxHealth: setup.survivor.maxHealth,
+      actionPoints: setup.survivor.maxActionPoints,
+      maxActionPoints: setup.survivor.maxActionPoints,
+      present: true,
+    };
+  });
+
+  const withoutPhase: Omit<GameState, "phase"> = {
+    matchId: setup.matchId,
+    seed: setup.seed,
+    rngState: deriveSeed(setup.seed, RNG_STREAM.gameplay),
+    rules: setup.rules,
+    round: 1,
+    turnOrder: players.map((p) => p.id),
+    map: layout.map,
+    players: playerStates,
+    zombies: [],
+    objective: { kind: "extraction", extractionZone: layout.extractionZone, status: "in_progress" },
+  };
+
+  // Every player is present at creation, so an eligible player always exists here.
+  const first = firstEligiblePlayer({ ...withoutPhase, phase: { kind: "end_of_round" } });
+  if (first === undefined) {
+    throw new Error("createInitialState: no eligible first player");
+  }
+  return { ...withoutPhase, phase: { kind: "player_turn", activePlayerId: first } };
+}
