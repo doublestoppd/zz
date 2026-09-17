@@ -16,8 +16,14 @@ import {
   type ZombieState,
 } from "@zombie/game-core";
 import type { SoundPlayer } from "../audio/SoundPlayer.js";
-import { planAnimations, type AnimationStep } from "./animationPlan.js";
-import { TILE_SIZE, tileCenter, tileToPixel } from "./boardGeometry.js";
+import {
+  AnimationPlayer,
+  type AnimatedSprite,
+  type AnimationStage,
+  type TweenRequest,
+} from "./AnimationPlayer.js";
+import { planAnimations, type SoundName } from "./animationPlan.js";
+import { TILE_SIZE, tileCenter, tileToPixel, type Pixel } from "./boardGeometry.js";
 
 const COLOURS = {
   floor: 0x2b2f36,
@@ -52,10 +58,6 @@ const TILE_COLOURS: Readonly<Record<TileType, number>> = {
 
 const ITEM_LABELS: Readonly<Record<ItemType, string>> = { medkit: "+", ammo_box: "A" };
 
-/** Milliseconds per tile of movement, and for the shot and flash effects. */
-const MOVE_MS_PER_TILE = 110;
-const EFFECT_MS = 160;
-
 interface EntitySprite {
   readonly container: Phaser.GameObjects.Container;
   readonly body: Phaser.GameObjects.Shape;
@@ -75,7 +77,7 @@ interface ItemSprite {
  * always matches the snapshot. Between snapshots, events are played as short tweens; a
  * new snapshot cancels any animation in progress and snaps to the truth.
  */
-export class BoardRenderer {
+export class BoardRenderer implements AnimationStage {
   private readonly tileLayer: Phaser.GameObjects.Graphics;
   private readonly highlightLayer: Phaser.GameObjects.Graphics;
   private readonly effectLayer: Phaser.GameObjects.Graphics;
@@ -85,7 +87,7 @@ export class BoardRenderer {
   private readonly items = new Map<ItemId, ItemSprite>();
   private drawnMap: GameMap | undefined;
   private shownState: GameState | undefined;
-  private playbackToken = 0;
+  private readonly animation = new AnimationPlayer(this);
   private readonly reducedMotion: boolean;
 
   constructor(
@@ -101,17 +103,14 @@ export class BoardRenderer {
 
   /** Shows `state`, playing `events` first unless animation is disabled or interrupted. */
   render(state: GameState, me: PlayerId | undefined, events: readonly GameEvent[]): void {
-    this.playbackToken += 1;
-    const token = this.playbackToken;
     this.scene.tweens.killAll();
-    this.effectLayer.clear();
     if (this.drawnMap !== state.map) this.drawMap(state);
     this.highlightLayer.clear();
 
-    const steps = this.reducedMotion ? [] : planAnimations(events, this.shownState, state, me);
-    for (const step of steps) if (step.kind === "sound") this.sounds.play(step.name);
-    void this.playSteps(steps, token).then(() => {
-      if (token !== this.playbackToken) return;
+    const steps = planAnimations(events, this.shownState, state, me);
+    const toPlay = this.reducedMotion ? steps.filter((step) => step.kind === "sound") : steps;
+    void this.animation.play(toPlay).then((completed) => {
+      if (!completed) return;
       this.shownState = state;
       this.drawHighlights(state, me);
       this.reconcileItems(state);
@@ -129,70 +128,36 @@ export class BoardRenderer {
     this.hoverLayer.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
   }
 
-  private async playSteps(steps: readonly AnimationStep[], token: number): Promise<void> {
-    for (const step of steps) {
-      if (token !== this.playbackToken) return;
-      switch (step.kind) {
-        case "move": {
-          const sprite =
-            this.players.get(step.entityId as PlayerId) ??
-            this.zombies.get(step.entityId as ZombieId);
-          if (sprite === undefined) break;
-          for (const tile of step.path) {
-            const { x, y } = tileCenter(tile);
-            await this.tween({ targets: sprite.container, x, y, duration: MOVE_MS_PER_TILE });
-            if (token !== this.playbackToken) return;
-          }
-          break;
-        }
-        case "shot": {
-          const from = tileCenter(step.from);
-          const to = tileCenter(step.to);
-          this.effectLayer.lineStyle(3, COLOURS.shot, 1);
-          this.effectLayer.lineBetween(from.x, from.y, to.x, to.y);
-          await this.wait(EFFECT_MS);
-          this.effectLayer.clear();
-          break;
-        }
-        case "flash": {
-          const sprite =
-            this.players.get(step.entityId as PlayerId) ??
-            this.zombies.get(step.entityId as ZombieId);
-          if (sprite === undefined) break;
-          sprite.body.setFillStyle(
-            step.tone === "damage" ? COLOURS.damageFlash : COLOURS.healFlash,
+  // ---- AnimationStage: what the AnimationPlayer needs from Phaser ----
+
+  spriteFor(id: PlayerId | ZombieId | ItemId): AnimatedSprite | undefined {
+    const entity = this.players.get(id as PlayerId) ?? this.zombies.get(id as ZombieId);
+    if (entity !== undefined) {
+      return {
+        target: entity.container,
+        setBodyColour: (colour) => {
+          entity.body.setFillStyle(
+            colour === "damage"
+              ? COLOURS.damageFlash
+              : colour === "heal"
+                ? COLOURS.healFlash
+                : entity.colour,
           );
-          await this.tween({
-            targets: sprite.container,
-            scale: 1.25,
-            duration: EFFECT_MS / 2,
-            yoyo: true,
-          });
-          sprite.body.setFillStyle(sprite.colour);
-          break;
-        }
-        case "vanish": {
-          const sprite =
-            this.zombies.get(step.entityId as ZombieId) ?? this.items.get(step.entityId as ItemId);
-          if (sprite === undefined) break;
-          await this.tween({
-            targets: sprite.container,
-            alpha: 0,
-            scale: 0.3,
-            duration: EFFECT_MS,
-          });
-          break;
-        }
-        case "sound":
-          break;
-      }
+        },
+      };
     }
+    const item = this.items.get(id as ItemId);
+    return item === undefined
+      ? undefined
+      : { target: item.container, setBodyColour: () => undefined };
   }
 
-  private tween(config: Phaser.Types.Tweens.TweenBuilderConfig): Promise<void> {
+  tween(request: TweenRequest): Promise<void> {
+    const { target, ...rest } = request;
     return new Promise((resolve) => {
       this.scene.tweens.add({
-        ...config,
+        ...rest,
+        targets: target,
         onComplete: () => {
           resolve();
         },
@@ -203,11 +168,26 @@ export class BoardRenderer {
     });
   }
 
-  private wait(ms: number): Promise<void> {
+  wait(ms: number): Promise<void> {
     return new Promise((resolve) => {
       this.scene.time.delayedCall(ms, resolve);
     });
   }
+
+  drawShot(from: Pixel, to: Pixel): void {
+    this.effectLayer.lineStyle(3, COLOURS.shot, 1);
+    this.effectLayer.lineBetween(from.x, from.y, to.x, to.y);
+  }
+
+  clearEffects(): void {
+    this.effectLayer.clear();
+  }
+
+  play(sound: SoundName): void {
+    this.sounds.play(sound);
+  }
+
+  // ---- drawing and reconciliation ----
 
   private drawMap(state: GameState): void {
     const { map } = state;
