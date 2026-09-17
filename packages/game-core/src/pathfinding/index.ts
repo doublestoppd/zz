@@ -1,1 +1,7 @@
-export { findShortestPath, reachablePositions, type IsPassable } from "./bfs.js";
+export {
+  findShortestPath,
+  reachablePositions,
+  searchFrom,
+  type IsPassable,
+  type Reachability,
+} from "./bfs.js";

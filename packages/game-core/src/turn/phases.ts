@@ -2,6 +2,7 @@ import type { GameEvent } from "../events/types.js";
 import type { PlayerId } from "../ids.js";
 import { createRng, type Rng } from "../random/rng.js";
 import type { GamePhase, GameState } from "../state/types.js";
+import { runZombiePhase } from "../zombies/zombiePhase.js";
 import { firstEligiblePlayer, hasEligiblePlayer, nextEligiblePlayerAfter } from "./turnOrder.js";
 
 /** A state transition together with the events that describe it. */
@@ -42,27 +43,37 @@ export function endActiveTurn(state: GameState): Transition {
 }
 
 /**
- * Runs every zombie's action for the round. There are no zombies yet, so the phase passes
- * straight through. Any randomness consumed here must come from `rng`, and the final
- * `rng.getState()` must be written back to `rngState` so snapshots stay replayable.
+ * Runs every zombie's action for the round (zombies/zombiePhase.ts). Any randomness
+ * consumed must come from `rng`, and the final `rng.getState()` is written back to
+ * `rngState` so snapshots stay replayable.
  * Precondition: `state.phase.kind === "zombie_phase"`.
  */
 export function resolveZombiePhase(state: GameState, rng: Rng): Transition {
   if (state.phase.kind !== "zombie_phase") {
     throw new Error(`resolveZombiePhase: expected zombie_phase, got ${state.phase.kind}`);
   }
-  const withRng: GameState = { ...state, rngState: rng.getState() };
-  return setPhase(withRng, { kind: "end_of_round" });
+  const zombies = runZombiePhase(state, rng);
+  const withRng: GameState = { ...zombies.state, rngState: rng.getState() };
+  const next = setPhase(withRng, { kind: "end_of_round" });
+  return { state: next.state, events: [...zombies.events, ...next.events] };
 }
 
 /**
- * Closes the round: refills action points and starts the next round with the first
- * eligible player. Objective evaluation is added here in the objective milestone.
+ * Closes the round. When every survivor is down the match ends in defeat; otherwise action
+ * points are refilled and the next round starts with the first eligible player.
+ * Victory evaluation is added here in the objective milestone.
  * Precondition: `state.phase.kind === "end_of_round"`.
  */
 export function resolveEndOfRound(state: GameState): Transition {
   if (state.phase.kind !== "end_of_round") {
     throw new Error(`resolveEndOfRound: expected end_of_round, got ${state.phase.kind}`);
+  }
+  if (state.players.every((p) => p.status === "down")) {
+    const finished = setPhase(state, { kind: "finished", outcome: "defeat" });
+    return {
+      state: finished.state,
+      events: [...finished.events, { type: "match_ended", outcome: "defeat" }],
+    };
   }
   const nextRound = state.round + 1;
   const refilled: GameState = {

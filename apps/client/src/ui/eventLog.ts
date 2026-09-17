@@ -1,7 +1,7 @@
-import type { GameEvent, GameState, PlayerId } from "@zombie/game-core";
+import type { GameEvent, GameState, PlayerId, ZombieId } from "@zombie/game-core";
 
-function nameOf(state: GameState, id: PlayerId): string {
-  return state.players.find((p) => p.id === id)?.name ?? id;
+function nameOf(state: GameState, id: PlayerId | ZombieId): string {
+  return state.players.find((p) => p.id === id)?.name ?? `Zombie ${id}`;
 }
 
 /** One human-readable line per event, for the HUD log. */
@@ -22,6 +22,14 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return event.phase.kind === "zombie_phase" ? "Zombie phase" : "";
     case "player_presence_changed":
       return `${nameOf(state, event.playerId)} ${event.present ? "reconnected" : "disconnected"}`;
+    case "zombie_moved":
+      return `Zombie ${event.zombieId} shambles to (${event.to.x}, ${event.to.y})`;
+    case "zombie_attacked":
+      return `Zombie ${event.zombieId} attacks ${nameOf(state, event.targetId)} for ${event.damage}`;
+    case "entity_damaged":
+      return `${nameOf(state, event.entityId)} has ${event.remainingHealth} HP left`;
+    case "player_downed":
+      return `${nameOf(state, event.playerId)} is down!`;
     case "match_ended":
       return event.outcome === "victory" ? "Victory!" : "Defeat.";
   }

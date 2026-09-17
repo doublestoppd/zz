@@ -51,8 +51,11 @@ export class Hud {
     this.playerList.replaceChildren(
       ...game.players.map((p) =>
         el("li", {
-          className: [p.id === active ? "active" : "", p.present ? "" : "absent"].join(" "),
-          textContent: `${p.name}${p.id === me ? " (you)" : ""}: ${p.actionPoints}/${p.maxActionPoints} AP, ${p.health}/${p.maxHealth} HP`,
+          className: [
+            p.id === active ? "active" : "",
+            p.present && p.status === "active" ? "" : "absent",
+          ].join(" "),
+          textContent: `${p.name}${p.id === me ? " (you)" : ""}: ${p.actionPoints}/${p.maxActionPoints} AP, ${p.health}/${p.maxHealth} HP${p.status === "down" ? " (down)" : ""}`,
         }),
       ),
     );

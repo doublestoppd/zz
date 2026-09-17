@@ -5,6 +5,8 @@ import {
   type GameState,
   type PlayerId,
   type PlayerState,
+  type ZombieId,
+  type ZombieState,
 } from "@zombie/game-core";
 import { TILE_SIZE, tileCenter, tileToPixel } from "./boardGeometry.js";
 
@@ -16,6 +18,8 @@ const COLOURS = {
   highlight: 0x4a6fa5,
   activeRing: 0xffffff,
   absent: 0x777777,
+  down: 0x5a5a5a,
+  zombie: 0x6a8f3c,
   players: [0xe63946, 0xf4a261, 0x2a9d8f, 0xa06cd5],
 } as const;
 
@@ -23,17 +27,23 @@ interface PlayerSprite {
   readonly container: Phaser.GameObjects.Container;
   readonly circle: Phaser.GameObjects.Arc;
   readonly ring: Phaser.GameObjects.Arc;
+  readonly colour: number;
+}
+
+interface ZombieSprite {
+  readonly container: Phaser.GameObjects.Container;
 }
 
 /**
  * Draws the board as a function of the latest GameState. The static map is drawn once;
- * player markers are reconciled by id on every render so the picture always matches the
- * snapshot even if an event was missed.
+ * player and zombie markers are reconciled by id on every render so the picture always
+ * matches the snapshot even if an event was missed.
  */
 export class BoardRenderer {
   private readonly tileLayer: Phaser.GameObjects.Graphics;
   private readonly highlightLayer: Phaser.GameObjects.Graphics;
   private readonly players = new Map<PlayerId, PlayerSprite>();
+  private readonly zombies = new Map<ZombieId, ZombieSprite>();
   private drawnMap: GameMap | undefined;
 
   constructor(private readonly scene: Phaser.Scene) {
@@ -45,6 +55,7 @@ export class BoardRenderer {
     if (this.drawnMap !== state.map) this.drawMap(state);
     this.drawHighlights(state, me);
     this.reconcilePlayers(state);
+    this.reconcileZombies(state);
   }
 
   private drawMap(state: GameState): void {
@@ -95,6 +106,7 @@ export class BoardRenderer {
       const { x, y } = tileCenter(player.position);
       sprite.container.setPosition(x, y);
       sprite.ring.setVisible(player.id === active);
+      sprite.circle.setFillStyle(player.status === "down" ? COLOURS.down : sprite.colour);
       sprite.circle.setAlpha(player.present ? 1 : 0.4);
     });
     for (const [id, sprite] of this.players) {
@@ -116,8 +128,35 @@ export class BoardRenderer {
       .text(0, 0, player.name.slice(0, 1).toUpperCase(), { fontSize: "16px", color: "#ffffff" })
       .setOrigin(0.5);
     const container = this.scene.add.container(0, 0, [ring, circle, label]);
-    const sprite: PlayerSprite = { container, circle, ring };
+    const sprite: PlayerSprite = { container, circle, ring, colour };
     this.players.set(player.id, sprite);
+    return sprite;
+  }
+
+  private reconcileZombies(state: GameState): void {
+    const seen = new Set<ZombieId>();
+    for (const zombie of state.zombies) {
+      seen.add(zombie.id);
+      const sprite = this.zombies.get(zombie.id) ?? this.createZombieSprite(zombie);
+      const { x, y } = tileCenter(zombie.position);
+      sprite.container.setPosition(x, y);
+    }
+    for (const [id, sprite] of this.zombies) {
+      if (!seen.has(id)) {
+        sprite.container.destroy();
+        this.zombies.delete(id);
+      }
+    }
+  }
+
+  private createZombieSprite(zombie: ZombieState): ZombieSprite {
+    const body = this.scene.add.rectangle(0, 0, TILE_SIZE * 0.6, TILE_SIZE * 0.6, COLOURS.zombie);
+    const label = this.scene.add
+      .text(0, 0, "Z", { fontSize: "16px", color: "#ffffff" })
+      .setOrigin(0.5);
+    const container = this.scene.add.container(0, 0, [body, label]);
+    const sprite: ZombieSprite = { container };
+    this.zombies.set(zombie.id, sprite);
     return sprite;
   }
 }

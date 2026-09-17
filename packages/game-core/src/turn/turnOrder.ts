@@ -1,9 +1,9 @@
 import type { PlayerId } from "../ids.js";
 import type { GameState, PlayerState } from "../state/types.js";
 
-/** A player may take a turn while present. Later milestones add "not down" and "not extracted". */
+/** A player may take a turn while present and not down. A later milestone adds "not extracted". */
 export function isEligibleToAct(player: PlayerState): boolean {
-  return player.present;
+  return player.present && player.status === "active";
 }
 
 function eligibleIds(state: GameState): PlayerId[] {

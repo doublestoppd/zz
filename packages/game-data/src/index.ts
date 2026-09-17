@@ -4,3 +4,4 @@
  */
 export { DEFAULT_GAME_RULES } from "./rules.js";
 export { DEFAULT_SURVIVOR } from "./survivors.js";
+export { ZOMBIE_DEFINITIONS } from "./zombies.js";

@@ -46,6 +46,39 @@ function search(
   return visited;
 }
 
+/**
+ * The result of one search, reusable for many goals (a zombie choosing between targets).
+ * `distanceTo` is undefined for unreachable positions; `pathTo` matches `findShortestPath`.
+ */
+export interface Reachability {
+  distanceTo(goal: Position): number | undefined;
+  pathTo(goal: Position): Position[] | undefined;
+}
+
+export function searchFrom(
+  map: GameMap,
+  start: Position,
+  maxSteps: number,
+  isPassable: IsPassable,
+): Reachability {
+  const nodes = search(map, start, maxSteps, isPassable);
+  return {
+    distanceTo: (goal) => nodes.get(positionKey(goal))?.distance,
+    pathTo: (goal) => pathFromNodes(nodes, goal),
+  };
+}
+
+function pathFromNodes(nodes: Map<string, SearchNode>, goal: Position): Position[] | undefined {
+  let node = nodes.get(positionKey(goal));
+  if (node === undefined || node.distance === 0) return undefined;
+  const path: Position[] = [];
+  while (node?.parentKey !== undefined) {
+    path.push(node.position);
+    node = nodes.get(node.parentKey);
+  }
+  return path.reverse();
+}
+
 /** All positions reachable within `maxSteps`, excluding `start`. */
 export function reachablePositions(
   map: GameMap,
@@ -68,14 +101,5 @@ export function findShortestPath(
   maxSteps: number,
   isPassable: IsPassable,
 ): Position[] | undefined {
-  const nodes = search(map, start, maxSteps, isPassable);
-  let node = nodes.get(positionKey(goal));
-  if (node === undefined || node.distance === 0) return undefined;
-
-  const path: Position[] = [];
-  while (node?.parentKey !== undefined) {
-    path.push(node.position);
-    node = nodes.get(node.parentKey);
-  }
-  return path.reverse();
+  return pathFromNodes(search(map, start, maxSteps, isPassable), goal);
 }

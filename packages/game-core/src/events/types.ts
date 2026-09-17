@@ -1,4 +1,4 @@
-import type { PlayerId } from "../ids.js";
+import type { PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
 import type { GamePhase, MatchOutcome } from "../state/types.js";
 
@@ -14,6 +14,10 @@ export type GameEvent =
   | RoundStartedEvent
   | PhaseChangedEvent
   | PlayerPresenceChangedEvent
+  | ZombieMovedEvent
+  | ZombieAttackedEvent
+  | EntityDamagedEvent
+  | PlayerDownedEvent
   | MatchEndedEvent;
 
 export interface PlayerMovedEvent {
@@ -49,6 +53,34 @@ export interface PlayerPresenceChangedEvent {
   readonly type: "player_presence_changed";
   readonly playerId: PlayerId;
   readonly present: boolean;
+}
+
+export interface ZombieMovedEvent {
+  readonly type: "zombie_moved";
+  readonly zombieId: ZombieId;
+  readonly from: Position;
+  readonly to: Position;
+}
+
+export interface ZombieAttackedEvent {
+  readonly type: "zombie_attacked";
+  readonly zombieId: ZombieId;
+  readonly targetId: PlayerId;
+  readonly damage: number;
+}
+
+/** Health after mitigation has been removed. `remainingHealth` is the entity's new health. */
+export interface EntityDamagedEvent {
+  readonly type: "entity_damaged";
+  readonly entityId: PlayerId | ZombieId;
+  readonly damage: number;
+  readonly remainingHealth: number;
+}
+
+/** A survivor reached zero health. They stay on the board but can no longer act. */
+export interface PlayerDownedEvent {
+  readonly type: "player_downed";
+  readonly playerId: PlayerId;
 }
 
 export interface MatchEndedEvent {

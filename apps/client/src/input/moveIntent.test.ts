@@ -7,7 +7,7 @@ const P2 = playerId("p2");
 const state = createInitialState({
   matchId: matchId("m"),
   seed: 1,
-  rules: { moveCostPerTile: 1 },
+  rules: { moveCostPerTile: 1, zombieDefinitions: { walker: { maxHealth: 3, damage: 2 } } },
   survivor: { maxHealth: 10, maxActionPoints: 2 },
   layout: parseAsciiMap(["#####", "#S..#", "#S..#", "#####"]),
   players: [

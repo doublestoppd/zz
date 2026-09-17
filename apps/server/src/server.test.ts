@@ -215,6 +215,21 @@ describe("gameplay", () => {
     expect(a.state.players[0]?.position).toEqual({ x: 2, y: 1 });
   });
 
+  it("runs the zombie phase on the server after the last turn ends", async () => {
+    const { host, guest } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    const [first] = await Promise.all([host.next("update"), guest.next("update")]);
+    expect(first.state.zombies.length).toBeGreaterThan(0);
+
+    host.send({ t: "command", seq: 1, command: { type: "end_turn" } });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    guest.send({ t: "command", seq: 1, command: { type: "end_turn" } });
+    const [after] = await Promise.all([host.next("update"), guest.next("update")]);
+    expect(after.state.round).toBe(2);
+    expect(after.events.some((e) => e.type === "zombie_moved")).toBe(true);
+    expect(after.state.zombies).not.toEqual(first.state.zombies);
+  });
+
   it("ignores any playerId a client tries to smuggle in", async () => {
     const { host, guest, hostId } = await twoPlayerLobby();
     host.send({ t: "start_match" });

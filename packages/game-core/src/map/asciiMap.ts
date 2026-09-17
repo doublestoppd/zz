@@ -10,11 +10,14 @@ export interface MapLayout {
   readonly spawnPositions: readonly Position[];
   /** Tiles that form the extraction zone. Not evaluated until the objective milestone. */
   readonly extractionZone: readonly Position[];
+  /** Where zombies start, in id order. */
+  readonly zombieSpawns: readonly Position[];
 }
 
 /**
  * Legend for hand-authored maps:
  *   `#` wall   `.` floor   `S` floor + survivor spawn   `E` floor + extraction zone
+ *   `Z` floor + zombie spawn
  */
 export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const height = rows.length;
@@ -25,6 +28,7 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
 
   const spawnPositions: Position[] = [];
   const extractionZone: Position[] = [];
+  const zombieSpawns: Position[] = [];
   const tiles: Tile[][] = [];
 
   rows.forEach((row, y) => {
@@ -49,6 +53,10 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
           tileRow.push(TILE_DEFINITIONS.floor);
           extractionZone.push({ x, y });
           break;
+        case "Z":
+          tileRow.push(TILE_DEFINITIONS.floor);
+          zombieSpawns.push({ x, y });
+          break;
         default:
           throw new Error(`parseAsciiMap: unknown symbol '${symbol}' at (${x}, ${y})`);
       }
@@ -56,5 +64,5 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
     tiles.push(tileRow);
   });
 
-  return { map: { width, height, tiles }, spawnPositions, extractionZone };
+  return { map: { width, height, tiles }, spawnPositions, extractionZone, zombieSpawns };
 }

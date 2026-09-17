@@ -6,12 +6,10 @@ export type {
   MatchOutcome,
   ObjectiveState,
   PlayerState,
+  PlayerStatus,
   ZombieState,
   ZombieType,
 } from "./types.js";
 export { findPlayer, replacePlayer } from "./players.js";
-export {
-  createInitialState,
-  type MatchSetup,
-  type SurvivorDefinition,
-} from "./createInitialState.js";
+export type { SurvivorDefinition, ZombieDefinition } from "./definitions.js";
+export { createInitialState, type MatchSetup } from "./createInitialState.js";

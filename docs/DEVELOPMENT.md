@@ -52,11 +52,22 @@ it should be: move it out of code into game-data and pass it through `GameRules`
 Edit the ASCII rows in `packages/game-core/src/map/testMaps.ts`. Keep at least four `S`
 spawns. Tests use their own layout in `testing/makeTestState.ts`.
 
-## Add a zombie type, weapon, or item (future milestones)
+## Add a zombie type
 
-Definitions belong in `packages/game-data` keyed by a union type in game-core
-(`Record<ZombieType, ZombieDefinition>`), so adding a member without data fails to compile.
-Behaviour that differs per type should be data (numbers, flags) before it is code.
+1. `packages/game-core/src/state/types.ts`: extend `ZombieType`.
+2. `packages/game-data/src/zombies.ts`: the compiler now demands a `ZombieDefinition` entry.
+3. Spawning: `map/asciiMap.ts` currently spawns every `Z` as a `walker`; add a legend symbol
+   or a spawn table if the new type needs its own placement.
+4. Behaviour that differs per type should be data first (`ZombieDefinition` fields read in
+   `zombies/targetSelection.ts` and `zombies/zombiePhase.ts`). Only add a `switch` on the type
+   when a number or flag cannot express the difference.
+5. `apps/client/src/render/BoardRenderer.ts`: a colour or label per type if wanted.
+6. Tests in `zombies/*.test.ts` using an ASCII layout with `Z` markers.
+
+## Add a weapon or item (future milestones)
+
+Same pattern: a union member in game-core, a `Record<Type, Definition>` in game-data, and
+behaviour driven by the definition's fields.
 
 ## Add a network message
 

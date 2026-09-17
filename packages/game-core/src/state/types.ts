@@ -1,5 +1,6 @@
 import type { MatchId, PlayerId, ZombieId } from "../ids.js";
 import type { GameMap, Position } from "../map/types.js";
+import type { ZombieDefinition } from "./definitions.js";
 
 /**
  * Authoritative match state. Plain, JSON-serialisable data only: no class instances,
@@ -21,7 +22,6 @@ export interface GameState {
   readonly turnOrder: readonly PlayerId[];
   readonly map: GameMap;
   readonly players: readonly PlayerState[];
-  /** Empty until the zombie milestone. */
   readonly zombies: readonly ZombieState[];
   readonly objective: ObjectiveState;
 }
@@ -42,7 +42,12 @@ export type MatchOutcome = "victory" | "defeat";
 export interface GameRules {
   /** Action points spent per tile moved. */
   readonly moveCostPerTile: number;
+  /** Statistics per zombie type. Adding a `ZombieType` without an entry fails to compile. */
+  readonly zombieDefinitions: Readonly<Record<ZombieType, ZombieDefinition>>;
 }
+
+/** `down` survivors stay on the board but cannot act. Later milestones add `extracted`. */
+export type PlayerStatus = "active" | "down";
 
 export interface PlayerState {
   readonly id: PlayerId;
@@ -52,6 +57,7 @@ export interface PlayerState {
   readonly maxHealth: number;
   readonly actionPoints: number;
   readonly maxActionPoints: number;
+  readonly status: PlayerStatus;
   /**
    * False while the player is disconnected. Absent players are skipped in turn order.
    * Set only through the `set_player_presence` server command.

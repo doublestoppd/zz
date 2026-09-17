@@ -1,13 +1,9 @@
-import type { MatchId, PlayerId } from "../ids.js";
+import { zombieId, type MatchId, type PlayerId } from "../ids.js";
 import type { MapLayout } from "../map/asciiMap.js";
 import { deriveSeed, RNG_STREAM } from "../random/rng.js";
 import { firstEligiblePlayer } from "../turn/turnOrder.js";
-import type { GameRules, GameState, PlayerState } from "./types.js";
-
-export interface SurvivorDefinition {
-  readonly maxHealth: number;
-  readonly maxActionPoints: number;
-}
+import type { SurvivorDefinition } from "./definitions.js";
+import type { GameRules, GameState, PlayerState, ZombieState } from "./types.js";
 
 export interface MatchSetup {
   readonly matchId: MatchId;
@@ -49,9 +45,17 @@ export function createInitialState(setup: MatchSetup): GameState {
       maxHealth: setup.survivor.maxHealth,
       actionPoints: setup.survivor.maxActionPoints,
       maxActionPoints: setup.survivor.maxActionPoints,
+      status: "active",
       present: true,
     };
   });
+
+  const zombies: ZombieState[] = layout.zombieSpawns.map((spawn, index) => ({
+    id: zombieId(`z${index + 1}`),
+    type: "walker",
+    position: spawn,
+    health: setup.rules.zombieDefinitions.walker.maxHealth,
+  }));
 
   const withoutPhase: Omit<GameState, "phase"> = {
     matchId: setup.matchId,
@@ -62,7 +66,7 @@ export function createInitialState(setup: MatchSetup): GameState {
     turnOrder: players.map((p) => p.id),
     map: layout.map,
     players: playerStates,
-    zombies: [],
+    zombies,
     objective: { kind: "extraction", extractionZone: layout.extractionZone, status: "in_progress" },
   };
 
