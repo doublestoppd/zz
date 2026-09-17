@@ -47,7 +47,7 @@ store.subscribe((state) => {
 });
 
 new LobbyPanel(store, connection);
-new Hud(store, sender);
+new Hud(store, sender, connection);
 
 new Phaser.Game({
   type: Phaser.AUTO,

@@ -1,5 +1,8 @@
+import { isInExtractionZone } from "@zombie/game-core";
 import type { CommandSender } from "../net/CommandSender.js";
+import type { GameConnection } from "../net/GameConnection.js";
 import type { ClientState, ClientStore } from "../state/ClientStore.js";
+import { clearIdentity } from "./identityStorage.js";
 import { button, el, requireElement } from "./dom.js";
 import { REJECTION_MESSAGES } from "./rejectionMessages.js";
 
@@ -9,6 +12,9 @@ export class Hud {
   private readonly matchSection = requireElement("match");
   private readonly roundLine = el("div");
   private readonly turnLine = el("div");
+  private readonly objectiveLine = el("div");
+  private readonly outcomeBanner = el("div", { className: "outcome" });
+  private readonly backButton: HTMLButtonElement;
   private readonly playerList = el("ul", { className: "players" });
   private readonly weaponLine = el("div");
   private readonly reloadButton: HTMLButtonElement;
@@ -16,16 +22,24 @@ export class Hud {
   private readonly messageLine = el("div", { className: "error" });
   private readonly log = el("ul", { className: "log" });
 
-  constructor(store: ClientStore, sender: CommandSender) {
+  constructor(store: ClientStore, sender: CommandSender, connection: GameConnection) {
+    this.backButton = button("Back to lobby", () => {
+      connection.send({ t: "leave_match" });
+      clearIdentity();
+      store.clearIdentity();
+    });
     this.reloadButton = button("Reload", () => {
       sender.send({ type: "reload" });
     });
     this.endTurnButton = button("End turn", () => {
       sender.send({ type: "end_turn" });
     });
+    this.outcomeBanner.append(el("div", { id: "outcome-text" }), this.backButton);
     this.root.append(
+      this.outcomeBanner,
       this.roundLine,
       this.turnLine,
+      this.objectiveLine,
       this.playerList,
       this.weaponLine,
       el("div", {}, [this.reloadButton, " ", this.endTurnButton]),
@@ -45,6 +59,27 @@ export class Hud {
     const me = state.me?.playerId;
     const active = game.phase.kind === "player_turn" ? game.phase.activePlayerId : undefined;
     const activeName = game.players.find((p) => p.id === active)?.name ?? "";
+
+    const finished = game.phase.kind === "finished";
+    this.outcomeBanner.hidden = !finished;
+    const outcomeText = this.outcomeBanner.querySelector("#outcome-text");
+    if (outcomeText !== null && game.phase.kind === "finished") {
+      outcomeText.textContent =
+        game.phase.outcome === "victory"
+          ? "Extraction successful. Victory!"
+          : "Everyone is down. Defeat.";
+    }
+
+    const standing = game.players.filter((p) => p.status === "active");
+    const inZone = standing.filter((p) => isInExtractionZone(game.objective, p.position)).length;
+    this.objectiveLine.textContent = finished
+      ? ""
+      : `Objective: get every standing survivor into the green zone (${inZone}/${standing.length} there)` +
+        (game.objective.roundsHeld > 0
+          ? `, held ${game.objective.roundsHeld}/${game.objective.holdoutRounds + 1} rounds`
+          : game.objective.holdoutRounds > 0
+            ? `, then hold it for ${game.objective.holdoutRounds} more round(s)`
+            : "");
 
     this.roundLine.textContent = `Round ${game.round}`;
     this.turnLine.textContent =

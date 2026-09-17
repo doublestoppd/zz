@@ -89,6 +89,21 @@ behaviour driven by the definition's fields.
 4. `apps/client/src/state/ClientStore.ts`: handle it in `applyServerMessage`.
 5. NETWORK-PROTOCOL.md: document direction, payload, validation, and responses.
 
+## Add a game mode or change the objective
+
+1. `packages/game-core/src/state/types.ts`: add a member to the `ObjectiveState` union with
+   its own `kind` and settings.
+2. `packages/game-core/src/objectives/`: a pure `evaluate<Mode>(state)` returning the new
+   objective state, an optional outcome, and events (see `extraction.ts`).
+3. `packages/game-core/src/turn/phases.ts`: dispatch on `state.objective.kind` in
+   `resolveEndOfRound`. Keep the defeat check first.
+4. `packages/game-data/src/objectives.ts`: default settings.
+5. `apps/client/src/ui/Hud.ts`: the objective line and outcome text.
+6. Tests in `objectives/*.test.ts`; GAME-RULES.md.
+
+Do not build a generic quest or scripting engine for this; one function per mode is the
+intended shape until a third mode proves otherwise.
+
 ## Add a phase or change the turn sequence
 
 `packages/game-core/src/state/types.ts` (`GamePhase`) and `turn/phases.ts`. Keep transitions

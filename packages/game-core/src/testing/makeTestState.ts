@@ -38,6 +38,7 @@ export interface TestStateOptions {
   readonly zombieHealth?: number;
   readonly pistol?: Partial<WeaponDefinition>;
   readonly startingReserveAmmo?: number;
+  readonly holdoutRounds?: number;
 }
 
 const DEFAULT_PISTOL: WeaponDefinition = {
@@ -66,6 +67,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       startingWeapon: "pistol",
       startingReserveAmmo: options.startingReserveAmmo ?? 12,
     },
+    extraction: { holdoutRounds: options.holdoutRounds ?? 0 },
     layout: options.layout ?? TEST_LAYOUT,
     players: players.map((id) => ({ id, name: id })),
   });

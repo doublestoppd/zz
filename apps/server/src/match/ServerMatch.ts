@@ -6,7 +6,7 @@ import {
   type GameEvent,
   type PlayerId,
 } from "@zombie/game-core";
-import { DEFAULT_GAME_RULES, DEFAULT_SURVIVOR } from "@zombie/game-data";
+import { DEFAULT_EXTRACTION, DEFAULT_GAME_RULES, DEFAULT_SURVIVOR } from "@zombie/game-data";
 import {
   MAX_PLAYERS,
   PROTOCOL_VERSION,
@@ -142,6 +142,7 @@ export class ServerMatch {
       seed: this.deps.createSeed(),
       rules: DEFAULT_GAME_RULES,
       survivor: DEFAULT_SURVIVOR,
+      extraction: DEFAULT_EXTRACTION,
       layout: SMALL_TEST_MAP,
       players: this.members.map((m) => ({ id: m.playerId, name: m.name })),
     });

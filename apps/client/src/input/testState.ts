@@ -35,6 +35,7 @@ export function makeClientTestState(
       startingWeapon: "pistol",
       startingReserveAmmo: 6,
     },
+    extraction: { holdoutRounds: 0 },
     layout: parseAsciiMap(rows),
     players: [
       { id: P1, name: "one" },

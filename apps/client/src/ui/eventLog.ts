@@ -36,6 +36,10 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return `${nameOf(state, event.entityId)} has ${event.remainingHealth} HP left`;
     case "player_downed":
       return `${nameOf(state, event.playerId)} is down!`;
+    case "extraction_progress":
+      return event.roundsHeld === 0
+        ? "Extraction zone abandoned; hold count reset"
+        : `Holding the extraction zone (${event.roundsHeld}/${event.holdoutRounds + 1})`;
     case "match_ended":
       return event.outcome === "victory" ? "Victory!" : "Defeat.";
   }

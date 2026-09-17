@@ -25,3 +25,8 @@ export interface ZombieDefinition {
   /** Health removed from a survivor by one attack. */
   readonly damage: number;
 }
+
+/** Scenario settings for the extraction objective. Values come from game-data. */
+export interface ExtractionSettings {
+  readonly holdoutRounds: number;
+}

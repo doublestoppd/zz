@@ -12,5 +12,6 @@ export * from "./pathfinding/index.js";
 export * from "./rules/index.js";
 export * from "./turn/index.js";
 export * from "./zombies/index.js";
+export * from "./objectives/index.js";
 export * from "./commands/index.js";
 export * from "./events/index.js";

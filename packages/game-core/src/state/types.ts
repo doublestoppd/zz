@@ -87,14 +87,19 @@ export interface ZombieState {
   readonly health: number;
 }
 
-/**
- * Discriminated union so a second game mode can be added as another member.
- * Only extraction exists; it is not evaluated until the objective milestone.
- */
+/** Discriminated union so a second game mode can be added as another member. */
 export type ObjectiveState = ExtractionObjectiveState;
 
+/**
+ * Extraction: every standing survivor must be inside the zone at the end of a round, and
+ * stay there for `holdoutRounds` further end-of-round checks (objectives/extraction.ts).
+ */
 export interface ExtractionObjectiveState {
   readonly kind: "extraction";
   readonly extractionZone: readonly Position[];
+  /** Additional consecutive end-of-round checks the survivors must hold the zone for. */
+  readonly holdoutRounds: number;
+  /** Consecutive end-of-round checks passed so far. Resets when anyone leaves the zone. */
+  readonly roundsHeld: number;
   readonly status: "in_progress" | "complete" | "failed";
 }

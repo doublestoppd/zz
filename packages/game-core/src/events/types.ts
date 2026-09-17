@@ -21,6 +21,7 @@ export type GameEvent =
   | ZombieAttackedEvent
   | EntityDamagedEvent
   | PlayerDownedEvent
+  | ExtractionProgressEvent
   | MatchEndedEvent;
 
 export interface PlayerMovedEvent {
@@ -106,6 +107,13 @@ export interface EntityDamagedEvent {
 export interface PlayerDownedEvent {
   readonly type: "player_downed";
   readonly playerId: PlayerId;
+}
+
+/** Emitted at end of round whenever the extraction hold count changes. */
+export interface ExtractionProgressEvent {
+  readonly type: "extraction_progress";
+  readonly roundsHeld: number;
+  readonly holdoutRounds: number;
 }
 
 export interface MatchEndedEvent {

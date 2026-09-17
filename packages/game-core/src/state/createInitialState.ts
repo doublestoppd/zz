@@ -2,7 +2,7 @@ import { zombieId, type MatchId, type PlayerId } from "../ids.js";
 import type { MapLayout } from "../map/asciiMap.js";
 import { deriveSeed, RNG_STREAM } from "../random/rng.js";
 import { firstEligiblePlayer } from "../turn/turnOrder.js";
-import type { SurvivorDefinition } from "./definitions.js";
+import type { ExtractionSettings, SurvivorDefinition } from "./definitions.js";
 import type { GameRules, GameState, PlayerState, ZombieState } from "./types.js";
 
 export interface MatchSetup {
@@ -10,6 +10,7 @@ export interface MatchSetup {
   readonly seed: number;
   readonly rules: GameRules;
   readonly survivor: SurvivorDefinition;
+  readonly extraction: ExtractionSettings;
   readonly layout: MapLayout;
   /** In turn order. Between 1 and the number of spawn positions in the layout. */
   readonly players: readonly { readonly id: PlayerId; readonly name: string }[];
@@ -72,7 +73,13 @@ export function createInitialState(setup: MatchSetup): GameState {
     map: layout.map,
     players: playerStates,
     zombies,
-    objective: { kind: "extraction", extractionZone: layout.extractionZone, status: "in_progress" },
+    objective: {
+      kind: "extraction",
+      extractionZone: layout.extractionZone,
+      holdoutRounds: setup.extraction.holdoutRounds,
+      roundsHeld: 0,
+      status: "in_progress",
+    },
   };
 
   // Every player is present at creation, so an eligible player always exists here.

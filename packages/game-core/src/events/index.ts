@@ -1,6 +1,7 @@
 export type {
   EntityDamagedEvent,
   EntityDiedEvent,
+  ExtractionProgressEvent,
   GameEvent,
   MatchEndedEvent,
   PhaseChangedEvent,

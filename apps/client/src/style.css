@@ -66,3 +66,9 @@ button:disabled {
 .players li.absent {
   opacity: 0.5;
 }
+.outcome {
+  padding: 10px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  font-weight: bold;
+}

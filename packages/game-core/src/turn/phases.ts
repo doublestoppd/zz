@@ -1,7 +1,8 @@
 import type { GameEvent } from "../events/types.js";
 import type { PlayerId } from "../ids.js";
 import { createRng, type Rng } from "../random/rng.js";
-import type { GamePhase, GameState } from "../state/types.js";
+import type { GamePhase, GameState, MatchOutcome } from "../state/types.js";
+import { evaluateExtraction } from "../objectives/extraction.js";
 import { runZombiePhase } from "../zombies/zombiePhase.js";
 import { firstEligiblePlayer, hasEligiblePlayer, nextEligiblePlayerAfter } from "./turnOrder.js";
 
@@ -59,9 +60,9 @@ export function resolveZombiePhase(state: GameState, rng: Rng): Transition {
 }
 
 /**
- * Closes the round. When every survivor is down the match ends in defeat; otherwise action
- * points are refilled and the next round starts with the first eligible player.
- * Victory evaluation is added here in the objective milestone.
+ * Closes the round. Defeat when every survivor is down; otherwise the objective is
+ * evaluated and may end the match in victory; otherwise action points are refilled and the
+ * next round starts with the first eligible player.
  * Precondition: `state.phase.kind === "end_of_round"`.
  */
 export function resolveEndOfRound(state: GameState): Transition {
@@ -69,17 +70,18 @@ export function resolveEndOfRound(state: GameState): Transition {
     throw new Error(`resolveEndOfRound: expected end_of_round, got ${state.phase.kind}`);
   }
   if (state.players.every((p) => p.status === "down")) {
-    const finished = setPhase(state, { kind: "finished", outcome: "defeat" });
-    return {
-      state: finished.state,
-      events: [...finished.events, { type: "match_ended", outcome: "defeat" }],
-    };
+    return finishMatch(state, "defeat", []);
+  }
+  const objective = evaluateExtraction(state);
+  const evaluated: GameState = { ...state, objective: objective.objective };
+  if (objective.outcome !== undefined) {
+    return finishMatch(evaluated, objective.outcome, objective.events);
   }
   const nextRound = state.round + 1;
   const refilled: GameState = {
-    ...state,
+    ...evaluated,
     round: nextRound,
-    players: state.players.map((p) => ({ ...p, actionPoints: p.maxActionPoints })),
+    players: evaluated.players.map((p) => ({ ...p, actionPoints: p.maxActionPoints })),
   };
   const roundStarted: GameEvent = { type: "round_started", round: nextRound };
   const first = firstEligiblePlayer(refilled);
@@ -88,7 +90,19 @@ export function resolveEndOfRound(state: GameState): Transition {
   const active = first ?? refilled.turnOrder[0];
   if (active === undefined) throw new Error("resolveEndOfRound: match has no players");
   const turn = startPlayerTurn(refilled, active);
-  return { state: turn.state, events: [roundStarted, ...turn.events] };
+  return { state: turn.state, events: [...objective.events, roundStarted, ...turn.events] };
+}
+
+function finishMatch(
+  state: GameState,
+  outcome: MatchOutcome,
+  before: readonly GameEvent[],
+): Transition {
+  const finished = setPhase(state, { kind: "finished", outcome });
+  return {
+    state: finished.state,
+    events: [...before, ...finished.events, { type: "match_ended", outcome }],
+  };
 }
 
 /**

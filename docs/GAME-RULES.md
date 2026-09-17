@@ -32,11 +32,12 @@ round N+1: ...
   becomes absent while someone else is present. Reaching zero action points does **not**
   end the turn.
 - After the last eligible player, the zombie phase runs (`turn/phases.ts`, see below).
-- End of round: if every survivor is down the match ends in **defeat** (`finished` phase;
-  no further commands are accepted). Otherwise the round counter increases, every player's
-  action points are refilled to their maximum, and the first eligible player in turn order
-  becomes active.
-- Victory is not evaluated yet (objective milestone).
+- End of round, in this order:
+  1. If every survivor is down the match ends in **defeat**.
+  2. The extraction objective is evaluated (below) and may end the match in **victory**.
+  3. Otherwise the round counter increases, every player's action points are refilled to
+     their maximum, and the first eligible player in turn order becomes active.
+- In the `finished` phase no further commands are accepted.
 
 ## Presence
 
@@ -93,6 +94,24 @@ magazine 6, 1 action point to fire, 1 action point to reload.
 - A zombie at zero health dies and is removed from the board (`entity_died`).
 - There is no melee attack yet, and survivors cannot be shot.
 
+## Extraction objective (`objectives/extraction.ts`)
+
+The first and only scenario. Settings come from `packages/game-data/src/objectives.ts`
+(`holdoutRounds`: 1).
+
+- The extraction zone is the set of `E` tiles on the map (green on the client).
+- At each end of round, after the zombie phase, the objective checks whether **every
+  standing survivor** (status `active`) is inside the zone. Down survivors are left behind
+  and do not count, but at least one survivor must be standing.
+- The first passing check sets `roundsHeld` to 1. The zone must then be held for
+  `holdoutRounds` further consecutive checks; the match is won when
+  `roundsHeld > holdoutRounds`. With the default of 1, survivors must be in the zone at two
+  consecutive ends of round, surviving one zombie phase in between.
+- If anyone standing is outside the zone at a check, `roundsHeld` resets to 0.
+- Every change to `roundsHeld` emits `extraction_progress`. Victory emits `match_ended`.
+- Defeat (everyone down) is checked before the objective, so a team that all goes down in
+  the zone still loses.
+
 ## Health and being down (`rules/health.ts`)
 
 - Damage removes health, never below zero. A survivor at zero health has status `down`.
@@ -102,4 +121,4 @@ magazine 6, 1 action point to fire, 1 action point to reload.
 
 ## Not yet implemented
 
-Melee, more weapons, ammunition pickup, inventory, extraction evaluation, victory.
+Melee, more weapons, ammunition pickup, inventory, other game modes, procedural maps.
