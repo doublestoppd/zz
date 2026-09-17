@@ -1,0 +1,68 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #15171a;
+  color: #e6e6e6;
+}
+body {
+  margin: 0;
+}
+[hidden] {
+  display: none !important;
+}
+#app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 16px;
+}
+#status {
+  font-size: 0.85rem;
+  color: #9aa0a6;
+  min-height: 1.2em;
+}
+#lobby,
+#hud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#lobby {
+  max-width: 420px;
+}
+#match {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+#board canvas {
+  display: block;
+  border: 1px solid #333;
+}
+#hud {
+  min-width: 240px;
+}
+input,
+button {
+  font: inherit;
+  padding: 6px 10px;
+}
+button:disabled {
+  opacity: 0.5;
+}
+.error {
+  color: #ff8a80;
+}
+.log {
+  font-size: 0.8rem;
+  color: #b0b8c0;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding-left: 1em;
+}
+.players li.active {
+  font-weight: bold;
+}
+.players li.absent {
+  opacity: 0.5;
+}

@@ -13,7 +13,17 @@ import prettier from "eslint-config-prettier";
 const FRAMEWORK_MODULES = ["phaser", "ws", "colyseus", "socket.io", "socket.io-client"];
 
 export default tseslint.config(
-  { ignores: ["**/node_modules/**", "**/dist/**", "**/*.js", "**/*.cjs", "**/*.mjs"] },
+  {
+    ignores: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.js",
+      "**/*.cjs",
+      "**/*.mjs",
+      "vitest.config.ts",
+      "**/vite.config.ts",
+    ],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
