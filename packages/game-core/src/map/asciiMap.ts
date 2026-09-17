@@ -16,8 +16,8 @@ export interface MapLayout {
 
 /**
  * Legend for hand-authored maps:
- *   `#` wall   `.` floor   `S` floor + survivor spawn   `E` floor + extraction zone
- *   `Z` floor + zombie spawn
+ *   `#` wall   `.` floor   `=` road   `+` door   `S` floor + survivor spawn
+ *   `E` floor + extraction zone   `Z` floor + zombie spawn
  */
 export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const height = rows.length;
@@ -44,6 +44,12 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
           break;
         case ".":
           tileRow.push(TILE_DEFINITIONS.floor);
+          break;
+        case "=":
+          tileRow.push(TILE_DEFINITIONS.road);
+          break;
+        case "+":
+          tileRow.push(TILE_DEFINITIONS.door);
           break;
         case "S":
           tileRow.push(TILE_DEFINITIONS.floor);

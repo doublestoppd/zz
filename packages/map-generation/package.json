@@ -1,0 +1,19 @@
+{
+  "name": "@zombie/map-generation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Seeded procedural city generation and layout validation.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zombie/game-core": "workspace:*"
+  }
+}

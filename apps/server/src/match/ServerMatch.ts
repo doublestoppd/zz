@@ -2,8 +2,8 @@ import {
   createInitialState,
   matchId,
   playerId,
-  SMALL_TEST_MAP,
   type GameEvent,
+  type MapLayout,
   type PlayerId,
 } from "@zombie/game-core";
 import { DEFAULT_EXTRACTION, DEFAULT_GAME_RULES, DEFAULT_SURVIVOR } from "@zombie/game-data";
@@ -19,10 +19,12 @@ import {
 import type { ClientSession } from "../session/ClientSession.js";
 import { MatchRuntime } from "./MatchRuntime.js";
 
-/** Sources of non-determinism, injected so tests can pin them. */
+/** Sources of non-determinism and the map source, injected so tests can pin them. */
 export interface MatchDependencies {
   readonly createSeed: () => number;
   readonly createRejoinToken: () => string;
+  /** Builds the board for a match. Production generates a city from the seed. */
+  readonly createLayout: (seed: number, playerCount: number) => MapLayout;
 }
 
 interface Member {
@@ -137,13 +139,14 @@ export class ServerMatch {
     if (this.isStarted()) return "MATCH_ALREADY_STARTED";
     if (member.playerId !== this.hostId) return "NOT_HOST";
 
+    const seed = this.deps.createSeed();
     const initial = createInitialState({
       matchId: matchId(this.code),
-      seed: this.deps.createSeed(),
+      seed,
       rules: DEFAULT_GAME_RULES,
       survivor: DEFAULT_SURVIVOR,
       extraction: DEFAULT_EXTRACTION,
-      layout: SMALL_TEST_MAP,
+      layout: this.deps.createLayout(seed, this.members.length),
       players: this.members.map((m) => ({ id: m.playerId, name: m.name })),
     });
     this.runtime = new MatchRuntime(initial);

@@ -14,7 +14,7 @@ packages/
   game-core/       Authoritative rules and simulation.          Imports: nothing.
   game-data/       Survivor stats and rule numbers.             Imports: game-core (types only).
   protocol/        Message contracts and decoders.              Imports: game-core (types only).
-  map-generation/  (Milestone 5) seeded city generation.        Imports: game-core.
+  map-generation/  Seeded city generation and validation.       Imports: game-core.
 ```
 
 ### `packages/game-core`
@@ -33,6 +33,19 @@ packages/
 | `testing/`     | `makeTestState` builder used by tests only.                                                |
 
 Public API is `src/index.ts`. Other packages may not import deeper paths (ESLint enforces it).
+
+### `packages/map-generation`
+
+| File                         | Owns                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `city.ts`                    | `generateCity`: road grid, lots, building placement, spawn/extraction/zombie placement, retry loop. |
+| `templates/buildings.ts`     | Authored building footprints as ASCII and stamp rotation.                                           |
+| `validate/validateLayout.ts` | Counts, walkability, distinctness, and reachability checks over a `MapLayout`.                      |
+| `grid.ts`                    | Mutable working grid used only during generation.                                                   |
+
+The generator returns the same `MapLayout` shape as the hand-authored fixture in game-core,
+so nothing downstream knows which it is playing on. The server injects the layout factory
+(`MatchDependencies.createLayout`); integration tests inject the fixture.
 
 ### `apps/server`
 

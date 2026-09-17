@@ -57,6 +57,9 @@ importers:
       '@zombie/game-data':
         specifier: workspace:*
         version: link:../../packages/game-data
+      '@zombie/map-generation':
+        specifier: workspace:*
+        version: link:../../packages/map-generation
       '@zombie/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -77,6 +80,12 @@ importers:
   packages/game-core: {}
 
   packages/game-data:
+    dependencies:
+      '@zombie/game-core':
+        specifier: workspace:*
+        version: link:../game-core
+
+  packages/map-generation:
     dependencies:
       '@zombie/game-core':
         specifier: workspace:*

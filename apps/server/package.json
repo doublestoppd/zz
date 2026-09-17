@@ -13,6 +13,7 @@
   "dependencies": {
     "@zombie/game-core": "workspace:*",
     "@zombie/game-data": "workspace:*",
+    "@zombie/map-generation": "workspace:*",
     "@zombie/protocol": "workspace:*",
     "ws": "^8.21.3"
   },

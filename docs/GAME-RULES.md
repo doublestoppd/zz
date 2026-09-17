@@ -6,9 +6,12 @@ that file is named so the rule can be changed in one place.
 ## Match setup
 
 - 1–4 players. Each player is assigned a spawn tile in join order (`state/createInitialState.ts`).
-- The map is the hard-coded fixture `SMALL_TEST_MAP` (`map/testMaps.ts`), parsed from ASCII:
-  `#` wall, `.` floor, `S` floor with a spawn, `E` floor in the extraction zone, `Z` floor
-  with a zombie spawn. The fixture spawns three walkers.
+- The map is generated from the match seed (`packages/map-generation`): a 26x18 city with a
+  road grid, blocks of buildings with doors, four survivor spawns together on the western
+  road, a 2x2 extraction zone as far from the spawns as the streets allow, and five walkers
+  spawned at least a third of the longest path away. Tile types: `floor`, `road`, `door`
+  (all walkable, none block sight) and `wall`. The same seed always produces the same city.
+- Tests use the hand-authored fixture `SMALL_TEST_MAP` (`map/testMaps.ts`) instead.
 - Every survivor starts with the values in `packages/game-data/src/survivors.ts`
   (10 health, 4 action points) and full action points.
 - Zombies start with the health in `packages/game-data/src/zombies.ts` (walker: 3 health,

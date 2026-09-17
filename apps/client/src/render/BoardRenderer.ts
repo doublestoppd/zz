@@ -6,6 +6,7 @@ import {
   type GameState,
   type PlayerId,
   type PlayerState,
+  type TileType,
   type ZombieId,
   type ZombieState,
 } from "@zombie/game-core";
@@ -13,6 +14,8 @@ import { TILE_SIZE, tileCenter, tileToPixel } from "./boardGeometry.js";
 
 const COLOURS = {
   floor: 0x2b2f36,
+  road: 0x3d434c,
+  door: 0x6b4f2a,
   wall: 0x111318,
   grid: 0x3a3f47,
   extraction: 0x2f6f3e,
@@ -24,6 +27,14 @@ const COLOURS = {
   zombie: 0x6a8f3c,
   players: [0xe63946, 0xf4a261, 0x2a9d8f, 0xa06cd5],
 } as const;
+
+/** One colour per tile type; the compiler demands an entry for every `TileType`. */
+const TILE_COLOURS: Readonly<Record<TileType, number>> = {
+  floor: COLOURS.floor,
+  road: COLOURS.road,
+  door: COLOURS.door,
+  wall: COLOURS.wall,
+};
 
 interface PlayerSprite {
   readonly container: Phaser.GameObjects.Container;
@@ -69,7 +80,7 @@ export class BoardRenderer {
     map.tiles.forEach((row, y) => {
       row.forEach((tile, x) => {
         const { x: px, y: py } = tileToPixel({ x, y });
-        g.fillStyle(tile.walkable ? COLOURS.floor : COLOURS.wall);
+        g.fillStyle(TILE_COLOURS[tile.type]);
         g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         g.lineStyle(1, COLOURS.grid);
         g.strokeRect(px, py, TILE_SIZE, TILE_SIZE);

@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from "node:crypto";
+import { DEFAULT_CITY_OPTIONS, generateCity } from "@zombie/map-generation";
 import { ServerMatch, type MatchDependencies } from "../match/ServerMatch.js";
 
 /** Letters that are hard to confuse when read aloud or typed. */
@@ -16,6 +17,7 @@ export interface RegistryOptions {
 const DEFAULT_DEPS: MatchDependencies = {
   createSeed: () => randomInt(0, 2 ** 32),
   createRejoinToken: () => randomUUID(),
+  createLayout: (seed) => generateCity({ ...DEFAULT_CITY_OPTIONS, seed }),
 };
 
 /** Every live lobby and match, keyed by join code. Removes matches nobody can return to. */

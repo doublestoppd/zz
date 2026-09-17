@@ -1,5 +1,5 @@
 import { WebSocket } from "ws";
-import { zombieId } from "@zombie/game-core";
+import { SMALL_TEST_MAP, zombieId } from "@zombie/game-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   decodeServerMessage,
@@ -108,7 +108,11 @@ const clients: TestClient[] = [];
 
 beforeEach(async () => {
   registry = new MatchRegistry({
-    deps: { createSeed: () => 1234, createRejoinToken: () => `token-${String(Math.random())}` },
+    deps: {
+      createSeed: () => 1234,
+      createRejoinToken: () => `token-${String(Math.random())}`,
+      createLayout: () => SMALL_TEST_MAP,
+    },
     abandonedMatchTtlMs: 50,
   });
   handle = await startSocketServer({

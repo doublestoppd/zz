@@ -41,16 +41,37 @@ Tests sit next to the code as `*.test.ts`. Game-core tests build states with
 it should be: move it out of code into game-data and pass it through `GameRules` or
 `MatchSetup`.
 
+## Add a building template
+
+Append an ASCII footprint to `BUILDING_TEMPLATES` in
+`packages/map-generation/src/templates/buildings.ts` (`#` wall, `.` interior, `+` door, and a
+space for "leave the ground alone"). Put at least one door on the bottom edge; rotation
+supplies the other orientations. The placer picks any template that fits a lot, so small
+templates are used most often. Run the map-generation tests: the 200-seed validation loop
+will catch a template that seals its own door.
+
+## Change how the city is generated
+
+Knobs (road width, block size range, lot size, building chance, zombie distance) are the
+constants at the top of `packages/map-generation/src/city.ts`; the per-match size and counts
+are `DEFAULT_CITY_OPTIONS`. Each placement step is its own function in that file. Keep every
+random choice on the `rng` parameter and finish with `validateLayout`; add a validation rule
+there rather than a guard in the generator when a new invariant matters to gameplay.
+
+To view a seed: write a short script that calls `generateCity` and prints each tile's type
+with markers for spawns, extraction, and zombies (see `city.test.ts` for the shape).
+
 ## Add a tile type
 
 1. `packages/game-core/src/map/types.ts`: extend `TileType` and add its row to `TILE_DEFINITIONS`.
 2. `packages/game-core/src/map/asciiMap.ts`: add a legend symbol if hand-authored maps need it.
 3. `apps/client/src/render/BoardRenderer.ts`: choose a colour.
 
-## Change the map
+## Change the test map
 
 Edit the ASCII rows in `packages/game-core/src/map/testMaps.ts`. Keep at least four `S`
-spawns. Tests use their own layout in `testing/makeTestState.ts`.
+spawns. Server integration tests depend on its spawn positions. Game-core tests use their
+own layout in `testing/makeTestState.ts`.
 
 ## Add a zombie type
 

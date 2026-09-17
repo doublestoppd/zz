@@ -3,9 +3,10 @@
 A browser-based, turn-based, cooperative survival game for 1–4 players on a 2D tile map.
 The server is authoritative; clients send intent and render the state they are given.
 
-Current milestone: **1 — multiplayer movement slice**. Players join a lobby by code, take turns
-moving survivors across a hard-coded map, and end their turns. Zombies, combat, objectives,
-inventory, and procedural maps are later milestones (see `docs/ARCHITECTURE.md`).
+Current state: **Milestones 1–5 complete**. Players join a lobby by code, spawn in a
+procedurally generated city, take turns moving and shooting, survive the zombie phase, and
+win by holding the extraction zone. Inventory and presentation polish are later milestones
+(see `docs/ARCHITECTURE.md`).
 
 ## Prerequisites
 
@@ -31,7 +32,8 @@ there is no separate compile step for it yet.
 
 Open `http://localhost:5173` in two browser tabs. In one, enter a name and **Create match**;
 in the other, enter a name and the four-letter code and **Join**. The host presses
-**Start match**. Click a highlighted tile to move; press **End turn** when done.
+**Start match**. Click a highlighted tile to move or a red-outlined zombie to fire; press
+**Reload** or **End turn** as needed. Get everyone into the green zone and hold it to win.
 Reloading a tab offers **Rejoin previous match**.
 
 ## Checks

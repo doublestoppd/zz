@@ -8,7 +8,7 @@ export interface Position {
  * Static tile kinds. Adding a kind means extending this union and the row in
  * `TILE_DEFINITIONS` below; TypeScript reports every place that must handle it.
  */
-export type TileType = "floor" | "wall";
+export type TileType = "floor" | "road" | "door" | "wall";
 
 /** Describes the board only. Players and zombies are separate entities that reference positions. */
 export interface Tile {
@@ -27,5 +27,7 @@ export interface GameMap {
 /** Canonical tile properties per type. Map builders should use these rather than hand-writing tiles. */
 export const TILE_DEFINITIONS: Readonly<Record<TileType, Tile>> = {
   floor: { type: "floor", walkable: true, blocksVision: false },
+  road: { type: "road", walkable: true, blocksVision: false },
+  door: { type: "door", walkable: true, blocksVision: false },
   wall: { type: "wall", walkable: false, blocksVision: true },
 };
