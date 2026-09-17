@@ -22,8 +22,9 @@ Tests sit next to the code as `*.test.ts`. Game-core tests build states with
 2. `packages/game-core/src/commands/rejection.ts` (or a new `rules/*.ts` reason union): add
    any new rejection reasons.
 3. Implement the rule as a pure function in `packages/game-core/src/rules/` returning a
-   validation result, then add a `case` in `commands/applyCommand.ts` that calls
-   `requireActivePlayer`, the rule, and returns the new state and events.
+   validation result, then write a handler in `commands/handlers/` that calls
+   `requireActivePlayer`, the rule, and returns the new state and events, and add its `case`
+   to the switch in `commands/applyCommand.ts`.
 4. `packages/game-core/src/events/types.ts`: add the event(s) the command produces.
 5. `packages/protocol/src/decodeClientMessage.ts`: add a `case` to `decodeClientCommand`
    validating every field. `ClientCommand` updates itself from `PlayerCommand`.
