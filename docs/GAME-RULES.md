@@ -13,6 +13,8 @@ that file is named so the rule can be changed in one place.
   (10 health, 4 action points) and full action points.
 - Zombies start with the health in `packages/game-data/src/zombies.ts` (walker: 3 health,
   2 damage).
+- Every survivor carries the starting weapon from `packages/game-data/src/survivors.ts`
+  (a pistol with a full magazine) and 12 rounds of reserve ammunition.
 - The match seed is chosen by the server. Gameplay randomness (none consumed yet) comes
   from an Rng whose cursor is stored in `GameState.rngState`.
 
@@ -73,6 +75,24 @@ left it. For each zombie, `decideZombieAction` (`zombies/targetSelection.ts`) pi
 Zombies do not act on a zombie's turn in any other way; they have no health loss yet
 (combat milestone).
 
+## Combat (`rules/combat.ts`, `rules/lineOfSight.ts`)
+
+Weapon numbers live in `packages/game-data/src/weapons.ts`. The pistol: 2 damage, range 4,
+magazine 6, 1 action point to fire, 1 action point to reload.
+
+- **Fire** (`fire_weapon` at a zombie id). Checked in this order: the target exists, it is
+  within range, there is line of sight, the magazine is not empty, the player has enough
+  action points. A legal shot always hits for the weapon's `damage`; there is no hit roll.
+  One round is spent per shot.
+- **Range** is Chebyshev distance: the larger of the horizontal and vertical tile distance,
+  so a diagonal counts as one.
+- **Line of sight** follows Bresenham's line between the two tiles. Any tile strictly between
+  them that `blocksVision` (walls) blocks the shot. Survivors and zombies never block sight.
+- **Reload** fills the magazine from reserve ammunition, limited by what the reserve holds.
+  Rejected when the magazine is full, the reserve is empty, or action points are short.
+- A zombie at zero health dies and is removed from the board (`entity_died`).
+- There is no melee attack yet, and survivors cannot be shot.
+
 ## Health and being down (`rules/health.ts`)
 
 - Damage removes health, never below zero. A survivor at zero health has status `down`.
@@ -82,4 +102,4 @@ Zombies do not act on a zombie's turn in any other way; they have no health loss
 
 ## Not yet implemented
 
-Player attacks, line of sight, zombie death, inventory, extraction evaluation, victory.
+Melee, more weapons, ammunition pickup, inventory, extraction evaluation, victory.

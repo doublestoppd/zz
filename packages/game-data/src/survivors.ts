@@ -4,4 +4,6 @@ import type { SurvivorDefinition } from "@zombie/game-core";
 export const DEFAULT_SURVIVOR: SurvivorDefinition = {
   maxHealth: 10,
   maxActionPoints: 4,
+  startingWeapon: "pistol",
+  startingReserveAmmo: 12,
 };

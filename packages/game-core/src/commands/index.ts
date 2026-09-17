@@ -1,7 +1,9 @@
 export type {
   Command,
   EndTurnCommand,
+  FireWeaponCommand,
   MoveCommand,
+  ReloadCommand,
   PlayerCommand,
   ServerCommand,
   SetPlayerPresenceCommand,

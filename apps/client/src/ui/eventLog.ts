@@ -12,6 +12,12 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       const to = end === undefined ? "" : ` to (${end.x}, ${end.y})`;
       return `${nameOf(state, event.playerId)} moved${to} (${event.actionPointsSpent} AP)`;
     }
+    case "weapon_fired":
+      return `${nameOf(state, event.playerId)} fires the ${event.weaponType} at zombie ${event.targetId}`;
+    case "weapon_reloaded":
+      return `${nameOf(state, event.playerId)} reloads (${event.loadedAmmo} loaded, ${event.reserveAmmo} left)`;
+    case "entity_died":
+      return `Zombie ${event.entityId} is destroyed`;
     case "turn_ended":
       return `${nameOf(state, event.playerId)} ended their turn`;
     case "turn_started":

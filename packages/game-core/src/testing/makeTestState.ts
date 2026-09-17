@@ -1,6 +1,7 @@
 import { matchId, playerId, type PlayerId } from "../ids.js";
 import { parseAsciiMap, type MapLayout } from "../map/asciiMap.js";
 import { createInitialState } from "../state/createInitialState.js";
+import type { WeaponDefinition } from "../state/definitions.js";
 import type { GameState } from "../state/types.js";
 
 /**
@@ -35,7 +36,17 @@ export interface TestStateOptions {
   readonly seed?: number;
   readonly zombieDamage?: number;
   readonly zombieHealth?: number;
+  readonly pistol?: Partial<WeaponDefinition>;
+  readonly startingReserveAmmo?: number;
 }
+
+const DEFAULT_PISTOL: WeaponDefinition = {
+  damage: 2,
+  range: 4,
+  magazineSize: 6,
+  fireActionPointCost: 1,
+  reloadActionPointCost: 1,
+};
 
 export function makeTestState(options: TestStateOptions = {}): GameState {
   const players = options.players ?? [P1, P2];
@@ -47,8 +58,14 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       zombieDefinitions: {
         walker: { maxHealth: options.zombieHealth ?? 3, damage: options.zombieDamage ?? 2 },
       },
+      weaponDefinitions: { pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
     },
-    survivor: { maxHealth: 10, maxActionPoints: options.maxActionPoints ?? 4 },
+    survivor: {
+      maxHealth: 10,
+      maxActionPoints: options.maxActionPoints ?? 4,
+      startingWeapon: "pistol",
+      startingReserveAmmo: options.startingReserveAmmo ?? 12,
+    },
     layout: options.layout ?? TEST_LAYOUT,
     players: players.map((id) => ({ id, name: id })),
   });

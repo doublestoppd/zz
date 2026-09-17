@@ -1,4 +1,5 @@
 export type {
+  EquippedWeapon,
   ExtractionObjectiveState,
   GamePhase,
   GameRules,
@@ -7,9 +8,10 @@ export type {
   ObjectiveState,
   PlayerState,
   PlayerStatus,
+  WeaponType,
   ZombieState,
   ZombieType,
 } from "./types.js";
 export { findPlayer, replacePlayer } from "./players.js";
-export type { SurvivorDefinition, ZombieDefinition } from "./definitions.js";
+export type { SurvivorDefinition, WeaponDefinition, ZombieDefinition } from "./definitions.js";
 export { createInitialState, type MatchSetup } from "./createInitialState.js";

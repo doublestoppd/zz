@@ -1,5 +1,5 @@
 import type { GameEvent } from "../events/types.js";
-import type { PlayerState } from "../state/types.js";
+import type { PlayerState, ZombieState } from "../state/types.js";
 
 export interface DamageOutcome {
   readonly player: PlayerState;
@@ -24,4 +24,23 @@ export function damagePlayer(player: PlayerState, damage: number): DamageOutcome
   ];
   if (downed) events.push({ type: "player_downed", playerId: player.id });
   return { player: updated, events };
+}
+
+export interface ZombieDamageOutcome {
+  /** Undefined when the zombie died and must be removed from the board. */
+  readonly zombie: ZombieState | undefined;
+  readonly events: readonly GameEvent[];
+}
+
+/** Removes `damage` health from a zombie. At zero the zombie dies and leaves the board. */
+export function damageZombie(zombie: ZombieState, damage: number): ZombieDamageOutcome {
+  const remainingHealth = Math.max(0, zombie.health - damage);
+  const events: GameEvent[] = [
+    { type: "entity_damaged", entityId: zombie.id, damage, remainingHealth },
+  ];
+  if (remainingHealth === 0) {
+    events.push({ type: "entity_died", entityId: zombie.id });
+    return { zombie: undefined, events };
+  }
+  return { zombie: { ...zombie, health: remainingHealth }, events };
 }

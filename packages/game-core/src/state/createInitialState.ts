@@ -46,6 +46,11 @@ export function createInitialState(setup: MatchSetup): GameState {
       actionPoints: setup.survivor.maxActionPoints,
       maxActionPoints: setup.survivor.maxActionPoints,
       status: "active",
+      weapon: {
+        type: setup.survivor.startingWeapon,
+        loadedAmmo: setup.rules.weaponDefinitions[setup.survivor.startingWeapon].magazineSize,
+      },
+      reserveAmmo: setup.survivor.startingReserveAmmo,
       present: true,
     };
   });

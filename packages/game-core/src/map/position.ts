@@ -9,6 +9,11 @@ export function positionKey(p: Position): string {
   return `${p.x},${p.y}`;
 }
 
+/** Distance where a diagonal step counts as 1. Used for weapon range. */
+export function chebyshevDistance(a: Position, b: Position): number {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
 export function isInBounds(map: GameMap, p: Position): boolean {
   return p.x >= 0 && p.y >= 0 && p.x < map.width && p.y < map.height;
 }

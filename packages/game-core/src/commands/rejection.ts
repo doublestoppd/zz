@@ -1,3 +1,4 @@
+import type { FireRejectionReason, ReloadRejectionReason } from "../rules/combat.js";
 import type { MoveRejectionReason } from "../rules/movement.js";
 
 /** Reasons that apply to any player command, checked before command-specific rules. */
@@ -8,4 +9,5 @@ export type TurnRejectionReason =
  * Every reason a command can be rejected. A closed union so the client can map each
  * to a message and the compiler flags an unhandled case.
  */
-export type RejectionReason = TurnRejectionReason | MoveRejectionReason;
+export type RejectionReason =
+  TurnRejectionReason | MoveRejectionReason | FireRejectionReason | ReloadRejectionReason;

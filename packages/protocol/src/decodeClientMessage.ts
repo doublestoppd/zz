@@ -1,3 +1,4 @@
+import { zombieId } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
   PLAYER_NAME_MAX_LENGTH,
@@ -86,6 +87,11 @@ function decodeClientCommand(value: unknown): DecodeResult<ClientCommand> {
     case "move":
       if (!isPosition(value.to)) return fail("move.to must be integer {x, y}");
       return { ok: true, value: { type: "move", to: { x: value.to.x, y: value.to.y } } };
+    case "fire_weapon":
+      if (!isString(value.targetId)) return fail("fire_weapon.targetId must be a string");
+      return { ok: true, value: { type: "fire_weapon", targetId: zombieId(value.targetId) } };
+    case "reload":
+      return { ok: true, value: { type: "reload" } };
     case "end_turn":
       return { ok: true, value: { type: "end_turn" } };
     default:

@@ -1,20 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createInitialState, matchId, parseAsciiMap, playerId } from "@zombie/game-core";
 import { decideMoveIntent } from "./moveIntent.js";
+import { makeClientTestState, P1, P2 } from "./testState.js";
 
-const P1 = playerId("p1");
-const P2 = playerId("p2");
-const state = createInitialState({
-  matchId: matchId("m"),
-  seed: 1,
-  rules: { moveCostPerTile: 1, zombieDefinitions: { walker: { maxHealth: 3, damage: 2 } } },
-  survivor: { maxHealth: 10, maxActionPoints: 2 },
-  layout: parseAsciiMap(["#####", "#S..#", "#S..#", "#####"]),
-  players: [
-    { id: P1, name: "one" },
-    { id: P2, name: "two" },
-  ],
-});
+const state = makeClientTestState(["#####", "#S..#", "#S..#", "#####"]);
 
 describe("decideMoveIntent", () => {
   it("returns a move for a reachable tile on my turn", () => {

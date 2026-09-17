@@ -64,7 +64,18 @@ spawns. Tests use their own layout in `testing/makeTestState.ts`.
 5. `apps/client/src/render/BoardRenderer.ts`: a colour or label per type if wanted.
 6. Tests in `zombies/*.test.ts` using an ASCII layout with `Z` markers.
 
-## Add a weapon or item (future milestones)
+## Add a weapon
+
+1. `packages/game-core/src/state/types.ts`: extend `WeaponType`.
+2. `packages/game-data/src/weapons.ts`: the compiler demands a `WeaponDefinition` entry
+   (damage, range, magazine size, action point costs).
+3. Nothing else, if the weapon behaves like the pistol. Behaviour that differs (spread,
+   burst, melee) is a new field on `WeaponDefinition` read in `rules/combat.ts`, not a
+   `switch` on the type, unless a number or flag cannot express it.
+4. Giving it to a survivor: `startingWeapon` in `packages/game-data/src/survivors.ts` until
+   the inventory milestone adds pickup.
+
+## Add an item (future milestone)
 
 Same pattern: a union member in game-core, a `Record<Type, Definition>` in game-data, and
 behaviour driven by the definition's fields.

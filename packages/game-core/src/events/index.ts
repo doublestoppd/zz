@@ -1,5 +1,6 @@
 export type {
   EntityDamagedEvent,
+  EntityDiedEvent,
   GameEvent,
   MatchEndedEvent,
   PhaseChangedEvent,
@@ -9,6 +10,8 @@ export type {
   RoundStartedEvent,
   TurnEndedEvent,
   TurnStartedEvent,
+  WeaponFiredEvent,
+  WeaponReloadedEvent,
   ZombieAttackedEvent,
   ZombieMovedEvent,
 } from "./types.js";

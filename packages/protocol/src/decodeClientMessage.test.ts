@@ -23,6 +23,14 @@ describe("decodeClientMessage", () => {
       '{"t":"command","seq":4,"command":{"type":"end_turn"}}',
       { t: "command", seq: 4, command: { type: "end_turn" } },
     ],
+    [
+      '{"t":"command","seq":5,"command":{"type":"fire_weapon","targetId":"z1"}}',
+      { t: "command", seq: 5, command: { type: "fire_weapon", targetId: "z1" } },
+    ],
+    [
+      '{"t":"command","seq":6,"command":{"type":"reload"}}',
+      { t: "command", seq: 6, command: { type: "reload" } },
+    ],
   ])("accepts %s", (raw, expected) => {
     expect(decodeClientMessage(raw)).toEqual({ ok: true, value: expected });
   });
@@ -37,6 +45,8 @@ describe("decodeClientMessage", () => {
     '{"t":"command","seq":"1","command":{"type":"end_turn"}}',
     '{"t":"command","seq":1}',
     '{"t":"command","seq":1,"command":{"type":"fire_weapon"}}',
+    '{"t":"command","seq":1,"command":{"type":"fire_weapon","targetId":7}}',
+    '{"t":"command","seq":1,"command":{"type":"use_item"}}',
     '{"t":"command","seq":1,"command":{"type":"move","to":{"x":1.5,"y":2}}}',
     '{"t":"command","seq":1,"command":{"type":"move","to":[1,2]}}',
   ])("rejects %s", (raw) => {

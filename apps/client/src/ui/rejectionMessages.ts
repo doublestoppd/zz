@@ -12,4 +12,10 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionReason, string>> = {
   DESTINATION_IS_CURRENT_POSITION: "You are already there.",
   DESTINATION_UNREACHABLE: "There is no path to that tile.",
   INSUFFICIENT_ACTION_POINTS: "Not enough action points.",
+  TARGET_NOT_FOUND: "That target is gone.",
+  OUT_OF_RANGE: "That target is out of range.",
+  NO_LINE_OF_SIGHT: "You cannot see that target.",
+  WEAPON_EMPTY: "Your weapon is empty. Reload.",
+  MAGAZINE_FULL: "Your weapon is already full.",
+  NO_RESERVE_AMMO: "No ammunition left to reload with.",
 };

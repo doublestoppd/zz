@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import {
+  legalFireTargets,
   legalMoveDestinations,
   type GameMap,
   type GameState,
@@ -16,6 +17,7 @@ const COLOURS = {
   grid: 0x3a3f47,
   extraction: 0x2f6f3e,
   highlight: 0x4a6fa5,
+  target: 0xff5252,
   activeRing: 0xffffff,
   absent: 0x777777,
   down: 0x5a5a5a,
@@ -94,6 +96,13 @@ export class BoardRenderer {
     for (const p of legalMoveDestinations(state, me)) {
       const { x, y } = tileToPixel(p);
       g.fillRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+    }
+    const player = state.players.find((p) => p.id === me);
+    if (player === undefined) return;
+    g.lineStyle(3, COLOURS.target);
+    for (const z of legalFireTargets(state, player)) {
+      const { x, y } = tileToPixel(z.position);
+      g.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     }
   }
 

@@ -1,6 +1,6 @@
 import type { MatchId, PlayerId, ZombieId } from "../ids.js";
 import type { GameMap, Position } from "../map/types.js";
-import type { ZombieDefinition } from "./definitions.js";
+import type { WeaponDefinition, ZombieDefinition } from "./definitions.js";
 
 /**
  * Authoritative match state. Plain, JSON-serialisable data only: no class instances,
@@ -44,6 +44,16 @@ export interface GameRules {
   readonly moveCostPerTile: number;
   /** Statistics per zombie type. Adding a `ZombieType` without an entry fails to compile. */
   readonly zombieDefinitions: Readonly<Record<ZombieType, ZombieDefinition>>;
+  /** Statistics per weapon type. Adding a `WeaponType` without an entry fails to compile. */
+  readonly weaponDefinitions: Readonly<Record<WeaponType, WeaponDefinition>>;
+}
+
+export type WeaponType = "pistol";
+
+/** The one weapon a survivor carries. The inventory milestone will generalise this. */
+export interface EquippedWeapon {
+  readonly type: WeaponType;
+  readonly loadedAmmo: number;
 }
 
 /** `down` survivors stay on the board but cannot act. Later milestones add `extracted`. */
@@ -58,6 +68,9 @@ export interface PlayerState {
   readonly actionPoints: number;
   readonly maxActionPoints: number;
   readonly status: PlayerStatus;
+  readonly weapon: EquippedWeapon;
+  /** Rounds available for reloading. */
+  readonly reserveAmmo: number;
   /**
    * False while the player is disconnected. Absent players are skipped in turn order.
    * Set only through the `set_player_presence` server command.

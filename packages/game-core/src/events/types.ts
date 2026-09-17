@@ -1,6 +1,6 @@
 import type { PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
-import type { GamePhase, MatchOutcome } from "../state/types.js";
+import type { GamePhase, MatchOutcome, WeaponType } from "../state/types.js";
 
 /**
  * What happened, as emitted by the simulation. Clients use events for animation,
@@ -9,6 +9,9 @@ import type { GamePhase, MatchOutcome } from "../state/types.js";
  */
 export type GameEvent =
   | PlayerMovedEvent
+  | WeaponFiredEvent
+  | WeaponReloadedEvent
+  | EntityDiedEvent
   | TurnEndedEvent
   | TurnStartedEvent
   | RoundStartedEvent
@@ -26,6 +29,28 @@ export interface PlayerMovedEvent {
   /** Tiles stepped onto in order, excluding the origin. */
   readonly path: readonly Position[];
   readonly actionPointsSpent: number;
+}
+
+export interface WeaponFiredEvent {
+  readonly type: "weapon_fired";
+  readonly playerId: PlayerId;
+  readonly weaponType: WeaponType;
+  readonly targetId: ZombieId;
+  readonly actionPointsSpent: number;
+}
+
+export interface WeaponReloadedEvent {
+  readonly type: "weapon_reloaded";
+  readonly playerId: PlayerId;
+  readonly loadedAmmo: number;
+  readonly reserveAmmo: number;
+  readonly actionPointsSpent: number;
+}
+
+/** A zombie reached zero health and was removed from the board. */
+export interface EntityDiedEvent {
+  readonly type: "entity_died";
+  readonly entityId: ZombieId;
 }
 
 export interface TurnEndedEvent {

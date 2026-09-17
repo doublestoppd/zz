@@ -1,4 +1,5 @@
 import { WebSocket } from "ws";
+import { zombieId } from "@zombie/game-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   decodeServerMessage,
@@ -228,6 +229,21 @@ describe("gameplay", () => {
     expect(after.state.round).toBe(2);
     expect(after.events.some((e) => e.type === "zombie_moved")).toBe(true);
     expect(after.state.zombies).not.toEqual(first.state.zombies);
+  });
+
+  it("applies fire and reload commands from the active player", async () => {
+    const { host, guest } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    await Promise.all([host.next("update"), guest.next("update")]);
+
+    // No zombie is in range at the spawn, so the shot is rejected with a combat reason.
+    host.send({ t: "command", seq: 1, command: { type: "fire_weapon", targetId: zombieId("z1") } });
+    expect(await host.next("rejected")).toMatchObject({ seq: 1, reason: "OUT_OF_RANGE" });
+
+    // Reloading a full magazine is rejected too; the state is unchanged for everyone.
+    host.send({ t: "command", seq: 2, command: { type: "reload" } });
+    expect(await host.next("rejected")).toMatchObject({ seq: 2, reason: "MAGAZINE_FULL" });
+    await guest.expectNone("update");
   });
 
   it("ignores any playerId a client tries to smuggle in", async () => {

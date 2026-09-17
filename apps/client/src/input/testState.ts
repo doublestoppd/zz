@@ -1,0 +1,44 @@
+import {
+  createInitialState,
+  matchId,
+  parseAsciiMap,
+  playerId,
+  type GameState,
+} from "@zombie/game-core";
+
+export const P1 = playerId("p1");
+export const P2 = playerId("p2");
+
+/** P1 at (1,1), P2 at (1,2), one zombie at (3,2) in an open room. Test-only. */
+export function makeClientTestState(
+  rows: readonly string[] = ["#####", "#S..#", "#S.Z#", "#####"],
+): GameState {
+  return createInitialState({
+    matchId: matchId("m"),
+    seed: 1,
+    rules: {
+      moveCostPerTile: 1,
+      zombieDefinitions: { walker: { maxHealth: 3, damage: 2 } },
+      weaponDefinitions: {
+        pistol: {
+          damage: 2,
+          range: 4,
+          magazineSize: 6,
+          fireActionPointCost: 1,
+          reloadActionPointCost: 1,
+        },
+      },
+    },
+    survivor: {
+      maxHealth: 10,
+      maxActionPoints: 2,
+      startingWeapon: "pistol",
+      startingReserveAmmo: 6,
+    },
+    layout: parseAsciiMap(rows),
+    players: [
+      { id: P1, name: "one" },
+      { id: P2, name: "two" },
+    ],
+  });
+}
