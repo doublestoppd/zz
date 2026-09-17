@@ -1,4 +1,4 @@
-import type { GameEvent, GameState, PlayerId, RejectionReason } from "@zombie/game-core";
+import type { GameEvent, GameMap, GameState, PlayerId, RejectionReason } from "@zombie/game-core";
 import type { LobbyMessage, ServerMessage } from "@zombie/protocol";
 import type { ConnectionStatus } from "../net/GameConnection.js";
 import { describeEvent } from "../ui/eventLog.js";
@@ -14,6 +14,8 @@ export interface ClientState {
   readonly connection: ConnectionStatus;
   readonly me: Identity | undefined;
   readonly lobby: LobbyMessage | undefined;
+  /** The board for the current match, received once; `update` snapshots are joined to it. */
+  readonly map: GameMap | undefined;
   readonly game: { readonly version: number; readonly state: GameState } | undefined;
   /** Sequence number of the command awaiting a server answer, if any. */
   readonly pendingSeq: number | undefined;
@@ -30,6 +32,7 @@ const INITIAL: ClientState = {
   connection: "closed",
   me: undefined,
   lobby: undefined,
+  map: undefined,
   game: undefined,
   pendingSeq: undefined,
   lastRejection: undefined,
@@ -74,6 +77,7 @@ export class ClientStore {
     this.patch({
       me: undefined,
       lobby: undefined,
+      map: undefined,
       game: undefined,
       pendingSeq: undefined,
       lastEvents: [],
@@ -100,11 +104,20 @@ export class ClientStore {
       case "lobby":
         this.patch({ lobby: message });
         return;
+      case "map":
+        this.patch({ map: message.map });
+        return;
       case "update": {
         if (this.state.game !== undefined && message.version < this.state.game.version) return;
-        const lines = message.events.map((e: GameEvent) => describeEvent(e, message.state));
+        const map = this.state.map;
+        if (map === undefined) {
+          console.warn("update received before the map; ignoring");
+          return;
+        }
+        const state: GameState = { ...message.state, map };
+        const lines = message.events.map((e: GameEvent) => describeEvent(e, state));
         this.patch({
-          game: { version: message.version, state: message.state },
+          game: { version: message.version, state },
           pendingSeq: undefined,
           log: [...this.state.log, ...lines].slice(-MAX_LOG_LINES),
           lastEvents: message.events,

@@ -119,13 +119,24 @@ Store `rejoinToken`; it is the only credential for `rejoin_match`.
 
 Sent to everyone on any membership or presence change, before and after start.
 
+### `map`
+
+```json
+{ "t": "map", "map": { "width": 26, "height": 18, "tiles": [ [ …Tile… ] ] } }
+```
+
+The static board, sent to every socket once before its first `update`: to everyone when
+the host starts the match, and to a rejoining socket before its snapshot. It never changes
+during a match; a client that receives an `update` before a `map` ignores the update.
+
 ### `update`
 
 ```json
 { "t": "update", "version": 3, "state": { …GameState… }, "events": [ …GameEvent… ] }
 ```
 
-`state` is the complete authoritative `GameState` from `packages/game-core`. `version`
+`state` is the authoritative `GameState` from `packages/game-core` minus its `map`, which the
+client already holds from the `map` message; the client joins the two. `version`
 increases by one per accepted command; discard an update whose version is lower than the
 last one seen. `events` describe what produced this state (see `events/types.ts`); they
 drive logs and animation and are never required to rebuild the board.

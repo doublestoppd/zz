@@ -119,6 +119,7 @@ export class ServerMatch {
         playerId: member.playerId,
         present: true,
       });
+      session.send(this.mapMessage());
       session.send(this.updateMessage(presence.ok ? presence.events : []));
       if (presence.ok && presence.events.length > 0) this.broadcastUpdate(presence.events, session);
     }
@@ -168,6 +169,7 @@ export class ServerMatch {
     });
     this.runtime = new MatchRuntime(initial);
     this.broadcastLobby();
+    this.broadcast(this.mapMessage());
     this.broadcastUpdate([]);
     return undefined;
   }
@@ -250,14 +252,16 @@ export class ServerMatch {
     };
   }
 
+  private mapMessage(): ServerMessage {
+    if (this.runtime === undefined) throw new Error("mapMessage: match not started");
+    return { t: "map", map: this.runtime.getState().map };
+  }
+
+  /** The snapshot without its map, which every socket received once in `mapMessage`. */
   private updateMessage(events: readonly GameEvent[]): ServerMessage {
     if (this.runtime === undefined) throw new Error("updateMessage: match not started");
-    return {
-      t: "update",
-      version: this.runtime.getVersion(),
-      state: this.runtime.getState(),
-      events,
-    };
+    const { map: _map, ...state } = this.runtime.getState();
+    return { t: "update", version: this.runtime.getVersion(), state, events };
   }
 
   private broadcast(message: ServerMessage, except?: ClientSession): void {

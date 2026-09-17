@@ -21,6 +21,12 @@ with an increasing `version`. Clients render from the latest snapshot; events ar
 - Class-based entities with methods: convenient in code, but not serialisable and hard to
   build in tests.
 
+## Amendment (audit follow-up)
+
+The static map is 93% of a snapshot, so it is now sent once per socket in a `map` message
+and `update` carries the rest (about 2 KB). The client reassembles `GameState` locally;
+everything else in this decision stands.
+
 ## Consequences
 
 - `JSON.stringify` is the serialiser. Reconnection is "send the latest snapshot".

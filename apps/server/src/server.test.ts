@@ -246,6 +246,31 @@ describe("lobby", () => {
   });
 });
 
+describe("map delivery", () => {
+  it("sends the map once before the first update and never inside updates", async () => {
+    const { host, guest, code, hostToken } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    const [map, update] = await Promise.all([host.next("map"), host.next("update")]);
+    await guest.next("update");
+    expect(map.map.width).toBeGreaterThan(0);
+    expect("map" in update.state).toBe(false);
+
+    host.command({ type: "end_turn" });
+    const next = await guest.next("update");
+    expect("map" in next.state).toBe(false);
+    await host.expectNone("map");
+
+    // A rejoining socket gets the map again before its snapshot.
+    await host.close();
+    await guest.next("update");
+    const again = await connect();
+    again.send({ t: "rejoin_match", matchCode: code, rejoinToken: hostToken });
+    await again.next("joined");
+    expect((await again.next("map")).map).toEqual(map.map);
+    expect("map" in (await again.next("update")).state).toBe(false);
+  });
+});
+
 describe("gameplay", () => {
   it("broadcasts accepted moves to everyone and rejections to the sender only", async () => {
     const { host, guest, hostId } = await twoPlayerLobby();

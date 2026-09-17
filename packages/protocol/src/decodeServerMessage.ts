@@ -5,6 +5,7 @@ import type { ServerMessage } from "./messages.js";
 const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set<ServerMessage["t"]>([
   "joined",
   "lobby",
+  "map",
   "update",
   "rejected",
   "error",

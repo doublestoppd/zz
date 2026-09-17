@@ -124,8 +124,8 @@ client can enumerate them.
 ## State synchronisation
 
 Full snapshot per update ([ADR 0002](adr/0002-plain-data-state-and-snapshot-sync.md)). The
-state is about 27 KB on a generated city (93% of it the static map, see the audit) and
-changes at human speed. `version` orders updates; a client
+static map is sent once per socket and each update carries the remaining state (about
+2 KB), which changes at human speed. `version` orders updates; a client
 ignores anything older than what it has. Reconnection is "send the latest snapshot".
 
 `game-core` has no notion of clients or sockets; `MatchRuntime` is the only mutable holder of

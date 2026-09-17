@@ -1,5 +1,6 @@
 import type {
   GameEvent,
+  GameMap,
   GameState,
   PlayerCommand,
   PlayerId,
@@ -87,7 +88,7 @@ export interface LeaveMatchMessage {
 // ---------------------------------------------------------------------------
 
 export type ServerMessage =
-  JoinedMessage | LobbyMessage | UpdateMessage | RejectedMessage | ErrorMessage;
+  JoinedMessage | LobbyMessage | MapMessage | UpdateMessage | RejectedMessage | ErrorMessage;
 
 export interface JoinedMessage {
   readonly t: "joined";
@@ -113,12 +114,24 @@ export interface LobbyMessage {
   readonly players: readonly LobbyPlayer[];
 }
 
-/** Full authoritative snapshot plus the events that produced it. Replaces any earlier state. */
+/**
+ * The static board, sent once per socket before its first `update` (at match start and on
+ * rejoin). It never changes during a match, so `update` omits it.
+ */
+export interface MapMessage {
+  readonly t: "map";
+  readonly map: GameMap;
+}
+
+/** Everything in `GameState` except the map, which travels once in `MapMessage`. */
+export type WireGameState = Omit<GameState, "map">;
+
+/** Full authoritative snapshot (minus the map) plus the events that produced it. */
 export interface UpdateMessage {
   readonly t: "update";
   /** Increases by one per accepted command; a client may discard an update older than its latest. */
   readonly version: number;
-  readonly state: GameState;
+  readonly state: WireGameState;
   readonly events: readonly GameEvent[];
 }
 
