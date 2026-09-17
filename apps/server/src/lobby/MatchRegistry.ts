@@ -35,7 +35,9 @@ export interface RegistryOptions {
 const DEFAULT_DEPS: MatchDependencies = {
   createSeed: () => randomInt(0, 2 ** 32),
   createRejoinToken: () => randomUUID(),
-  createLayout: (seed) => generateCity({ ...DEFAULT_CITY_OPTIONS, seed }),
+  // One spawn per player, so the player cap (protocol MAX_PLAYERS) is the only limit.
+  createLayout: (seed, playerCount) =>
+    generateCity({ ...DEFAULT_CITY_OPTIONS, seed, survivorSpawns: playerCount }),
 };
 
 /** Every live lobby and match, keyed by join code. Removes matches nobody can return to. */

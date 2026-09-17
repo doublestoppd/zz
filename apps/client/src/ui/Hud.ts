@@ -9,6 +9,9 @@ import { describeObjective, describeOutcome } from "./objectiveText.js";
 import { button, el, requireElement } from "./dom.js";
 import { REJECTION_MESSAGES } from "./rejectionMessages.js";
 
+/** How long a rejection stays on screen before it clears itself. */
+const REJECTION_MESSAGE_MS = 3000;
+
 /** Button text per item type; the compiler demands an entry for every `ItemType`. */
 const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
   medkit: "Use medkit",
@@ -187,7 +190,7 @@ export class Hud {
       this.rejectionTimer = setTimeout(() => {
         this.rejectionTimer = undefined;
         this.store.clearRejection();
-      }, 3000);
+      }, REJECTION_MESSAGE_MS);
     }
 
     this.log.replaceChildren(
