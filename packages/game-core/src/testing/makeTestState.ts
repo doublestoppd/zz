@@ -81,7 +81,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
     },
     lootTable: [{ type: "medkit", weight: 1 }],
     zombieSpawnTable: [{ type: "walker", weight: 1 }],
-    extraction: { holdoutRounds: options.holdoutRounds ?? 0 },
+    objective: { kind: "extraction", holdoutRounds: options.holdoutRounds ?? 0 },
     layout: options.layout ?? TEST_LAYOUT,
     players: players.map((id) => ({ id, name: id })),
   });

@@ -66,7 +66,11 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   if (!(survivor.startingWeapon in rules.weaponDefinitions)) {
     issues.push(`survivor.startingWeapon "${survivor.startingWeapon}" has no definition`);
   }
-  positiveInteger(issues, "extraction.holdoutRounds", setup.extraction.holdoutRounds, 0);
+  switch (setup.objective.kind) {
+    case "extraction":
+      positiveInteger(issues, "objective.holdoutRounds", setup.objective.holdoutRounds, 0);
+      break;
+  }
 
   if (layout.zombieSpawns.length > 0) {
     if (setup.zombieSpawnTable.length === 0)

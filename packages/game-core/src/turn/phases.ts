@@ -2,7 +2,7 @@ import type { GameEvent } from "../events/types.js";
 import type { PlayerId } from "../ids.js";
 import { createRng, type Rng } from "../random/rng.js";
 import type { GamePhase, GameState, MatchOutcome } from "../state/types.js";
-import { evaluateExtraction } from "../objectives/extraction.js";
+import { evaluateObjective } from "../objectives/evaluate.js";
 import { runZombiePhase } from "../zombies/zombiePhase.js";
 import {
   firstEligiblePlayer,
@@ -78,7 +78,7 @@ export function resolveEndOfRound(state: GameState): Transition {
   if (state.players.every((p) => p.status === "down")) {
     return finishMatch(state, "defeat", []);
   }
-  const objective = evaluateExtraction(state);
+  const objective = evaluateObjective(state);
   const evaluated: GameState = { ...state, objective: objective.objective };
   if (objective.outcome !== undefined) {
     return finishMatch(evaluated, objective.outcome, objective.events);

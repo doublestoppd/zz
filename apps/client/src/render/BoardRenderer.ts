@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {
   legalFireTargets,
   legalMoveDestinations,
+  objectiveZoneTiles,
   type GameEvent,
   type GameMap,
   type GameState,
@@ -223,7 +224,7 @@ export class BoardRenderer {
         g.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
       });
     });
-    for (const p of state.objective.extractionZone) {
+    for (const p of objectiveZoneTiles(state.objective)) {
       const { x: px, y: py } = tileToPixel(p);
       g.fillStyle(COLOURS.extraction);
       g.fillRect(px, py, TILE_SIZE, TILE_SIZE);

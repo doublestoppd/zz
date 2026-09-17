@@ -21,6 +21,7 @@ export type {
   ItemDefinition,
   ItemEffect,
   LootTableEntry,
+  ObjectiveSettings,
   SurvivorDefinition,
   ZombieSpawnTableEntry,
   WeaponDefinition,

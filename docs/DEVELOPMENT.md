@@ -125,14 +125,15 @@ own layout in `testing/makeTestState.ts`.
 
 ## Add a game mode or change the objective
 
-1. `packages/game-core/src/state/types.ts`: add a member to the `ObjectiveState` union with
-   its own `kind` and settings.
+1. `packages/game-core/src/state/types.ts`: add a member to the `ObjectiveState` union, and
+   `state/definitions.ts`: a matching `ObjectiveSettings` member.
 2. `packages/game-core/src/objectives/`: a pure `evaluate<Mode>(state)` returning the new
    objective state, an optional outcome, and events (see `extraction.ts`).
-3. `packages/game-core/src/turn/phases.ts`: dispatch on `state.objective.kind` in
-   `resolveEndOfRound`. Keep the defeat check first.
-4. `packages/game-data/src/objectives.ts`: default settings.
-5. `apps/client/src/ui/Hud.ts`: the objective line and outcome text.
+3. The exhaustive switches in `objectives/createObjective.ts` and `objectives/evaluate.ts`
+   (`evaluateObjective`, `objectiveZoneTiles`, `objectiveProgress`) will not compile until the
+   new mode is handled; `turn/phases.ts` needs no change.
+4. `packages/game-data/src/objectives.ts`: settings (`DEFAULT_OBJECTIVE` picks the mode).
+5. `apps/client/src/ui/objectiveText.ts`: wording for the objective line and the outcome.
 6. Tests in `objectives/*.test.ts`; GAME-RULES.md.
 
 Do not build a generic quest or scripting engine for this; one function per mode is the

@@ -3,9 +3,10 @@ import type { MapLayout } from "../map/asciiMap.js";
 import { createRng, deriveSeed, RNG_STREAM } from "../random/rng.js";
 import { pickWeighted } from "../random/weighted.js";
 import { firstEligiblePlayer } from "../turn/turnOrder.js";
+import { createObjective } from "../objectives/createObjective.js";
 import type {
-  ExtractionSettings,
   LootTableEntry,
+  ObjectiveSettings,
   SurvivorDefinition,
   ZombieSpawnTableEntry,
 } from "./definitions.js";
@@ -17,7 +18,7 @@ export interface MatchSetup {
   readonly seed: number;
   readonly rules: GameRules;
   readonly survivor: SurvivorDefinition;
-  readonly extraction: ExtractionSettings;
+  readonly objective: ObjectiveSettings;
   /** Weighted item types rolled for each loot spawn on the layout. Empty means no loot. */
   readonly lootTable: readonly LootTableEntry[];
   /** Weighted zombie types rolled for each zombie spawn on the layout. */
@@ -90,13 +91,7 @@ export function createInitialState(setup: MatchSetup): GameState {
     players: playerStates,
     zombies,
     items,
-    objective: {
-      kind: "extraction",
-      extractionZone: layout.extractionZone,
-      holdoutRounds: setup.extraction.holdoutRounds,
-      roundsHeld: 0,
-      status: "in_progress",
-    },
+    objective: createObjective(layout, setup.objective),
   };
 
   // Every player is present at creation, so an eligible player always exists here.

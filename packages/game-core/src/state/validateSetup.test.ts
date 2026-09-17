@@ -36,7 +36,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
       startingReserveAmmo: 12,
       inventoryCapacity: 3,
     },
-    extraction: { holdoutRounds: 1 },
+    objective: { kind: "extraction", holdoutRounds: 1 },
     lootTable: [{ type: "medkit", weight: 1 }],
     zombieSpawnTable: [{ type: "walker", weight: 1 }],
     layout: parseAsciiMap(["######", "#SL.E#", "#S.Z.#", "######"]),

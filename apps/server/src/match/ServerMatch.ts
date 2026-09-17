@@ -7,7 +7,7 @@ import {
   type PlayerId,
 } from "@zombie/game-core";
 import {
-  DEFAULT_EXTRACTION,
+  DEFAULT_OBJECTIVE,
   DEFAULT_GAME_RULES,
   DEFAULT_SURVIVOR,
   LOOT_TABLE,
@@ -151,7 +151,7 @@ export class ServerMatch {
       seed,
       rules: DEFAULT_GAME_RULES,
       survivor: DEFAULT_SURVIVOR,
-      extraction: DEFAULT_EXTRACTION,
+      objective: DEFAULT_OBJECTIVE,
       lootTable: LOOT_TABLE,
       zombieSpawnTable: ZOMBIE_SPAWN_TABLE,
       layout: this.deps.createLayout(seed, this.members.length),

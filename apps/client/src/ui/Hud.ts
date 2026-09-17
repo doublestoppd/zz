@@ -1,10 +1,11 @@
-import { ITEM_TYPES, isInExtractionZone, itemsUnderPlayer, type ItemType } from "@zombie/game-core";
+import { ITEM_TYPES, itemsUnderPlayer, type ItemType } from "@zombie/game-core";
 import type { SoundPlayer } from "../audio/SoundPlayer.js";
 import { KEY_HELP } from "../input/keyboard.js";
 import type { CommandSender } from "../net/CommandSender.js";
 import type { GameConnection } from "../net/GameConnection.js";
 import type { ClientState, ClientStore } from "../state/ClientStore.js";
 import { clearIdentity } from "./identityStorage.js";
+import { describeObjective, describeOutcome } from "./objectiveText.js";
 import { button, el, requireElement } from "./dom.js";
 import { REJECTION_MESSAGES } from "./rejectionMessages.js";
 
@@ -126,22 +127,10 @@ export class Hud {
     this.outcomeBanner.hidden = !finished;
     const outcomeText = this.outcomeBanner.querySelector("#outcome-text");
     if (outcomeText !== null && game.phase.kind === "finished") {
-      outcomeText.textContent =
-        game.phase.outcome === "victory"
-          ? "Extraction successful. Victory!"
-          : "Everyone is down. Defeat.";
+      outcomeText.textContent = describeOutcome(game.objective, game.phase.outcome);
     }
 
-    const standing = game.players.filter((p) => p.status === "active");
-    const inZone = standing.filter((p) => isInExtractionZone(game.objective, p.position)).length;
-    this.objectiveLine.textContent = finished
-      ? ""
-      : `Objective: get every standing survivor into the green zone (${inZone}/${standing.length} there)` +
-        (game.objective.roundsHeld > 0
-          ? `, held ${game.objective.roundsHeld}/${game.objective.holdoutRounds + 1} rounds`
-          : game.objective.holdoutRounds > 0
-            ? `, then hold it for ${game.objective.holdoutRounds} more round(s)`
-            : "");
+    this.objectiveLine.textContent = finished ? "" : describeObjective(game);
 
     this.roundLine.textContent = `Round ${game.round}`;
     const myTurn = active === me && !finished;

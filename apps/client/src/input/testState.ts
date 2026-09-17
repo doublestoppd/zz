@@ -43,7 +43,7 @@ export function makeClientTestState(
     },
     lootTable: [{ type: "medkit", weight: 1 }],
     zombieSpawnTable: [{ type: "walker", weight: 1 }],
-    extraction: { holdoutRounds: 0 },
+    objective: { kind: "extraction", holdoutRounds: 0 },
     layout: parseAsciiMap(rows),
     players: [
       { id: P1, name: "one" },

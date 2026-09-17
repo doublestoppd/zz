@@ -48,7 +48,11 @@ export interface ZombieDefinition {
 /** Relative chance of each zombie type appearing at a zombie spawn. */
 export type ZombieSpawnTableEntry = WeightedEntry<ZombieType>;
 
-/** Scenario settings for the extraction objective. Values come from game-data. */
+/** Settings for the extraction game mode. Values come from game-data. */
 export interface ExtractionSettings {
+  readonly kind: "extraction";
   readonly holdoutRounds: number;
 }
+
+/** Which game mode a match plays and its settings. One member per mode. */
+export type ObjectiveSettings = ExtractionSettings;
