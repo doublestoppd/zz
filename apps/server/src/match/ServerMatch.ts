@@ -11,6 +11,7 @@ import {
   DEFAULT_GAME_RULES,
   DEFAULT_SURVIVOR,
   LOOT_TABLE,
+  ZOMBIE_SPAWN_TABLE,
 } from "@zombie/game-data";
 import {
   MAX_PLAYERS,
@@ -152,6 +153,7 @@ export class ServerMatch {
       survivor: DEFAULT_SURVIVOR,
       extraction: DEFAULT_EXTRACTION,
       lootTable: LOOT_TABLE,
+      zombieSpawnTable: ZOMBIE_SPAWN_TABLE,
       layout: this.deps.createLayout(seed, this.members.length),
       players: this.members.map((m) => ({ id: m.playerId, name: m.name })),
     });

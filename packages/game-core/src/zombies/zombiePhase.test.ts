@@ -59,6 +59,26 @@ describe("runZombiePhase", () => {
   });
 });
 
+describe("movesPerPhase", () => {
+  it("lets a faster zombie take several steps and stop to attack when adjacent", () => {
+    const layout = parseAsciiMap(["########", "#S....Z#", "########"]);
+    const state = makeTestState({ players: [P1], layout, zombieMovesPerPhase: 3 });
+    const { state: after, events } = runZombiePhase(state, rng());
+    expect(after.zombies[0]?.position).toEqual({ x: 3, y: 1 });
+    expect(events.filter((e) => e.type === "zombie_moved")).toHaveLength(3);
+
+    const close = parseAsciiMap(["######", "#S..Z#", "######"]);
+    const fast = makeTestState({ players: [P1], layout: close, zombieMovesPerPhase: 3 });
+    const result = runZombiePhase(fast, rng());
+    expect(result.events.map((e) => e.type)).toEqual([
+      "zombie_moved",
+      "zombie_moved",
+      "zombie_attacked",
+      "entity_damaged",
+    ]);
+  });
+});
+
 describe("zombies in the round loop", () => {
   it("runs the zombie phase after the last player ends their turn", () => {
     const layout = parseAsciiMap(["#######", "#S...Z#", "#######"]);

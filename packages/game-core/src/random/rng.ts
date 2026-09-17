@@ -59,4 +59,5 @@ export const RNG_STREAM = {
   gameplay: 0,
   mapGeneration: 1,
   loot: 2,
+  zombieSpawns: 3,
 } as const;

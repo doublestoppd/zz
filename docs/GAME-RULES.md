@@ -15,8 +15,9 @@ that file is named so the rule can be changed in one place.
 - Tests use the hand-authored fixture `SMALL_TEST_MAP` (`map/testMaps.ts`) instead.
 - Every survivor starts with the values in `packages/game-data/src/survivors.ts`
   (10 health, 4 action points) and full action points.
-- Zombies start with the health in `packages/game-data/src/zombies.ts` (walker: 3 health,
-  2 damage).
+- The zombie type at each spawn is rolled from the weighted spawn table in
+  `packages/game-data/src/zombies.ts` on its own RNG stream (currently only walkers: 3
+  health, 2 damage, 1 move per phase).
 - Every survivor carries the starting weapon from `packages/game-data/src/survivors.ts`
   (a pistol with a full magazine), 12 rounds of reserve ammunition, and an empty inventory
   with room for 3 items.
@@ -79,7 +80,7 @@ left it. For each zombie, `decideZombieAction` (`zombies/targetSelection.ts`) pi
 1. **Attack** if a standing survivor (status `active`, connected or not) is orthogonally
    adjacent. The first such survivor in turn order is hit for the zombie type's `damage`.
 2. **Step** one tile along the shortest path to a free tile next to the nearest standing
-   survivor. Distance is BFS path length. Ties are broken by turn order, so there is no
+   survivor, then decide again, up to the type's `movesPerPhase` steps. Distance is BFS path length. Ties are broken by turn order, so there is no
    randomness. Survivors block the search; other zombies do not, but a zombie never steps
    onto an occupied tile (a queue in a corridor waits for the zombie in front to move).
 3. **Wait** if no survivor is reachable or the next tile is occupied.

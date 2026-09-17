@@ -14,7 +14,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
     rules: {
       moveCostPerTile: 1,
       pickUpActionPointCost: 1,
-      zombieDefinitions: { walker: { maxHealth: 3, damage: 2 } },
+      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1 } },
       weaponDefinitions: {
         pistol: {
           damage: 2,
@@ -38,6 +38,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
     },
     extraction: { holdoutRounds: 1 },
     lootTable: [{ type: "medkit", weight: 1 }],
+    zombieSpawnTable: [{ type: "walker", weight: 1 }],
     layout: parseAsciiMap(["######", "#SL.E#", "#S.Z.#", "######"]),
     players: [
       { id: P1, name: "a" },

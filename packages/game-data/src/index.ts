@@ -7,4 +7,4 @@ export { ITEM_DEFINITIONS, LOOT_TABLE } from "./items.js";
 export { DEFAULT_EXTRACTION } from "./objectives.js";
 export { DEFAULT_SURVIVOR } from "./survivors.js";
 export { WEAPON_DEFINITIONS } from "./weapons.js";
-export { ZOMBIE_DEFINITIONS } from "./zombies.js";
+export { ZOMBIE_DEFINITIONS, ZOMBIE_SPAWN_TABLE } from "./zombies.js";

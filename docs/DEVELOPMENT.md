@@ -76,14 +76,14 @@ own layout in `testing/makeTestState.ts`.
 ## Add a zombie type
 
 1. `packages/game-core/src/state/types.ts`: extend `ZombieType`.
-2. `packages/game-data/src/zombies.ts`: the compiler now demands a `ZombieDefinition` entry.
-3. Spawning: `map/asciiMap.ts` currently spawns every `Z` as a `walker`; add a legend symbol
-   or a spawn table if the new type needs its own placement.
-4. Behaviour that differs per type should be data first (`ZombieDefinition` fields read in
+2. `packages/game-data/src/zombies.ts`: the compiler now demands a `ZombieDefinition` entry
+   (health, damage, `movesPerPhase`). Add a weight to `ZOMBIE_SPAWN_TABLE` so it appears at
+   spawns; the type at each `Z` is rolled from that table on the `zombieSpawns` RNG stream.
+3. Behaviour that differs per type should be data first (`ZombieDefinition` fields read in
    `zombies/targetSelection.ts` and `zombies/zombiePhase.ts`). Only add a `switch` on the type
    when a number or flag cannot express the difference.
-5. `apps/client/src/render/BoardRenderer.ts`: a colour or label per type if wanted.
-6. Tests in `zombies/*.test.ts` using an ASCII layout with `Z` markers.
+4. `apps/client/src/render/BoardRenderer.ts`: a colour or label per type if wanted.
+5. Tests in `zombies/*.test.ts` using an ASCII layout with `Z` markers.
 
 ## Add a weapon
 

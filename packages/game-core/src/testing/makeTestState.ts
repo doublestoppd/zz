@@ -40,6 +40,7 @@ export interface TestStateOptions {
   readonly startingReserveAmmo?: number;
   readonly holdoutRounds?: number;
   readonly inventoryCapacity?: number;
+  readonly zombieMovesPerPhase?: number;
 }
 
 const DEFAULT_PISTOL: WeaponDefinition = {
@@ -58,7 +59,11 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
     rules: {
       moveCostPerTile: options.moveCostPerTile ?? 1,
       zombieDefinitions: {
-        walker: { maxHealth: options.zombieHealth ?? 3, damage: options.zombieDamage ?? 2 },
+        walker: {
+          maxHealth: options.zombieHealth ?? 3,
+          damage: options.zombieDamage ?? 2,
+          movesPerPhase: options.zombieMovesPerPhase ?? 1,
+        },
       },
       weaponDefinitions: { pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
       itemDefinitions: {
@@ -75,6 +80,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       inventoryCapacity: options.inventoryCapacity ?? 3,
     },
     lootTable: [{ type: "medkit", weight: 1 }],
+    zombieSpawnTable: [{ type: "walker", weight: 1 }],
     extraction: { holdoutRounds: options.holdoutRounds ?? 0 },
     layout: options.layout ?? TEST_LAYOUT,
     players: players.map((id) => ({ id, name: id })),

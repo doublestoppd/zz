@@ -1,8 +1,14 @@
 import { itemId, zombieId, type MatchId, type PlayerId } from "../ids.js";
 import type { MapLayout } from "../map/asciiMap.js";
-import { createRng, deriveSeed, RNG_STREAM, type Rng } from "../random/rng.js";
+import { createRng, deriveSeed, RNG_STREAM } from "../random/rng.js";
+import { pickWeighted } from "../random/weighted.js";
 import { firstEligiblePlayer } from "../turn/turnOrder.js";
-import type { ExtractionSettings, LootTableEntry, SurvivorDefinition } from "./definitions.js";
+import type {
+  ExtractionSettings,
+  LootTableEntry,
+  SurvivorDefinition,
+  ZombieSpawnTableEntry,
+} from "./definitions.js";
 import type { GameRules, GameState, GroundItem, PlayerState, ZombieState } from "./types.js";
 import { validateMatchSetup } from "./validateSetup.js";
 
@@ -14,6 +20,8 @@ export interface MatchSetup {
   readonly extraction: ExtractionSettings;
   /** Weighted item types rolled for each loot spawn on the layout. Empty means no loot. */
   readonly lootTable: readonly LootTableEntry[];
+  /** Weighted zombie types rolled for each zombie spawn on the layout. */
+  readonly zombieSpawnTable: readonly ZombieSpawnTableEntry[];
   readonly layout: MapLayout;
   /** In turn order. Between 1 and the number of spawn positions in the layout. */
   readonly players: readonly { readonly id: PlayerId; readonly name: string }[];
@@ -53,17 +61,21 @@ export function createInitialState(setup: MatchSetup): GameState {
     };
   });
 
-  const zombies: ZombieState[] = layout.zombieSpawns.map((spawn, index) => ({
-    id: zombieId(`z${index + 1}`),
-    type: "walker",
-    position: spawn,
-    health: setup.rules.zombieDefinitions.walker.maxHealth,
-  }));
+  const spawnRng = createRng(deriveSeed(setup.seed, RNG_STREAM.zombieSpawns));
+  const zombies: ZombieState[] = layout.zombieSpawns.map((spawn, index) => {
+    const type = pickWeighted(setup.zombieSpawnTable, spawnRng);
+    return {
+      id: zombieId(`z${index + 1}`),
+      type,
+      position: spawn,
+      health: setup.rules.zombieDefinitions[type].maxHealth,
+    };
+  });
 
   const lootRng = createRng(deriveSeed(setup.seed, RNG_STREAM.loot));
   const items: GroundItem[] = layout.lootSpawns.map((position, index) => ({
     id: itemId(`i${index + 1}`),
-    type: rollLoot(setup.lootTable, lootRng),
+    type: pickWeighted(setup.lootTable, lootRng),
     position,
   }));
 
@@ -93,19 +105,4 @@ export function createInitialState(setup: MatchSetup): GameState {
     throw new Error("createInitialState: no eligible first player");
   }
   return { ...withoutPhase, phase: { kind: "player_turn", activePlayerId: first } };
-}
-
-/** Weighted choice from the loot table. Deterministic given the rng. */
-function rollLoot(table: readonly LootTableEntry[], rng: Rng): GroundItem["type"] {
-  const total = table.reduce((sum, entry) => sum + entry.weight, 0);
-  if (table.length === 0 || total <= 0) throw new Error("rollLoot: loot table is empty");
-  let roll = rng.next() * total;
-  let chosen = table[0]?.type;
-  for (const entry of table) {
-    roll -= entry.weight;
-    chosen = entry.type;
-    if (roll < 0) break;
-  }
-  if (chosen === undefined) throw new Error("rollLoot: loot table is empty");
-  return chosen;
 }

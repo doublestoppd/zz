@@ -52,6 +52,7 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   for (const [type, zombie] of Object.entries(rules.zombieDefinitions)) {
     positiveInteger(issues, `zombie ${type}.maxHealth`, zombie.maxHealth, 1);
     positiveInteger(issues, `zombie ${type}.damage`, zombie.damage, 0);
+    positiveInteger(issues, `zombie ${type}.movesPerPhase`, zombie.movesPerPhase, 1);
   }
   for (const [type, item] of Object.entries(rules.itemDefinitions)) {
     positiveInteger(issues, `item ${type}.useActionPointCost`, item.useActionPointCost, 0);
@@ -67,6 +68,15 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   }
   positiveInteger(issues, "extraction.holdoutRounds", setup.extraction.holdoutRounds, 0);
 
+  if (layout.zombieSpawns.length > 0) {
+    if (setup.zombieSpawnTable.length === 0)
+      issues.push("zombie spawns exist but the spawn table is empty");
+    for (const entry of setup.zombieSpawnTable) {
+      positiveInteger(issues, `zombie spawn table weight for ${entry.type}`, entry.weight, 1);
+      if (!(entry.type in rules.zombieDefinitions))
+        issues.push(`zombie spawn table type "${entry.type}" has no definition`);
+    }
+  }
   if (layout.lootSpawns.length > 0) {
     if (setup.lootTable.length === 0) issues.push("loot spawns exist but the loot table is empty");
     for (const entry of setup.lootTable) {

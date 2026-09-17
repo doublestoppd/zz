@@ -1,4 +1,5 @@
-import type { ItemType, WeaponType } from "./types.js";
+import type { WeightedEntry } from "../random/weighted.js";
+import type { ItemType, WeaponType, ZombieType } from "./types.js";
 
 /** Starting statistics for a survivor. Values come from game-data. */
 export interface SurvivorDefinition {
@@ -23,10 +24,7 @@ export interface ItemDefinition {
 }
 
 /** Relative chance of each item type appearing at a loot spawn. */
-export interface LootTableEntry {
-  readonly type: ItemType;
-  readonly weight: number;
-}
+export type LootTableEntry = WeightedEntry<ItemType>;
 
 /** Statistics for one weapon type. Values come from game-data. */
 export interface WeaponDefinition {
@@ -43,7 +41,12 @@ export interface ZombieDefinition {
   readonly maxHealth: number;
   /** Health removed from a survivor by one attack. */
   readonly damage: number;
+  /** Tiles the zombie may step per zombie phase. An attack ends its activity for the phase. */
+  readonly movesPerPhase: number;
 }
+
+/** Relative chance of each zombie type appearing at a zombie spawn. */
+export type ZombieSpawnTableEntry = WeightedEntry<ZombieType>;
 
 /** Scenario settings for the extraction objective. Values come from game-data. */
 export interface ExtractionSettings {

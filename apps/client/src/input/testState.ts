@@ -18,7 +18,7 @@ export function makeClientTestState(
     seed: 1,
     rules: {
       moveCostPerTile: 1,
-      zombieDefinitions: { walker: { maxHealth: 3, damage: 2 } },
+      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1 } },
       itemDefinitions: {
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
         ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
@@ -42,6 +42,7 @@ export function makeClientTestState(
       inventoryCapacity: 3,
     },
     lootTable: [{ type: "medkit", weight: 1 }],
+    zombieSpawnTable: [{ type: "walker", weight: 1 }],
     extraction: { holdoutRounds: 0 },
     layout: parseAsciiMap(rows),
     players: [

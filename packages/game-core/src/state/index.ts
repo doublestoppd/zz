@@ -22,6 +22,7 @@ export type {
   ItemEffect,
   LootTableEntry,
   SurvivorDefinition,
+  ZombieSpawnTableEntry,
   WeaponDefinition,
   ZombieDefinition,
 } from "./definitions.js";
