@@ -7,7 +7,7 @@ import type {
 } from "@zombie/game-core";
 
 /** Bumped on any incompatible change. The server sends it in `joined`; clients compare. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Lobby limits shared by both sides so the client can validate before sending. */
 export const PLAYER_NAME_MIN_LENGTH = 1;
@@ -64,8 +64,16 @@ export interface StartMatchMessage {
 /** A gameplay intent. Response: `update` to everyone, or `rejected` to the sender only. */
 export interface CommandMessage {
   readonly t: "command";
-  /** Client-chosen, echoed back in `rejected` so the client can match the answer. */
+  /**
+   * Client-chosen and strictly increasing per connection; echoed back in `rejected` and
+   * `error` so the client can match the answer. A repeat is refused as `DUPLICATE_COMMAND`.
+   */
   readonly seq: number;
+  /**
+   * The `update.version` the client acted on. A mismatch is refused as `STALE_STATE`, so a
+   * command composed against an old board never applies to a newer one.
+   */
+  readonly expectedVersion: number;
   readonly command: ClientCommand;
 }
 
@@ -130,11 +138,15 @@ export type ErrorCode =
   | "NOT_IN_MATCH"
   | "ALREADY_IN_MATCH"
   | "NOT_HOST"
-  | "INVALID_REJOIN_TOKEN";
+  | "INVALID_REJOIN_TOKEN"
+  | "DUPLICATE_COMMAND"
+  | "STALE_STATE";
 
 /** Session-level problems (not gameplay rejections). Sent to the sender only. */
 export interface ErrorMessage {
   readonly t: "error";
   readonly code: ErrorCode;
   readonly message: string;
+  /** Present when the error answers a specific `command`, so the client can clear it. */
+  readonly seq?: number;
 }

@@ -1,24 +1,8 @@
-import type { ClientMessage, ErrorCode } from "@zombie/protocol";
+import type { ClientMessage } from "@zombie/protocol";
+import { sendError } from "./errors.js";
 import type { MatchRegistry } from "./lobby/MatchRegistry.js";
 import type { ServerMatch } from "./match/ServerMatch.js";
 import type { ClientSession } from "./session/ClientSession.js";
-
-const ERROR_TEXT: Readonly<Record<ErrorCode, string>> = {
-  MALFORMED_MESSAGE: "The message could not be understood.",
-  INVALID_PLAYER_NAME: "Player names must be 1-20 printable characters.",
-  MATCH_NOT_FOUND: "No match with that code.",
-  MATCH_FULL: "That match is full.",
-  MATCH_ALREADY_STARTED: "That match has already started.",
-  MATCH_NOT_STARTED: "The match has not started yet.",
-  NOT_IN_MATCH: "You are not in a match.",
-  ALREADY_IN_MATCH: "You are already in a match.",
-  NOT_HOST: "Only the host can do that.",
-  INVALID_REJOIN_TOKEN: "That rejoin token is not valid for this match.",
-};
-
-export function sendError(session: ClientSession, code: ErrorCode): void {
-  session.send({ t: "error", code, message: ERROR_TEXT[code] });
-}
 
 /**
  * Routes one decoded client message to the lobby or match that owns it.
@@ -79,7 +63,7 @@ export function handleClientMessage(
         sendError(session, "NOT_IN_MATCH");
         return;
       }
-      const error = match.handleCommand(session, message.seq, message.command);
+      const error = match.handleCommand(session, message);
       if (error !== undefined) sendError(session, error);
       return;
     }

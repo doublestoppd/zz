@@ -2,7 +2,7 @@
 
 Transport: one WebSocket per client, text frames containing JSON. Types live in
 `packages/protocol/src/messages.ts`; that file is the source of truth and this document
-follows its order. `PROTOCOL_VERSION` is 1.
+follows its order. `PROTOCOL_VERSION` is 2.
 
 Principles:
 
@@ -60,17 +60,23 @@ everyone. Errors: `NOT_IN_MATCH`, `MATCH_ALREADY_STARTED`, `NOT_HOST`.
 ### `command`
 
 ```json
-{ "t": "command", "seq": 12, "command": { "type": "move", "to": { "x": 3, "y": 1 } } }
-{ "t": "command", "seq": 13, "command": { "type": "fire_weapon", "targetId": "z1" } }
-{ "t": "command", "seq": 14, "command": { "type": "reload" } }
-{ "t": "command", "seq": 15, "command": { "type": "pick_up", "itemId": "i3" } }
-{ "t": "command", "seq": 16, "command": { "type": "use_item", "itemType": "medkit" } }
-{ "t": "command", "seq": 17, "command": { "type": "end_turn" } }
+{ "t": "command", "seq": 12, "expectedVersion": 3, "command": { "type": "move", "to": { "x": 3, "y": 1 } } }
+{ "t": "command", "seq": 13, "expectedVersion": 4, "command": { "type": "fire_weapon", "targetId": "z1" } }
+{ "t": "command", "seq": 14, "expectedVersion": 5, "command": { "type": "reload" } }
+{ "t": "command", "seq": 15, "expectedVersion": 6, "command": { "type": "pick_up", "itemId": "i3" } }
+{ "t": "command", "seq": 16, "expectedVersion": 7, "command": { "type": "use_item", "itemType": "medkit" } }
+{ "t": "command", "seq": 17, "expectedVersion": 8, "command": { "type": "end_turn" } }
 ```
 
-`seq` is chosen by the client and echoed in `rejected`. The client keeps at most one command
-pending. Coordinates must be integers. Response: `update` to everyone, or `rejected` to the
-sender. Errors: `NOT_IN_MATCH`, `MATCH_NOT_STARTED`.
+`seq` is chosen by the client and must increase with every command on the same socket; a
+`seq` at or below the last one the server accepted is answered with `error DUPLICATE_COMMAND`
+(carrying that `seq`) and ignored. The sequence starts over on each new socket, so a rejoin
+begins at 1 again. `expectedVersion` is the `update.version` the client acted on; if the
+server's current version differs, the command is answered with `error STALE_STATE` and
+ignored, and the client should re-read the latest snapshot before acting. Both guards run
+before any game rule. The client keeps at most one command pending. Coordinates must be
+integers. Response: `update` to everyone, or `rejected` to the sender. Errors:
+`NOT_IN_MATCH`, `MATCH_NOT_STARTED`, `DUPLICATE_COMMAND`, `STALE_STATE`.
 
 ### `leave_match`
 

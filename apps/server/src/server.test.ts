@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   decodeServerMessage,
   encodeMessage,
+  type ClientCommand,
   type ClientMessage,
   type ServerMessage,
 } from "@zombie/protocol";
@@ -40,8 +41,28 @@ class TestClient {
     });
   }
 
+  /** Version of the latest `update` seen, whether or not a test has consumed it yet. */
+  version = 0;
+  private nextSeq = 1;
+
   send(message: ClientMessage): void {
     this.socket.send(encodeMessage(message));
+  }
+
+  /** Sends a gameplay command with the next seq and the latest known version. */
+  command(
+    command: ClientCommand,
+    overrides: { seq?: number; expectedVersion?: number } = {},
+  ): number {
+    const seq = overrides.seq ?? this.nextSeq;
+    this.nextSeq = Math.max(this.nextSeq, seq) + 1;
+    this.send({
+      t: "command",
+      seq,
+      expectedVersion: overrides.expectedVersion ?? this.version,
+      command,
+    });
+    return seq;
   }
 
   sendRaw(text: string): void {
@@ -92,6 +113,7 @@ class TestClient {
   }
 
   private deliver(message: ServerMessage): void {
+    if (message.t === "update") this.version = message.version;
     const index = this.waiters.findIndex((w) => w.predicate(message));
     if (index !== -1) {
       const [waiter] = this.waiters.splice(index, 1);
@@ -201,7 +223,7 @@ describe("gameplay", () => {
     host.send({ t: "start_match" });
     await Promise.all([host.next("update"), guest.next("update")]);
 
-    guest.send({ t: "command", seq: 1, command: { type: "end_turn" } });
+    guest.command({ type: "end_turn" }, { seq: 1 });
     expect(await guest.next("rejected")).toEqual({
       t: "rejected",
       seq: 1,
@@ -210,7 +232,7 @@ describe("gameplay", () => {
     await host.expectNone("rejected");
     await host.expectNone("update");
 
-    host.send({ t: "command", seq: 2, command: { type: "move", to: { x: 2, y: 1 } } });
+    host.command({ type: "move", to: { x: 2, y: 1 } }, { seq: 2 });
     const [a, b] = await Promise.all([host.next("update"), guest.next("update")]);
     expect(a.version).toBe(1);
     expect(a.state).toEqual(b.state);
@@ -226,9 +248,9 @@ describe("gameplay", () => {
     const [first] = await Promise.all([host.next("update"), guest.next("update")]);
     expect(first.state.zombies.length).toBeGreaterThan(0);
 
-    host.send({ t: "command", seq: 1, command: { type: "end_turn" } });
+    host.command({ type: "end_turn" }, { seq: 1 });
     await Promise.all([host.next("update"), guest.next("update")]);
-    guest.send({ t: "command", seq: 1, command: { type: "end_turn" } });
+    guest.command({ type: "end_turn" }, { seq: 1 });
     const [after] = await Promise.all([host.next("update"), guest.next("update")]);
     expect(after.state.round).toBe(2);
     expect(after.events.some((e) => e.type === "zombie_moved")).toBe(true);
@@ -241,11 +263,11 @@ describe("gameplay", () => {
     await Promise.all([host.next("update"), guest.next("update")]);
 
     // No zombie is in range at the spawn, so the shot is rejected with a combat reason.
-    host.send({ t: "command", seq: 1, command: { type: "fire_weapon", targetId: zombieId("z1") } });
+    host.command({ type: "fire_weapon", targetId: zombieId("z1") }, { seq: 1 });
     expect(await host.next("rejected")).toMatchObject({ seq: 1, reason: "OUT_OF_RANGE" });
 
     // Reloading a full magazine is rejected too; the state is unchanged for everyone.
-    host.send({ t: "command", seq: 2, command: { type: "reload" } });
+    host.command({ type: "reload" }, { seq: 2 });
     expect(await host.next("rejected")).toMatchObject({ seq: 2, reason: "MAGAZINE_FULL" });
     await guest.expectNone("update");
   });
@@ -256,11 +278,7 @@ describe("gameplay", () => {
     const [first, second] = await Promise.all([host.next("update"), guest.next("update")]);
     expect(first.state.items).toHaveLength(2);
     expect(first.state.items).toEqual(second.state.items);
-    host.send({
-      t: "command",
-      seq: 1,
-      command: { type: "pick_up", itemId: first.state.items[0]!.id },
-    });
+    host.command({ type: "pick_up", itemId: first.state.items[0]!.id }, { seq: 1 });
     expect(await host.next("rejected")).toMatchObject({ seq: 1, reason: "ITEM_NOT_HERE" });
   });
 
@@ -269,9 +287,60 @@ describe("gameplay", () => {
     host.send({ t: "start_match" });
     await Promise.all([host.next("update"), guest.next("update")]);
     guest.sendRaw(
-      encodeMessage({ t: "command", seq: 9, command: { type: "end_turn", playerId: hostId } }),
+      encodeMessage({
+        t: "command",
+        seq: 9,
+        expectedVersion: 0,
+        command: { type: "end_turn", playerId: hostId },
+      }),
     );
     expect((await guest.next("rejected")).reason).toBe("NOT_YOUR_TURN");
+  });
+});
+
+describe("command sequencing", () => {
+  it("refuses a repeated seq and a command composed against an old version", async () => {
+    const { host, guest, hostId } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    await Promise.all([host.next("update"), guest.next("update")]);
+
+    host.command({ type: "move", to: { x: 2, y: 1 } }, { seq: 5 });
+    const moved = await host.next("update");
+    await guest.next("update");
+    expect(moved.version).toBe(1);
+
+    // Same seq again: duplicate, nothing applied, nobody else hears about it.
+    host.command({ type: "move", to: { x: 3, y: 1 } }, { seq: 5 });
+    expect(await host.next("error")).toMatchObject({ code: "DUPLICATE_COMMAND", seq: 5 });
+
+    // Fresh seq but stale version: refused, still nothing applied.
+    host.command({ type: "move", to: { x: 3, y: 1 } }, { seq: 6, expectedVersion: 0 });
+    expect(await host.next("error")).toMatchObject({ code: "STALE_STATE", seq: 6 });
+
+    // A correct command now succeeds and is the very next update everyone sees.
+    host.command({ type: "end_turn" }, { seq: 7 });
+    const [a, b] = await Promise.all([host.next("update"), guest.next("update")]);
+    expect(a.version).toBe(2);
+    expect(b.state.players.find((p) => p.id === hostId)?.position).toEqual({ x: 2, y: 1 });
+  });
+
+  it("starts a fresh sequence on each socket so a reload is not treated as duplicates", async () => {
+    const { host, guest, code, hostToken } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    host.command({ type: "end_turn" }, { seq: 3 });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    await host.close();
+    await guest.next("update"); // presence change
+
+    const again = await connect();
+    again.send({ t: "rejoin_match", matchCode: code, rejoinToken: hostToken });
+    await again.next("joined");
+    const snapshot = await again.next("update");
+    again.version = snapshot.version;
+    // Not our turn (the guest holds it), so expect a gameplay rejection rather than a sequencing error.
+    again.command({ type: "end_turn" }, { seq: 1 });
+    expect((await again.next("rejected")).reason).toBe("NOT_YOUR_TURN");
   });
 });
 

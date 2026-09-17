@@ -16,28 +16,38 @@ describe("decodeClientMessage", () => {
     ['{"t":"start_match"}', { t: "start_match" }],
     ['{"t":"leave_match"}', { t: "leave_match" }],
     [
-      '{"t":"command","seq":3,"command":{"type":"move","to":{"x":1,"y":2}}}',
-      { t: "command", seq: 3, command: { type: "move", to: { x: 1, y: 2 } } },
+      '{"t":"command","seq":3,"expectedVersion":0,"command":{"type":"move","to":{"x":1,"y":2}}}',
+      { t: "command", seq: 3, expectedVersion: 0, command: { type: "move", to: { x: 1, y: 2 } } },
     ],
     [
-      '{"t":"command","seq":4,"command":{"type":"end_turn"}}',
-      { t: "command", seq: 4, command: { type: "end_turn" } },
+      '{"t":"command","seq":4,"expectedVersion":7,"command":{"type":"end_turn"}}',
+      { t: "command", seq: 4, expectedVersion: 7, command: { type: "end_turn" } },
     ],
     [
-      '{"t":"command","seq":5,"command":{"type":"fire_weapon","targetId":"z1"}}',
-      { t: "command", seq: 5, command: { type: "fire_weapon", targetId: "z1" } },
+      '{"t":"command","seq":5,"expectedVersion":7,"command":{"type":"fire_weapon","targetId":"z1"}}',
+      {
+        t: "command",
+        seq: 5,
+        expectedVersion: 7,
+        command: { type: "fire_weapon", targetId: "z1" },
+      },
     ],
     [
-      '{"t":"command","seq":6,"command":{"type":"reload"}}',
-      { t: "command", seq: 6, command: { type: "reload" } },
+      '{"t":"command","seq":6,"expectedVersion":7,"command":{"type":"reload"}}',
+      { t: "command", seq: 6, expectedVersion: 7, command: { type: "reload" } },
     ],
     [
-      '{"t":"command","seq":7,"command":{"type":"pick_up","itemId":"i1"}}',
-      { t: "command", seq: 7, command: { type: "pick_up", itemId: "i1" } },
+      '{"t":"command","seq":7,"expectedVersion":7,"command":{"type":"pick_up","itemId":"i1"}}',
+      { t: "command", seq: 7, expectedVersion: 7, command: { type: "pick_up", itemId: "i1" } },
     ],
     [
-      '{"t":"command","seq":8,"command":{"type":"use_item","itemType":"medkit"}}',
-      { t: "command", seq: 8, command: { type: "use_item", itemType: "medkit" } },
+      '{"t":"command","seq":8,"expectedVersion":7,"command":{"type":"use_item","itemType":"medkit"}}',
+      {
+        t: "command",
+        seq: 8,
+        expectedVersion: 7,
+        command: { type: "use_item", itemType: "medkit" },
+      },
     ],
   ])("accepts %s", (raw, expected) => {
     expect(decodeClientMessage(raw)).toEqual({ ok: true, value: expected });
@@ -52,24 +62,31 @@ describe("decodeClientMessage", () => {
     '{"t":"join_match","matchCode":5,"playerName":"x"}',
     '{"t":"command","seq":"1","command":{"type":"end_turn"}}',
     '{"t":"command","seq":1}',
-    '{"t":"command","seq":1,"command":{"type":"fire_weapon"}}',
-    '{"t":"command","seq":1,"command":{"type":"fire_weapon","targetId":7}}',
-    '{"t":"command","seq":1,"command":{"type":"use_item"}}',
-    '{"t":"command","seq":1,"command":{"type":"use_item","itemType":"rocket"}}',
-    '{"t":"command","seq":1,"command":{"type":"pick_up"}}',
-    '{"t":"command","seq":1,"command":{"type":"move","to":{"x":1.5,"y":2}}}',
-    '{"t":"command","seq":1,"command":{"type":"move","to":[1,2]}}',
+    '{"t":"command","seq":1,"command":{"type":"end_turn"}}',
+    '{"t":"command","seq":1,"expectedVersion":"0","command":{"type":"end_turn"}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"fire_weapon"}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"fire_weapon","targetId":7}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"use_item"}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"use_item","itemType":"rocket"}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"pick_up"}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"move","to":{"x":1.5,"y":2}}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"move","to":[1,2]}}',
   ])("rejects %s", (raw) => {
     expect(decodeClientMessage(raw).ok).toBe(false);
   });
 
   it("drops fields the protocol does not define", () => {
     const result = decodeClientMessage(
-      '{"t":"command","seq":1,"command":{"type":"move","to":{"x":1,"y":2},"playerId":"p9"}}',
+      '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"move","to":{"x":1,"y":2},"playerId":"p9"}}',
     );
     expect(result).toEqual({
       ok: true,
-      value: { t: "command", seq: 1, command: { type: "move", to: { x: 1, y: 2 } } },
+      value: {
+        t: "command",
+        seq: 1,
+        expectedVersion: 7,
+        command: { type: "move", to: { x: 1, y: 2 } },
+      },
     });
   });
 });

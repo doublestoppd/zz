@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { decodeClientMessage, encodeMessage, type ClientMessage } from "@zombie/protocol";
 import type { ClientSession } from "../session/ClientSession.js";
-import { sendError } from "../router.js";
+import { sendError } from "../errors.js";
 
 function rawDataToString(data: RawData): string {
   if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");

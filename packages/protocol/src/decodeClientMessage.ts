@@ -71,9 +71,20 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
 
     case "command": {
       if (!isInteger(parsed.seq)) return fail("command.seq must be an integer");
+      if (!isInteger(parsed.expectedVersion)) {
+        return fail("command.expectedVersion must be an integer");
+      }
       const command = decodeClientCommand(parsed.command);
       if (!command.ok) return fail(command.error);
-      return { ok: true, value: { t: "command", seq: parsed.seq, command: command.value } };
+      return {
+        ok: true,
+        value: {
+          t: "command",
+          seq: parsed.seq,
+          expectedVersion: parsed.expectedVersion,
+          command: command.value,
+        },
+      };
     }
 
     default:

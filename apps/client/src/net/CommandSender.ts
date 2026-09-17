@@ -19,6 +19,7 @@ export class CommandSender {
     const seq = this.nextSeq;
     this.nextSeq += 1;
     this.store.markPending(seq);
-    this.connection.send({ t: "command", seq, command });
+    const expectedVersion = this.store.get().game?.version ?? 0;
+    this.connection.send({ t: "command", seq, expectedVersion, command });
   }
 }

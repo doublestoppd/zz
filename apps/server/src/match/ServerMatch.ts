@@ -22,6 +22,7 @@ import {
   type LobbyMessage,
   type ServerMessage,
 } from "@zombie/protocol";
+import { sendError } from "../errors.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import { MatchRuntime } from "./MatchRuntime.js";
 
@@ -39,6 +40,8 @@ interface Member {
   readonly rejoinToken: string;
   /** Undefined while the player is disconnected. */
   session: ClientSession | undefined;
+  /** Highest command `seq` accepted on the current socket; reset when a new socket attaches. */
+  lastSeq: number;
 }
 
 /**
@@ -84,6 +87,7 @@ export class ServerMatch {
       name: rawName.trim(),
       rejoinToken: this.deps.createRejoinToken(),
       session,
+      lastSeq: 0,
     };
     this.nextPlayerNumber += 1;
     this.members.push(member);
@@ -163,14 +167,34 @@ export class ServerMatch {
     return undefined;
   }
 
+  /**
+   * Applies one gameplay command. Besides membership, two sequencing guards run before the
+   * rules: a `seq` at or below the last accepted one is a duplicate delivery, and an
+   * `expectedVersion` other than the current snapshot version means the client composed
+   * the command against a board that has since changed. Both are answered with an `error`
+   * carrying the `seq`, and neither touches the state.
+   */
   handleCommand(
     session: ClientSession,
-    seq: number,
-    command: ClientCommand,
+    message: {
+      readonly seq: number;
+      readonly expectedVersion: number;
+      readonly command: ClientCommand;
+    },
   ): ErrorCode | undefined {
     const member = this.members.find((m) => m.session === session);
     if (member === undefined) return "NOT_IN_MATCH";
     if (this.runtime === undefined) return "MATCH_NOT_STARTED";
+    const { seq, expectedVersion, command } = message;
+    if (seq <= member.lastSeq) {
+      sendError(session, "DUPLICATE_COMMAND", seq);
+      return undefined;
+    }
+    member.lastSeq = seq;
+    if (expectedVersion !== this.runtime.getVersion()) {
+      sendError(session, "STALE_STATE", seq);
+      return undefined;
+    }
 
     // The player id comes from the session, never from the payload.
     const result = this.runtime.apply({ ...command, playerId: member.playerId });
@@ -184,6 +208,7 @@ export class ServerMatch {
 
   private attach(session: ClientSession, member: Member): void {
     member.session = session;
+    member.lastSeq = 0;
     session.matchCode = this.code;
     session.playerId = member.playerId;
   }
