@@ -82,6 +82,47 @@ export default tseslint.config(
     },
   },
   {
+    // Apps may not reach into each other, and each stays on its own side of the network.
+    files: ["apps/client/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "ws", message: "The client uses the browser WebSocket, never ws." },
+            { name: "@zombie/server", message: "The client must not import the server." },
+          ],
+          patterns: [
+            {
+              group: ["@zombie/*/src/*"],
+              message: "Import a package through its public entry point.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/server/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "phaser", message: "The server never renders." },
+            { name: "@zombie/client", message: "The server must not import the client." },
+          ],
+          patterns: [
+            {
+              group: ["@zombie/*/src/*"],
+              message: "Import a package through its public entry point.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["packages/game-core/**/*.ts", "packages/map-generation/**/*.ts"],
     rules: {
       "no-restricted-properties": [
