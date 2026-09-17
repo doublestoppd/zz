@@ -25,3 +25,4 @@ export type {
   ZombieDefinition,
 } from "./definitions.js";
 export { createInitialState, type MatchSetup } from "./createInitialState.js";
+export { validateMatchSetup } from "./validateSetup.js";

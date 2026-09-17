@@ -4,6 +4,7 @@ import { createRng, deriveSeed, RNG_STREAM, type Rng } from "../random/rng.js";
 import { firstEligiblePlayer } from "../turn/turnOrder.js";
 import type { ExtractionSettings, LootTableEntry, SurvivorDefinition } from "./definitions.js";
 import type { GameRules, GameState, GroundItem, PlayerState, ZombieState } from "./types.js";
+import { validateMatchSetup } from "./validateSetup.js";
 
 export interface MatchSetup {
   readonly matchId: MatchId;
@@ -24,17 +25,9 @@ export interface MatchSetup {
  */
 export function createInitialState(setup: MatchSetup): GameState {
   const { layout, players } = setup;
-  if (players.length === 0) {
-    throw new Error("createInitialState: a match needs at least one player");
-  }
-  if (players.length > layout.spawnPositions.length) {
-    throw new Error(
-      `createInitialState: ${players.length} players but only ${layout.spawnPositions.length} spawn positions`,
-    );
-  }
-  const ids = new Set(players.map((p) => p.id));
-  if (ids.size !== players.length) {
-    throw new Error("createInitialState: duplicate player ids");
+  const issues = validateMatchSetup(setup);
+  if (issues.length > 0) {
+    throw new Error(`createInitialState: invalid setup\n- ${issues.join("\n- ")}`);
   }
 
   const playerStates: PlayerState[] = players.map((p, index) => {
