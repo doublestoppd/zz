@@ -39,7 +39,8 @@ Keyboard: arrows or WASD move one tile, **F** fires at the nearest zombie in ran
 reloads, **P** picks up, **E** ends the turn. Sound effects are synthesized in the browser;
 **Mute** remembers your choice. If the connection drops, the client reconnects and rejoins
 on its own. Animations are skipped when the OS "reduce motion" setting is on.
-Reloading a tab offers **Rejoin previous match**.
+Reloading a tab or losing the connection rejoins the match automatically; **Rejoin previous
+match** covers the case where that did not happen.
 
 ## Checks
 

@@ -12,25 +12,27 @@ apps/
   server/   Lobby, sessions, match runtime, ws adapter.          Imports: protocol, game-core, game-data.
 packages/
   game-core/       Authoritative rules and simulation.          Imports: nothing.
-  game-data/       Survivor stats and rule numbers.             Imports: game-core (types only).
-  protocol/        Message contracts and decoders.              Imports: game-core (types only).
+  game-data/       Survivor, weapon, zombie, item, objective data. Imports: game-core (types only).
+  protocol/        Message contracts and decoders.              Imports: game-core (types, plus the id factories).
   map-generation/  Seeded city generation and validation.       Imports: game-core.
 ```
 
 ### `packages/game-core`
 
-| Directory      | Owns                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| `ids.ts`       | Branded `PlayerId`, `ZombieId`, `MatchId` and their factories.                             |
-| `state/`       | `GameState` and entity types; `createInitialState`; player lookup/replace helpers.         |
-| `map/`         | `GameMap`, `Tile`, `Position`, position helpers, the ASCII map parser and the fixture map. |
-| `random/`      | The seeded `Rng`, `deriveSeed`, and the named stream table.                                |
-| `pathfinding/` | Breadth-first search: shortest path and reachable set.                                     |
-| `rules/`       | Board rules: occupancy, movement validation, legal destinations.                           |
-| `turn/`        | Turn order and eligibility; phase transitions; `advanceUntilPlayerInput`.                  |
-| `commands/`    | Command and rejection unions; shared turn checks; `applyCommand`.                          |
-| `events/`      | The `GameEvent` union.                                                                     |
-| `testing/`     | `makeTestState` builder used by tests only.                                                |
+| Directory      | Owns                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ids.ts`       | Branded `PlayerId`, `ZombieId`, `ItemId`, `MatchId` and their factories.                                                                    |
+| `state/`       | `GameState` and entity types; definitions (survivor, weapon, zombie, item, objective settings); `createInitialState`; `validateMatchSetup`. |
+| `map/`         | `GameMap`, `Tile`, `Position`, position helpers, the ASCII map parser and the fixture map.                                                  |
+| `random/`      | The seeded `Rng`, `deriveSeed`, the named stream table, and `pickWeighted`.                                                                 |
+| `pathfinding/` | Breadth-first search: shortest path, reachable set, and `searchFrom` for many goals.                                                        |
+| `rules/`       | Board rules: occupancy and passability, movement, health and down status, line of sight, fire and reload, pick up and use item.             |
+| `turn/`        | Turn order and eligibility; phase transitions; `advanceUntilPlayerInput`.                                                                   |
+| `zombies/`     | Zombie decision (`targetSelection.ts`) and the per-round zombie phase.                                                                      |
+| `objectives/`  | Objective creation, per-mode evaluation, zone tiles and progress summary; `extraction.ts` is the one mode so far.                           |
+| `commands/`    | Command and rejection unions; shared turn checks; `applyCommand`.                                                                           |
+| `events/`      | The `GameEvent` union.                                                                                                                      |
+| `testing/`     | `makeTestState` builder used by tests only.                                                                                                 |
 
 Public API is `src/index.ts`. Other packages may not import deeper paths (ESLint enforces it).
 
@@ -60,14 +62,15 @@ so nothing downstream knows which it is playing on. The server injects the layou
 
 ### `apps/client`
 
-| Directory | Owns                                                                           |
-| --------- | ------------------------------------------------------------------------------ |
-| `net/`    | WebSocket wrapper; `CommandSender` (one pending command at a time). No Phaser. |
-| `state/`  | `ClientStore`: latest snapshot, identity, pending seq, log. No Phaser.         |
-| `ui/`     | DOM lobby and HUD, rejection text, event log text, sessionStorage identity.    |
-| `render/` | Tile geometry; `BoardRenderer` reconciling Phaser objects from state.          |
-| `input/`  | `decideMoveIntent`: click → command, mirroring the server rule.                |
-| `scenes/` | The single Phaser scene.                                                       |
+| Directory | Owns                                                                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `net/`    | WebSocket wrapper with automatic reconnect; `CommandSender` (one pending command at a time). No Phaser.                              |
+| `state/`  | `ClientStore`: latest snapshot, the events that produced it, identity, pending seq, log. No Phaser.                                  |
+| `ui/`     | DOM lobby and HUD (buttons, inventory, mute, keyboard help, live regions), objective and outcome wording, rejection and log text.    |
+| `render/` | Tile geometry; `planAnimations` (pure: events → steps); `BoardRenderer` playing steps as tweens, then reconciling Phaser objects.    |
+| `input/`  | Pure intent functions: `decideClickIntent`, `decideMoveIntent`, `keyToCommand`.                                                      |
+| `audio/`  | `SoundPlayer`: synthesized Web Audio tones per sound name, mute preference.                                                          |
+| `scenes/` | The single Phaser scene: wires pointer and keyboard events to the intent functions. `main.ts` also imports Phaser to build the game. |
 
 ## Dependency rules
 
@@ -121,7 +124,8 @@ client can enumerate them.
 ## State synchronisation
 
 Full snapshot per update ([ADR 0002](adr/0002-plain-data-state-and-snapshot-sync.md)). The
-state is a few kilobytes and changes at human speed. `version` orders updates; a client
+state is about 27 KB on a generated city (93% of it the static map, see the audit) and
+changes at human speed. `version` orders updates; a client
 ignores anything older than what it has. Reconnection is "send the latest snapshot".
 
 `game-core` has no notion of clients or sockets; `MatchRuntime` is the only mutable holder of
@@ -144,37 +148,49 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 
 ## Owner map
 
-| Question                                           | Owner                                                                  |
-| -------------------------------------------------- | ---------------------------------------------------------------------- |
-| Where is movement validated?                       | `packages/game-core/src/rules/movement.ts`                             |
-| Where does a turn advance?                         | `packages/game-core/src/turn/phases.ts`                                |
-| Where is turn eligibility decided?                 | `packages/game-core/src/turn/turnOrder.ts`                             |
-| Where are commands dispatched?                     | `packages/game-core/src/commands/applyCommand.ts`                      |
-| Where are rejection reasons listed?                | `packages/game-core/src/commands/rejection.ts` and `rules/movement.ts` |
-| Where are events defined?                          | `packages/game-core/src/events/types.ts`                               |
-| Where are survivor stats and rule numbers?         | `packages/game-data/src/`                                              |
-| Where are client/server messages defined?          | `packages/protocol/src/messages.ts`                                    |
-| Where does the server decide who sent a command?   | `apps/server/src/match/ServerMatch.ts` (`handleCommand`)               |
-| Where are match codes and cleanup handled?         | `apps/server/src/lobby/MatchRegistry.ts`                               |
-| Where does the client turn a click into a command? | `apps/client/src/input/moveIntent.ts`                                  |
-| Where is the board drawn?                          | `apps/client/src/render/BoardRenderer.ts`                              |
-| Where is the hard-coded map?                       | `packages/game-core/src/map/testMaps.ts`                               |
-| Where will weapon damage be calculated?            | `packages/game-core/src/rules/combat.ts` (Milestone 3)                 |
-| Where will zombie behaviour be selected?           | `packages/game-core/src/zombies/` (Milestone 2)                        |
-| Where will map connectivity be validated?          | `packages/map-generation/` (Milestone 5)                               |
+| Question                                                         | Owner                                                                                                |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Where is movement validated?                                     | `packages/game-core/src/rules/movement.ts`                                                           |
+| Where is passability (what blocks a path) defined?               | `packages/game-core/src/rules/occupancy.ts` (`passabilityFor`, `canStandOn`)                         |
+| Where does a turn advance?                                       | `packages/game-core/src/turn/phases.ts`                                                              |
+| Where is turn eligibility decided?                               | `packages/game-core/src/turn/turnOrder.ts`                                                           |
+| Where are commands dispatched?                                   | `packages/game-core/src/commands/applyCommand.ts`                                                    |
+| Where are rejection reasons listed?                              | `packages/game-core/src/commands/rejection.ts` and the `rules/*.ts` validator each reason belongs to |
+| Where are events defined?                                        | `packages/game-core/src/events/types.ts`                                                             |
+| Where is weapon damage, range, and ammo validated?               | `packages/game-core/src/rules/combat.ts`                                                             |
+| Where is line of sight computed?                                 | `packages/game-core/src/rules/lineOfSight.ts`                                                        |
+| Where is damage applied, a survivor downed, or a zombie killed?  | `packages/game-core/src/rules/health.ts`                                                             |
+| Where is zombie behaviour selected?                              | `packages/game-core/src/zombies/targetSelection.ts`                                                  |
+| Where are pick-up and use-item validated?                        | `packages/game-core/src/rules/items.ts`                                                              |
+| Where is loot and the zombie type at each spawn rolled?          | `packages/game-core/src/state/createInitialState.ts` (`pickWeighted`)                                |
+| Where is the objective created, evaluated, and summarised?       | `packages/game-core/src/objectives/` (`createObjective.ts`, `evaluate.ts`, `extraction.ts`)          |
+| Where does defeat get decided?                                   | `packages/game-core/src/turn/phases.ts` (`resolveEndOfRound`)                                        |
+| Where are setup invariants checked?                              | `packages/game-core/src/state/validateSetup.ts`                                                      |
+| Where are survivor, weapon, zombie, item stats and rule numbers? | `packages/game-data/src/`                                                                            |
+| Where are client/server messages defined?                        | `packages/protocol/src/messages.ts`                                                                  |
+| Where does the server decide who sent a command?                 | `apps/server/src/match/ServerMatch.ts` (`handleCommand`)                                             |
+| Where are match codes and cleanup handled?                       | `apps/server/src/lobby/MatchRegistry.ts`                                                             |
+| Where does the server choose the map?                            | `apps/server/src/lobby/MatchRegistry.ts` (`DEFAULT_DEPS.createLayout`)                               |
+| Where does the client turn a click or key into a command?        | `apps/client/src/input/clickIntent.ts`, `input/keyboard.ts`                                          |
+| Where is objective and outcome wording?                          | `apps/client/src/ui/objectiveText.ts`                                                                |
+| Where is the board drawn and animated?                           | `apps/client/src/render/BoardRenderer.ts`, `render/animationPlan.ts`                                 |
+| Where is the hard-coded test map?                                | `packages/game-core/src/map/testMaps.ts`                                                             |
+| Where is map connectivity validated?                             | `packages/map-generation/src/validate/validateLayout.ts`                                             |
+| Where are building templates and generation rules?               | `packages/map-generation/src/templates/buildings.ts` and `city.ts`                                   |
 
 ## Roadmap
 
-| Milestone              | Status | Scope                                                                 |
-| ---------------------- | ------ | --------------------------------------------------------------------- |
-| 0 Architecture         | done   | this document and the ADRs                                            |
-| 1 Multiplayer movement | done   | lobby, sessions, turns, AP, move, end turn, sync, tests               |
-| 2 Zombie phase         | next   | zombie state, nearest-player targeting, step or attack, `down` status |
-| 3 Basic combat         |        | one weapon, ammo/reload, range and line of sight, damage and death    |
-| 4 Extraction objective |        | completion evaluation, holdout rounds, victory/defeat                 |
-| 5 Procedural city      |        | seeded generation with validation, replacing the fixture map          |
-| 6 Inventory and loot   |        | pickup/search, items, medkit/ammo                                     |
-| 7 Presentation polish  |        | animation, audio, accessibility                                       |
+| Milestone              | Status | Scope                                                                                                   |
+| ---------------------- | ------ | ------------------------------------------------------------------------------------------------------- |
+| 0 Architecture         | done   | this document and the ADRs                                                                              |
+| 1 Multiplayer movement | done   | lobby, sessions, turns, AP, move, end turn, sync, tests                                                 |
+| 2 Zombie phase         | done   | zombie spawns, nearest-survivor targeting, step or attack, `down` status, defeat                        |
+| 3 Basic combat         | done   | pistol, ammo and reload, Chebyshev range, symmetric Bresenham line of sight, zombie death               |
+| 4 Extraction objective | done   | end-of-round evaluation, holdout rounds, victory, match-over screen                                     |
+| 5 Procedural city      | done   | road grid, lots with authored building templates, marker placement, validation, deterministic retry     |
+| 6 Inventory and loot   | done   | ground items rolled from a loot table, small inventory, pick up, medkit and ammo box                    |
+| 7 Presentation polish  | done   | event-driven tweens, synthesized sounds with mute, keyboard controls, health bars, auto-reconnect, a11y |
+| Audit follow-up        | active | see [CODEBASE-AUDIT.md](CODEBASE-AUDIT.md) and its resolution log                                       |
 
 Deliberately not generalised yet: no quest engine, no entity-component system, no action
 registry, no transport abstraction, no delta sync, no persistence or accounts, no plugin

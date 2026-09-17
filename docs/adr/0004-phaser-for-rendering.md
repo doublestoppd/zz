@@ -10,8 +10,8 @@ and text panels for the lobby and HUD.
 ## Decision
 
 Phaser 3 renders the board inside `apps/client/src/render` and `scenes`. Everything else
-(lobby forms, HUD, log) is plain DOM built in `apps/client/src/ui`. Phaser is never imported
-outside `render/` and `scenes/`.
+(lobby forms, HUD, log) is plain DOM built in `apps/client/src/ui`. Phaser is imported only
+by `render/`, `scenes/`, and `main.ts` (which constructs the game).
 
 ## Alternatives considered
 

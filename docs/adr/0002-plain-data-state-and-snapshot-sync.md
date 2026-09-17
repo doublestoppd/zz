@@ -5,7 +5,8 @@ Status: accepted
 ## Context
 
 State must travel over the wire, be stored for replay, and be built in tests by hand.
-The state is small (a few kilobytes) and changes only when a player acts.
+The state is small (about 27 KB with a generated 26x18 map, of which the map is 93%) and
+changes only when a player acts.
 
 ## Decision
 
