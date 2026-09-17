@@ -14,6 +14,7 @@ export type {
   ZombieState,
   ZombieType,
 } from "./types.js";
+export { ITEM_TYPES } from "./types.js";
 export { findPlayer, replacePlayer } from "./players.js";
 export type {
   ExtractionSettings,

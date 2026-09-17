@@ -1,4 +1,4 @@
-import { isInExtractionZone, itemsUnderPlayer, type ItemType } from "@zombie/game-core";
+import { ITEM_TYPES, isInExtractionZone, itemsUnderPlayer, type ItemType } from "@zombie/game-core";
 import type { SoundPlayer } from "../audio/SoundPlayer.js";
 import { KEY_HELP } from "../input/keyboard.js";
 import type { CommandSender } from "../net/CommandSender.js";
@@ -7,6 +7,12 @@ import type { ClientState, ClientStore } from "../state/ClientStore.js";
 import { clearIdentity } from "./identityStorage.js";
 import { button, el, requireElement } from "./dom.js";
 import { REJECTION_MESSAGES } from "./rejectionMessages.js";
+
+/** Button text per item type; the compiler demands an entry for every `ItemType`. */
+const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
+  medkit: "Use medkit",
+  ammo_box: "Open ammo box",
+};
 
 /** Round, turn, action points, end-turn control, and the event log. */
 export class Hud {
@@ -60,10 +66,8 @@ export class Hud {
           : itemsUnderPlayer(client.game.state, me)[0];
       if (item !== undefined) sender.send({ type: "pick_up", itemId: item.id });
     });
-    for (const [type, label] of [
-      ["medkit", "Use medkit"],
-      ["ammo_box", "Open ammo box"],
-    ] as const) {
+    for (const type of ITEM_TYPES) {
+      const label = ITEM_USE_LABELS[type];
       this.useButtons.set(
         type,
         button(label, () => {

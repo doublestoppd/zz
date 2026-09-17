@@ -54,7 +54,9 @@ export interface GameRules {
   readonly pickUpActionPointCost: number;
 }
 
-export type ItemType = "medkit" | "ammo_box";
+/** Runtime list of item types; the type is derived from it so decoders and UIs can iterate. */
+export const ITEM_TYPES = ["medkit", "ammo_box"] as const;
+export type ItemType = (typeof ITEM_TYPES)[number];
 
 export interface GroundItem {
   readonly id: ItemId;

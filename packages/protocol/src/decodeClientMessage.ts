@@ -1,4 +1,4 @@
-import { itemId, zombieId, type ItemType } from "@zombie/game-core";
+import { ITEM_TYPES, itemId, zombieId, type ItemType } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
   PLAYER_NAME_MAX_LENGTH,
@@ -81,10 +81,8 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
   }
 }
 
-const ITEM_TYPES: ReadonlySet<string> = new Set<ItemType>(["medkit", "ammo_box"]);
-
 function isItemType(value: unknown): value is ItemType {
-  return isString(value) && ITEM_TYPES.has(value);
+  return isString(value) && (ITEM_TYPES as readonly string[]).includes(value);
 }
 
 function decodeClientCommand(value: unknown): DecodeResult<ClientCommand> {

@@ -98,14 +98,13 @@ own layout in `testing/makeTestState.ts`.
 
 ## Add an item
 
-1. `packages/game-core/src/state/types.ts`: extend `ItemType`.
+1. `packages/game-core/src/state/types.ts`: add the name to the `ITEM_TYPES` array; the
+   `ItemType` union, the protocol decoder, and the HUD button list all derive from it.
 2. `packages/game-data/src/items.ts`: the compiler demands an `ItemDefinition` (an effect
    and an action point cost). Add a weight to `LOOT_TABLE` if it should appear as loot.
-3. `packages/protocol/src/decodeClientMessage.ts`: add the name to `ITEM_TYPES` so
-   `use_item` accepts it.
-4. `apps/client/src/render/BoardRenderer.ts` (`ITEM_LABELS`) and `apps/client/src/ui/Hud.ts`
-   (the use-button list): the compiler flags the first, the second is a two-line entry.
-5. If the item needs a new kind of effect, add a member to `ItemEffect` in
+3. `apps/client/src/render/BoardRenderer.ts` (`ITEM_LABELS`) and `apps/client/src/ui/Hud.ts`
+   (`ITEM_USE_LABELS`): the compiler flags both.
+4. If the item needs a new kind of effect, add a member to `ItemEffect` in
    `state/definitions.ts`; `applyUseItem` in `commands/applyCommand.ts` and
    `validateUseItem` in `rules/items.ts` switch on it and will not compile until handled.
 
