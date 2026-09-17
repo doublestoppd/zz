@@ -3,7 +3,7 @@ import { isInBounds, positionsEqual, tileAt } from "../map/position.js";
 import type { Position } from "../map/types.js";
 import { findShortestPath, reachablePositions } from "../pathfinding/bfs.js";
 import type { GameState, PlayerState } from "../state/types.js";
-import { isOccupied } from "./occupancy.js";
+import { canStandOn, passabilityFor } from "./occupancy.js";
 
 export type MoveRejectionReason =
   | "DESTINATION_OUT_OF_BOUNDS"
@@ -43,11 +43,12 @@ export function validateMove(
   if (positionsEqual(player.position, destination)) {
     return { ok: false, reason: "DESTINATION_IS_CURRENT_POSITION" };
   }
-  if (isOccupied(state, destination, player.id)) {
+  const mover = { kind: "survivor", id: player.id } as const;
+  if (!canStandOn(state, destination, mover)) {
     return { ok: false, reason: "DESTINATION_OCCUPIED" };
   }
 
-  const isPassable = (p: Position): boolean => !isOccupied(state, p, player.id);
+  const isPassable = passabilityFor(state, mover);
   // Search the whole board first so "unreachable" and "too expensive" are distinct answers.
   const unlimited = state.map.width * state.map.height;
   const path = findShortestPath(state.map, player.position, destination, unlimited, isPassable);
@@ -65,6 +66,6 @@ export function validateMove(
 export function legalMoveDestinations(state: GameState, playerId: PlayerId): Position[] {
   const player = state.players.find((p) => p.id === playerId);
   if (player === undefined) return [];
-  const isPassable = (p: Position): boolean => !isOccupied(state, p, player.id);
+  const isPassable = passabilityFor(state, { kind: "survivor", id: player.id });
   return reachablePositions(state.map, player.position, affordableSteps(state, player), isPassable);
 }

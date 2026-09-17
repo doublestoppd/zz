@@ -1,4 +1,10 @@
-export { isOccupied, isOccupiedByPlayer } from "./occupancy.js";
+export {
+  canStandOn,
+  isOccupied,
+  isOccupiedByPlayer,
+  passabilityFor,
+  type Mover,
+} from "./occupancy.js";
 export {
   affordableSteps,
   legalMoveDestinations,

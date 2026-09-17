@@ -1,7 +1,7 @@
 import { orthogonalNeighbours, positionsEqual, tileAt } from "../map/position.js";
 import type { Position } from "../map/types.js";
 import { searchFrom } from "../pathfinding/bfs.js";
-import { isOccupied, isOccupiedByPlayer } from "../rules/occupancy.js";
+import { canStandOn, passabilityFor } from "../rules/occupancy.js";
 import type { GameState, PlayerState, ZombieState } from "../state/types.js";
 
 /** What a zombie decided to do this phase. `wait` means no target could be reached. */
@@ -38,13 +38,9 @@ export function decideZombieAction(state: GameState, zombie: ZombieState): Zombi
   const adjacent = targets.find((p) => isAdjacent(p.position, zombie.position));
   if (adjacent !== undefined) return { kind: "attack", target: adjacent };
 
+  const mover = { kind: "zombie", id: zombie.id } as const;
   const unlimited = state.map.width * state.map.height;
-  const reach = searchFrom(
-    state.map,
-    zombie.position,
-    unlimited,
-    (p) => !isOccupiedByPlayer(state, p),
-  );
+  const reach = searchFrom(state.map, zombie.position, unlimited, passabilityFor(state, mover));
 
   let best: { distance: number; goal: Position; target: PlayerState } | undefined;
   for (const target of targets) {
@@ -59,6 +55,6 @@ export function decideZombieAction(state: GameState, zombie: ZombieState): Zombi
   if (best === undefined) return { kind: "wait" };
   const path = reach.pathTo(best.goal);
   const first = path?.[0];
-  if (first === undefined || isOccupied(state, first, zombie.id)) return { kind: "wait" };
+  if (first === undefined || !canStandOn(state, first, mover)) return { kind: "wait" };
   return { kind: "step", to: first, target: best.target };
 }
