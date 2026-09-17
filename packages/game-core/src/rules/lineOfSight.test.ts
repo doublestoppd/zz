@@ -33,6 +33,21 @@ describe("hasLineOfSight", () => {
     expect(hasLineOfSight(map, { x: 1, y: 0 }, { x: 3, y: 2 })).toBe(false);
   });
 
+  it("is symmetric: a diagonal line that clips a wall is blocked from both ends", () => {
+    const { map: corner } = parseAsciiMap(["....", ".#..", "....", "...."]);
+    for (let y1 = 0; y1 < 4; y1 += 1) {
+      for (let x1 = 0; x1 < 4; x1 += 1) {
+        for (let y2 = 0; y2 < 4; y2 += 1) {
+          for (let x2 = 0; x2 < 4; x2 += 1) {
+            const a = { x: x1, y: y1 };
+            const b = { x: x2, y: y2 };
+            expect(hasLineOfSight(corner, a, b)).toBe(hasLineOfSight(corner, b, a));
+          }
+        }
+      }
+    }
+  });
+
   it("treats positions outside the map as blocking", () => {
     expect(hasLineOfSight(map, { x: 0, y: 0 }, { x: -2, y: 0 })).toBe(false);
   });

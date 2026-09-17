@@ -4,7 +4,13 @@ import { createRng, type Rng } from "../random/rng.js";
 import type { GamePhase, GameState, MatchOutcome } from "../state/types.js";
 import { evaluateExtraction } from "../objectives/extraction.js";
 import { runZombiePhase } from "../zombies/zombiePhase.js";
-import { firstEligiblePlayer, hasEligiblePlayer, nextEligiblePlayerAfter } from "./turnOrder.js";
+import {
+  firstEligiblePlayer,
+  firstStandingPlayer,
+  hasEligiblePlayer,
+  isEligibleToAct,
+  nextEligiblePlayerAfter,
+} from "./turnOrder.js";
 
 /** A state transition together with the events that describe it. */
 export interface Transition {
@@ -84,11 +90,12 @@ export function resolveEndOfRound(state: GameState): Transition {
     players: evaluated.players.map((p) => ({ ...p, actionPoints: p.maxActionPoints })),
   };
   const roundStarted: GameEvent = { type: "round_started", round: nextRound };
-  const first = firstEligiblePlayer(refilled);
-  // Nobody present: keep the first player in turn order as the (paused) active player.
-  // `set_player_presence` hands the turn over as soon as somebody returns.
-  const active = first ?? refilled.turnOrder[0];
-  if (active === undefined) throw new Error("resolveEndOfRound: match has no players");
+  // Nobody present: pause on the first standing survivor (never a down one, so the active
+  // player is always someone who could act). `set_player_presence` hands the turn over as
+  // soon as somebody eligible returns. A standing survivor exists because the all-down
+  // defeat check ran above.
+  const active = firstEligiblePlayer(refilled) ?? firstStandingPlayer(refilled);
+  if (active === undefined) throw new Error("resolveEndOfRound: no standing survivor");
   const turn = startPlayerTurn(refilled, active);
   return { state: turn.state, events: [...objective.events, roundStarted, ...turn.events] };
 }
@@ -137,14 +144,14 @@ export function advanceUntilPlayerInput(state: GameState): Transition {
 }
 
 /**
- * Enforces the invariant "an absent player never holds the turn while someone present
- * could act". Called after presence changes. No-op in every other situation.
+ * Enforces the invariant "a survivor who cannot act never holds the turn while someone
+ * eligible could". Called after presence changes. No-op in every other situation.
  */
-export function reassignTurnIfActivePlayerAbsent(state: GameState): Transition {
+export function reassignTurnIfActivePlayerIneligible(state: GameState): Transition {
   if (state.phase.kind !== "player_turn") return { state, events: [] };
   const activeId = state.phase.activePlayerId;
   const active = state.players.find((p) => p.id === activeId);
-  if (active === undefined || active.present) return { state, events: [] };
+  if (active === undefined || isEligibleToAct(active)) return { state, events: [] };
   if (!hasEligiblePlayer(state)) return { state, events: [] };
   const ended = endActiveTurn(state);
   const settled = advanceUntilPlayerInput(ended.state);

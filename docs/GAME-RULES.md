@@ -52,8 +52,11 @@ round N+1: ...
 - When a player disconnects they become absent. If they were active and anyone else is
   present, their turn ends immediately. If nobody else is present, they remain the active
   player and the match is paused.
-- When any player returns while the active player is absent, the turn passes on
-  (`reassignTurnIfActivePlayerAbsent`).
+- When any player returns while the active player cannot act (absent or down), the turn
+  passes on (`reassignTurnIfActivePlayerIneligible`).
+- If nobody can act at the start of a round (everyone standing is disconnected), the round
+  pauses on the first standing survivor in turn order; a down survivor is never made active.
+  Every command also re-checks that the sender is standing (`PLAYER_NOT_ACTIVE`).
 - Absent players keep their position, health, and action points.
 
 ## Movement (`rules/movement.ts`)
@@ -81,8 +84,7 @@ left it. For each zombie, `decideZombieAction` (`zombies/targetSelection.ts`) pi
    onto an occupied tile (a queue in a corridor waits for the zombie in front to move).
 3. **Wait** if no survivor is reachable or the next tile is occupied.
 
-Zombies do not act on a zombie's turn in any other way; they have no health loss yet
-(combat milestone).
+Zombies take damage only from survivor attacks (see Combat) and die at zero health.
 
 ## Combat (`rules/combat.ts`, `rules/lineOfSight.ts`)
 
@@ -95,8 +97,9 @@ magazine 6, 1 action point to fire, 1 action point to reload.
   One round is spent per shot.
 - **Range** is Chebyshev distance: the larger of the horizontal and vertical tile distance,
   so a diagonal counts as one.
-- **Line of sight** follows Bresenham's line between the two tiles. Any tile strictly between
-  them that `blocksVision` (walls) blocks the shot. Survivors and zombies never block sight.
+- **Line of sight** follows Bresenham's line between the two tiles, checked in both
+  directions so it is symmetric. Any tile strictly between them that `blocksVision` (walls)
+  blocks the shot. Survivors and zombies never block sight.
 - **Reload** fills the magazine from reserve ammunition, limited by what the reserve holds.
   Rejected when the magazine is full, the reserve is empty, or action points are short.
 - A zombie at zero health dies and is removed from the board (`entity_died`).

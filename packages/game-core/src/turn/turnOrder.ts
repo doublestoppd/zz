@@ -32,3 +32,11 @@ export function nextEligiblePlayerAfter(state: GameState, current: PlayerId): Pl
 export function hasEligiblePlayer(state: GameState): boolean {
   return eligibleIds(state).length > 0;
 }
+
+/**
+ * The first survivor in turn order who is still standing, connected or not. Used when
+ * nobody is eligible to act so the paused turn always rests on someone who could resume.
+ */
+export function firstStandingPlayer(state: GameState): PlayerId | undefined {
+  return state.turnOrder.find((id) => state.players.find((p) => p.id === id)?.status === "active");
+}

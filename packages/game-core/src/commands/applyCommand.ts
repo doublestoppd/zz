@@ -8,7 +8,7 @@ import type { GameState, PlayerState } from "../state/types.js";
 import {
   advanceUntilPlayerInput,
   endActiveTurn,
-  reassignTurnIfActivePlayerAbsent,
+  reassignTurnIfActivePlayerIneligible,
   type Transition,
 } from "../turn/phases.js";
 import type { RejectionReason } from "./rejection.js";
@@ -238,6 +238,6 @@ function applySetPlayerPresence(state: GameState, command: SetPlayerPresenceComm
     playerId: command.playerId,
     present: command.present,
   };
-  const reassigned = reassignTurnIfActivePlayerAbsent(updated);
+  const reassigned = reassignTurnIfActivePlayerIneligible(updated);
   return { state: reassigned.state, events: [changed, ...reassigned.events] };
 }

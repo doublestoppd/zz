@@ -6,6 +6,7 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionReason, string>> = {
   MATCH_FINISHED: "The match is over.",
   WRONG_PHASE: "You cannot act right now.",
   NOT_YOUR_TURN: "It is not your turn.",
+  PLAYER_NOT_ACTIVE: "You are down and cannot act.",
   DESTINATION_OUT_OF_BOUNDS: "That tile is outside the map.",
   DESTINATION_BLOCKED: "You cannot walk there.",
   DESTINATION_OCCUPIED: "Someone is already standing there.",

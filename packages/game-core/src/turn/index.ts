@@ -1,5 +1,6 @@
 export {
   firstEligiblePlayer,
+  firstStandingPlayer,
   hasEligiblePlayer,
   isEligibleToAct,
   nextEligiblePlayerAfter,
@@ -7,7 +8,7 @@ export {
 export {
   advanceUntilPlayerInput,
   endActiveTurn,
-  reassignTurnIfActivePlayerAbsent,
+  reassignTurnIfActivePlayerIneligible,
   resolveEndOfRound,
   resolveZombiePhase,
   type Transition,

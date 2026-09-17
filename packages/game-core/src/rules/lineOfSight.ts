@@ -33,7 +33,15 @@ export function tilesBetween(from: Position, to: Position): Position[] {
   return tiles;
 }
 
-/** True when no tile strictly between the two positions blocks vision. */
-export function hasLineOfSight(map: GameMap, from: Position, to: Position): boolean {
+function isClear(map: GameMap, from: Position, to: Position): boolean {
   return tilesBetween(from, to).every((p) => !(tileAt(map, p)?.blocksVision ?? true));
+}
+
+/**
+ * True when no tile strictly between the two positions blocks vision. Bresenham lines are
+ * not symmetric, so both directions are checked and sight exists only when both are clear;
+ * cover therefore never depends on who is looking.
+ */
+export function hasLineOfSight(map: GameMap, from: Position, to: Position): boolean {
+  return isClear(map, from, to) && isClear(map, to, from);
 }
