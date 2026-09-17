@@ -4,6 +4,8 @@ import {
   legalMoveDestinations,
   type GameMap,
   type GameState,
+  type ItemId,
+  type ItemType,
   type PlayerId,
   type PlayerState,
   type TileType,
@@ -21,6 +23,7 @@ const COLOURS = {
   extraction: 0x2f6f3e,
   highlight: 0x4a6fa5,
   target: 0xff5252,
+  item: 0xe9c46a,
   activeRing: 0xffffff,
   absent: 0x777777,
   down: 0x5a5a5a,
@@ -47,6 +50,12 @@ interface ZombieSprite {
   readonly container: Phaser.GameObjects.Container;
 }
 
+interface ItemSprite {
+  readonly container: Phaser.GameObjects.Container;
+}
+
+const ITEM_LABELS: Readonly<Record<ItemType, string>> = { medkit: "+", ammo_box: "A" };
+
 /**
  * Draws the board as a function of the latest GameState. The static map is drawn once;
  * player and zombie markers are reconciled by id on every render so the picture always
@@ -57,6 +66,7 @@ export class BoardRenderer {
   private readonly highlightLayer: Phaser.GameObjects.Graphics;
   private readonly players = new Map<PlayerId, PlayerSprite>();
   private readonly zombies = new Map<ZombieId, ZombieSprite>();
+  private readonly items = new Map<ItemId, ItemSprite>();
   private drawnMap: GameMap | undefined;
 
   constructor(private readonly scene: Phaser.Scene) {
@@ -67,6 +77,7 @@ export class BoardRenderer {
   render(state: GameState, me: PlayerId | undefined): void {
     if (this.drawnMap !== state.map) this.drawMap(state);
     this.drawHighlights(state, me);
+    this.reconcileItems(state);
     this.reconcilePlayers(state);
     this.reconcileZombies(state);
   }
@@ -150,6 +161,33 @@ export class BoardRenderer {
     const container = this.scene.add.container(0, 0, [ring, circle, label]);
     const sprite: PlayerSprite = { container, circle, ring, colour };
     this.players.set(player.id, sprite);
+    return sprite;
+  }
+
+  private reconcileItems(state: GameState): void {
+    const seen = new Set<ItemId>();
+    for (const item of state.items) {
+      seen.add(item.id);
+      const sprite = this.items.get(item.id) ?? this.createItemSprite(item.id, item.type);
+      const { x, y } = tileCenter(item.position);
+      sprite.container.setPosition(x, y);
+    }
+    for (const [id, sprite] of this.items) {
+      if (!seen.has(id)) {
+        sprite.container.destroy();
+        this.items.delete(id);
+      }
+    }
+  }
+
+  private createItemSprite(id: ItemId, type: ItemType): ItemSprite {
+    const body = this.scene.add.rectangle(0, 0, TILE_SIZE * 0.4, TILE_SIZE * 0.4, COLOURS.item);
+    const label = this.scene.add
+      .text(0, 0, ITEM_LABELS[type], { fontSize: "12px", color: "#000000" })
+      .setOrigin(0.5);
+    const container = this.scene.add.container(0, 0, [body, label]);
+    const sprite: ItemSprite = { container };
+    this.items.set(id, sprite);
     return sprite;
   }
 

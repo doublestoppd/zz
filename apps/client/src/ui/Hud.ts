@@ -1,4 +1,4 @@
-import { isInExtractionZone } from "@zombie/game-core";
+import { isInExtractionZone, itemsUnderPlayer, type ItemType } from "@zombie/game-core";
 import type { CommandSender } from "../net/CommandSender.js";
 import type { GameConnection } from "../net/GameConnection.js";
 import type { ClientState, ClientStore } from "../state/ClientStore.js";
@@ -17,6 +17,9 @@ export class Hud {
   private readonly backButton: HTMLButtonElement;
   private readonly playerList = el("ul", { className: "players" });
   private readonly weaponLine = el("div");
+  private readonly inventoryLine = el("div");
+  private readonly pickUpButton: HTMLButtonElement;
+  private readonly useButtons = new Map<ItemType, HTMLButtonElement>();
   private readonly reloadButton: HTMLButtonElement;
   private readonly endTurnButton: HTMLButtonElement;
   private readonly messageLine = el("div", { className: "error" });
@@ -31,6 +34,26 @@ export class Hud {
     this.reloadButton = button("Reload", () => {
       sender.send({ type: "reload" });
     });
+    this.pickUpButton = button("Pick up", () => {
+      const client = store.get();
+      const me = client.game?.state.players.find((p) => p.id === client.me?.playerId);
+      const item =
+        me === undefined || client.game === undefined
+          ? undefined
+          : itemsUnderPlayer(client.game.state, me)[0];
+      if (item !== undefined) sender.send({ type: "pick_up", itemId: item.id });
+    });
+    for (const [type, label] of [
+      ["medkit", "Use medkit"],
+      ["ammo_box", "Open ammo box"],
+    ] as const) {
+      this.useButtons.set(
+        type,
+        button(label, () => {
+          sender.send({ type: "use_item", itemType: type });
+        }),
+      );
+    }
     this.endTurnButton = button("End turn", () => {
       sender.send({ type: "end_turn" });
     });
@@ -42,6 +65,12 @@ export class Hud {
       this.objectiveLine,
       this.playerList,
       this.weaponLine,
+      this.inventoryLine,
+      el("div", {}, [
+        this.pickUpButton,
+        " ",
+        ...[...this.useButtons.values()].flatMap((b) => [b, " "]),
+      ]),
       el("div", {}, [this.reloadButton, " ", this.endTurnButton]),
       this.messageLine,
       el("h3", { textContent: "Log" }),
@@ -108,6 +137,19 @@ export class Hud {
     const busy = active !== me || state.pendingSeq !== undefined;
     this.reloadButton.disabled = busy;
     this.endTurnButton.disabled = busy;
+    const underfoot = mine === undefined ? [] : itemsUnderPlayer(game, mine);
+    this.pickUpButton.disabled = busy || underfoot.length === 0;
+    this.pickUpButton.textContent =
+      underfoot.length === 0 ? "Pick up" : `Pick up ${underfoot[0]?.type.replace("_", " ") ?? ""}`;
+    const carried = mine?.inventory ?? [];
+    this.inventoryLine.textContent =
+      mine === undefined
+        ? ""
+        : `Carrying (${carried.length}/${mine.inventoryCapacity}): ${carried.length === 0 ? "nothing" : carried.map((i) => i.replace("_", " ")).join(", ")}`;
+    for (const [type, useButton] of this.useButtons) {
+      useButton.hidden = !carried.includes(type);
+      useButton.disabled = busy;
+    }
     this.messageLine.textContent =
       state.lastRejection !== undefined
         ? REJECTION_MESSAGES[state.lastRejection]

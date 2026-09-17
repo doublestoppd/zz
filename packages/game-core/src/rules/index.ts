@@ -23,3 +23,13 @@ export {
   type ReloadRejectionReason,
   type ReloadValidation,
 } from "./combat.js";
+export {
+  itemsUnderPlayer,
+  removeFromInventory,
+  validatePickUp,
+  validateUseItem,
+  type PickUpRejectionReason,
+  type PickUpValidation,
+  type UseItemRejectionReason,
+  type UseItemValidation,
+} from "./items.js";

@@ -4,7 +4,7 @@ import { DEFAULT_CITY_OPTIONS, generateCity } from "./city.js";
 import { rotateStamp, templateToStamp } from "./templates/buildings.js";
 import { validateLayout } from "./validate/validateLayout.js";
 
-const EXPECT = { survivorSpawns: 4, zombieSpawns: 5 };
+const EXPECT = { survivorSpawns: 4, zombieSpawns: 5, lootSpawns: 6 };
 
 describe("generateCity", () => {
   it("is deterministic for a seed and differs across seeds", () => {
@@ -22,6 +22,9 @@ describe("generateCity", () => {
       expect(result.issues, `seed ${seed}`).toEqual([]);
       expect(layout.map.width).toBe(DEFAULT_CITY_OPTIONS.width);
       expect(layout.extractionZone).toHaveLength(4);
+      expect(layout.lootSpawns.every((p) => layout.map.tiles[p.y]?.[p.x]?.type === "floor")).toBe(
+        true,
+      );
     }
   });
 
@@ -49,8 +52,11 @@ describe("generateCity", () => {
       height: 14,
       survivorSpawns: 2,
       zombieSpawns: 3,
+      lootSpawns: 2,
     });
-    expect(validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 3 }).ok).toBe(true);
+    expect(validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 3, lootSpawns: 2 }).ok).toBe(
+      true,
+    );
     expect(layout.map.height).toBe(14);
   });
 });
@@ -58,18 +64,18 @@ describe("generateCity", () => {
 describe("validateLayout", () => {
   it("reports unreachable markers and bad counts", () => {
     const layout = parseAsciiMap(["#######", "#S.#E.#", "#S.#Z.#", "#######"]);
-    const result = validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 1 });
+    const result = validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 1, lootSpawns: 0 });
     expect(result.ok).toBe(false);
     expect(result.issues.join("\n")).toMatch(/extraction tile \(4, 1\) unreachable/);
     expect(result.issues.join("\n")).toMatch(/zombie spawn \(4, 2\) unreachable/);
-    expect(validateLayout(layout, { survivorSpawns: 3, zombieSpawns: 1 }).issues[0]).toMatch(
-      /expected 3/,
-    );
+    expect(
+      validateLayout(layout, { survivorSpawns: 3, zombieSpawns: 1, lootSpawns: 0 }).issues[0],
+    ).toMatch(/expected 3/);
   });
 
   it("accepts the hand-authored fixture", () => {
-    const layout = parseAsciiMap(["######", "#S.E.#", "#S.EZ#", "######"]);
-    expect(validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 1 })).toEqual({
+    const layout = parseAsciiMap(["######", "#S.E.#", "#SLEZ#", "######"]);
+    expect(validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 1, lootSpawns: 1 })).toEqual({
       ok: true,
       issues: [],
     });

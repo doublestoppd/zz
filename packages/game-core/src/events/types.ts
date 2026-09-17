@@ -1,6 +1,6 @@
-import type { PlayerId, ZombieId } from "../ids.js";
+import type { ItemId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
-import type { GamePhase, MatchOutcome, WeaponType } from "../state/types.js";
+import type { GamePhase, ItemType, MatchOutcome, WeaponType } from "../state/types.js";
 
 /**
  * What happened, as emitted by the simulation. Clients use events for animation,
@@ -12,6 +12,10 @@ export type GameEvent =
   | WeaponFiredEvent
   | WeaponReloadedEvent
   | EntityDiedEvent
+  | ItemPickedUpEvent
+  | ItemUsedEvent
+  | PlayerHealedEvent
+  | AmmoGainedEvent
   | TurnEndedEvent
   | TurnStartedEvent
   | RoundStartedEvent
@@ -52,6 +56,35 @@ export interface WeaponReloadedEvent {
 export interface EntityDiedEvent {
   readonly type: "entity_died";
   readonly entityId: ZombieId;
+}
+
+export interface ItemPickedUpEvent {
+  readonly type: "item_picked_up";
+  readonly playerId: PlayerId;
+  readonly itemId: ItemId;
+  readonly itemType: ItemType;
+  readonly actionPointsSpent: number;
+}
+
+export interface ItemUsedEvent {
+  readonly type: "item_used";
+  readonly playerId: PlayerId;
+  readonly itemType: ItemType;
+  readonly actionPointsSpent: number;
+}
+
+export interface PlayerHealedEvent {
+  readonly type: "player_healed";
+  readonly playerId: PlayerId;
+  readonly amount: number;
+  readonly health: number;
+}
+
+export interface AmmoGainedEvent {
+  readonly type: "ammo_gained";
+  readonly playerId: PlayerId;
+  readonly rounds: number;
+  readonly reserveAmmo: number;
 }
 
 export interface TurnEndedEvent {

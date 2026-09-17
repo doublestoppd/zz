@@ -1,6 +1,6 @@
-import type { MatchId, PlayerId, ZombieId } from "../ids.js";
+import type { ItemId, MatchId, PlayerId, ZombieId } from "../ids.js";
 import type { GameMap, Position } from "../map/types.js";
-import type { WeaponDefinition, ZombieDefinition } from "./definitions.js";
+import type { ItemDefinition, WeaponDefinition, ZombieDefinition } from "./definitions.js";
 
 /**
  * Authoritative match state. Plain, JSON-serialisable data only: no class instances,
@@ -23,6 +23,8 @@ export interface GameState {
   readonly map: GameMap;
   readonly players: readonly PlayerState[];
   readonly zombies: readonly ZombieState[];
+  /** Items lying on the ground. Picking one up moves it into a survivor's inventory. */
+  readonly items: readonly GroundItem[];
   readonly objective: ObjectiveState;
 }
 
@@ -46,6 +48,18 @@ export interface GameRules {
   readonly zombieDefinitions: Readonly<Record<ZombieType, ZombieDefinition>>;
   /** Statistics per weapon type. Adding a `WeaponType` without an entry fails to compile. */
   readonly weaponDefinitions: Readonly<Record<WeaponType, WeaponDefinition>>;
+  /** Statistics per item type. Adding an `ItemType` without an entry fails to compile. */
+  readonly itemDefinitions: Readonly<Record<ItemType, ItemDefinition>>;
+  /** Action points to pick an item up from the ground. */
+  readonly pickUpActionPointCost: number;
+}
+
+export type ItemType = "medkit" | "ammo_box";
+
+export interface GroundItem {
+  readonly id: ItemId;
+  readonly type: ItemType;
+  readonly position: Position;
 }
 
 export type WeaponType = "pistol";
@@ -71,6 +85,9 @@ export interface PlayerState {
   readonly weapon: EquippedWeapon;
   /** Rounds available for reloading. */
   readonly reserveAmmo: number;
+  /** Carried items, unordered, at most `inventoryCapacity` from the survivor definition. */
+  readonly inventory: readonly ItemType[];
+  readonly inventoryCapacity: number;
   /**
    * False while the player is disconnected. Absent players are skipped in turn order.
    * Set only through the `set_player_presence` server command.

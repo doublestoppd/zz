@@ -1,4 +1,4 @@
-import { zombieId } from "@zombie/game-core";
+import { itemId, zombieId, type ItemType } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
   PLAYER_NAME_MAX_LENGTH,
@@ -81,6 +81,12 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
   }
 }
 
+const ITEM_TYPES: ReadonlySet<string> = new Set<ItemType>(["medkit", "ammo_box"]);
+
+function isItemType(value: unknown): value is ItemType {
+  return isString(value) && ITEM_TYPES.has(value);
+}
+
 function decodeClientCommand(value: unknown): DecodeResult<ClientCommand> {
   if (!isRecord(value)) return fail("command.command must be an object");
   switch (value.type) {
@@ -92,6 +98,12 @@ function decodeClientCommand(value: unknown): DecodeResult<ClientCommand> {
       return { ok: true, value: { type: "fire_weapon", targetId: zombieId(value.targetId) } };
     case "reload":
       return { ok: true, value: { type: "reload" } };
+    case "pick_up":
+      if (!isString(value.itemId)) return fail("pick_up.itemId must be a string");
+      return { ok: true, value: { type: "pick_up", itemId: itemId(value.itemId) } };
+    case "use_item":
+      if (!isItemType(value.itemType)) return fail("use_item.itemType must be a known item type");
+      return { ok: true, value: { type: "use_item", itemType: value.itemType } };
     case "end_turn":
       return { ok: true, value: { type: "end_turn" } };
     default:

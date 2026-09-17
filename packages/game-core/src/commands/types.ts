@@ -1,11 +1,13 @@
-import type { PlayerId, ZombieId } from "../ids.js";
+import type { ItemId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
+import type { ItemType } from "../state/types.js";
 
 /**
  * What a client may ask for. `playerId` is stamped by the server from the authenticated
  * session; it is never taken from the client payload (docs/NETWORK-PROTOCOL.md).
  */
-export type PlayerCommand = MoveCommand | FireWeaponCommand | ReloadCommand | EndTurnCommand;
+export type PlayerCommand =
+  MoveCommand | FireWeaponCommand | ReloadCommand | PickUpCommand | UseItemCommand | EndTurnCommand;
 
 export interface MoveCommand {
   readonly type: "move";
@@ -25,6 +27,20 @@ export interface FireWeaponCommand {
 export interface ReloadCommand {
   readonly type: "reload";
   readonly playerId: PlayerId;
+}
+
+/** Pick up a ground item lying on the player's own tile. */
+export interface PickUpCommand {
+  readonly type: "pick_up";
+  readonly playerId: PlayerId;
+  readonly itemId: ItemId;
+}
+
+/** Use one carried item of the given type. */
+export interface UseItemCommand {
+  readonly type: "use_item";
+  readonly playerId: PlayerId;
+  readonly itemType: ItemType;
 }
 
 export interface EndTurnCommand {

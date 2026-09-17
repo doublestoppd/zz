@@ -58,4 +58,5 @@ export function deriveSeed(seed: number, stream: number): number {
 export const RNG_STREAM = {
   gameplay: 0,
   mapGeneration: 1,
+  loot: 2,
 } as const;

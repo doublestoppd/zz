@@ -8,8 +8,9 @@ that file is named so the rule can be changed in one place.
 - 1–4 players. Each player is assigned a spawn tile in join order (`state/createInitialState.ts`).
 - The map is generated from the match seed (`packages/map-generation`): a 26x18 city with a
   road grid, blocks of buildings with doors, four survivor spawns together on the western
-  road, a 2x2 extraction zone as far from the spawns as the streets allow, and five walkers
-  spawned at least a third of the longest path away. Tile types: `floor`, `road`, `door`
+  road, a 2x2 extraction zone as far from the spawns as the streets allow, five walkers
+  spawned at least a third of the longest path away, and six loot spawns on open ground
+  inside buildings where possible. Tile types: `floor`, `road`, `door`
   (all walkable, none block sight) and `wall`. The same seed always produces the same city.
 - Tests use the hand-authored fixture `SMALL_TEST_MAP` (`map/testMaps.ts`) instead.
 - Every survivor starts with the values in `packages/game-data/src/survivors.ts`
@@ -17,7 +18,11 @@ that file is named so the rule can be changed in one place.
 - Zombies start with the health in `packages/game-data/src/zombies.ts` (walker: 3 health,
   2 damage).
 - Every survivor carries the starting weapon from `packages/game-data/src/survivors.ts`
-  (a pistol with a full magazine) and 12 rounds of reserve ammunition.
+  (a pistol with a full magazine), 12 rounds of reserve ammunition, and an empty inventory
+  with room for 3 items.
+- Each loot spawn on the map holds one ground item whose type is rolled from the weighted
+  loot table in `packages/game-data/src/items.ts` (medkit 1 : ammo box 2) using the `loot`
+  Rng stream, so the same seed always yields the same loot.
 - The match seed is chosen by the server. Gameplay randomness (none consumed yet) comes
   from an Rng whose cursor is stored in `GameState.rngState`.
 
@@ -115,6 +120,20 @@ The first and only scenario. Settings come from `packages/game-data/src/objectiv
 - Defeat (everyone down) is checked before the objective, so a team that all goes down in
   the zone still loses.
 
+## Items and inventory (`rules/items.ts`)
+
+Item numbers live in `packages/game-data/src/items.ts`: a medkit heals 5, an ammo box adds
+6 rounds to the reserve; using either costs 1 action point, and picking up costs 1.
+
+- **Pick up** (`pick_up` with an item id) takes a ground item lying on the player's own
+  tile into their inventory. Checked in order: the item exists, it is on the player's tile,
+  the inventory has room, the player has enough action points.
+- **Use** (`use_item` with an item type) consumes one carried item of that type and applies
+  its effect. A medkit is refused at full health; healing never exceeds max health. An ammo
+  box always adds to the reserve (it does not reload the magazine).
+- Items do not occupy tiles; anyone can stand on them. There is no drop, trade, or search
+  of containers yet.
+
 ## Health and being down (`rules/health.ts`)
 
 - Damage removes health, never below zero. A survivor at zero health has status `down`.
@@ -124,4 +143,4 @@ The first and only scenario. Settings come from `packages/game-data/src/objectiv
 
 ## Not yet implemented
 
-Melee, more weapons, ammunition pickup, inventory, other game modes, procedural maps.
+Melee, more weapons, dropping or trading items, searchable containers, other game modes.

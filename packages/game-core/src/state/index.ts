@@ -1,6 +1,8 @@
 export type {
   EquippedWeapon,
   ExtractionObjectiveState,
+  GroundItem,
+  ItemType,
   GamePhase,
   GameRules,
   GameState,
@@ -15,6 +17,9 @@ export type {
 export { findPlayer, replacePlayer } from "./players.js";
 export type {
   ExtractionSettings,
+  ItemDefinition,
+  ItemEffect,
+  LootTableEntry,
   SurvivorDefinition,
   WeaponDefinition,
   ZombieDefinition,

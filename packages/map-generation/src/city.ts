@@ -23,6 +23,7 @@ export interface CityOptions {
   readonly height: number;
   readonly survivorSpawns: number;
   readonly zombieSpawns: number;
+  readonly lootSpawns: number;
 }
 
 export const DEFAULT_CITY_OPTIONS: Omit<CityOptions, "seed"> = {
@@ -30,6 +31,7 @@ export const DEFAULT_CITY_OPTIONS: Omit<CityOptions, "seed"> = {
   height: 18,
   survivorSpawns: 4,
   zombieSpawns: 5,
+  lootSpawns: 6,
 };
 
 /** Generation knobs that are not per-match. Change the city's feel here. */
@@ -51,7 +53,8 @@ const MAX_ATTEMPTS = 12;
  *   3. survivors spawn together on the western road;
  *   4. the extraction zone is a 2x2 walkable area far from the spawn;
  *   5. zombies spawn on reachable tiles well away from the survivors;
- *   6. the layout is validated; on failure the next attempt uses a derived seed.
+ *   6. loot spawns on reachable open ground, preferring building interiors;
+ *   7. the layout is validated; on failure the next attempt uses a derived seed.
  * Throws only if every attempt fails, which indicates a generator bug, not bad luck.
  */
 export function generateCity(options: CityOptions): MapLayout {
@@ -67,6 +70,7 @@ export function generateCity(options: CityOptions): MapLayout {
     const result = validateLayout(layout, {
       survivorSpawns: options.survivorSpawns,
       zombieSpawns: options.zombieSpawns,
+      lootSpawns: options.lootSpawns,
     });
     if (result.ok) return layout;
     failures.push(`attempt ${attempt}: ${result.issues.join("; ")}`);
@@ -112,8 +116,11 @@ function buildCity(rng: Rng, options: CityOptions): MapLayout | undefined {
   const taken = new Set([...spawnPositions, ...extractionZone].map(positionKey));
   const zombieSpawns = placeZombies(grid, rng, reach, taken, options.zombieSpawns);
   if (zombieSpawns === undefined) return undefined;
+  for (const p of zombieSpawns) taken.add(positionKey(p));
+  const lootSpawns = placeLoot(grid, rng, reach, taken, options.lootSpawns);
+  if (lootSpawns === undefined) return undefined;
 
-  return { map, spawnPositions, extractionZone, zombieSpawns };
+  return { map, spawnPositions, extractionZone, zombieSpawns, lootSpawns };
 }
 
 /**
@@ -277,4 +284,43 @@ function placeZombies(
     pool.splice(pool.indexOf(pick), 1);
   }
   return chosen;
+}
+
+/**
+ * Distinct reachable `floor` tiles (never roads), so loot sits in buildings and lots rather
+ * than in the street. Interiors are preferred: a floor tile with at least three wall
+ * neighbours counts as inside.
+ */
+function placeLoot(
+  grid: Grid,
+  rng: Rng,
+  reach: ReturnType<typeof searchFrom>,
+  taken: ReadonlySet<string>,
+  count: number,
+): Position[] | undefined {
+  const inside: Position[] = [];
+  const outside: Position[] = [];
+  for (let y = 1; y < grid.height - 1; y += 1) {
+    for (let x = 1; x < grid.width - 1; x += 1) {
+      const p = { x, y };
+      if (grid.get(p) !== "floor" || taken.has(positionKey(p))) continue;
+      if (reach.distanceTo(p) === undefined) continue;
+      const walls = [
+        { x: x - 1, y },
+        { x: x + 1, y },
+        { x, y: y - 1 },
+        { x, y: y + 1 },
+      ].filter((n) => grid.get(n) === "wall").length;
+      (walls >= 2 ? inside : outside).push(p);
+    }
+  }
+  const chosen: Position[] = [];
+  for (const pool of [inside, outside]) {
+    while (chosen.length < count && pool.length > 0) {
+      const pick = rng.pick(pool);
+      chosen.push(pick);
+      pool.splice(pool.indexOf(pick), 1);
+    }
+  }
+  return chosen.length === count ? chosen : undefined;
 }

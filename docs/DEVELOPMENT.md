@@ -96,10 +96,24 @@ own layout in `testing/makeTestState.ts`.
 4. Giving it to a survivor: `startingWeapon` in `packages/game-data/src/survivors.ts` until
    the inventory milestone adds pickup.
 
-## Add an item (future milestone)
+## Add an item
 
-Same pattern: a union member in game-core, a `Record<Type, Definition>` in game-data, and
-behaviour driven by the definition's fields.
+1. `packages/game-core/src/state/types.ts`: extend `ItemType`.
+2. `packages/game-data/src/items.ts`: the compiler demands an `ItemDefinition` (an effect
+   and an action point cost). Add a weight to `LOOT_TABLE` if it should appear as loot.
+3. `packages/protocol/src/decodeClientMessage.ts`: add the name to `ITEM_TYPES` so
+   `use_item` accepts it.
+4. `apps/client/src/render/BoardRenderer.ts` (`ITEM_LABELS`) and `apps/client/src/ui/Hud.ts`
+   (the use-button list): the compiler flags the first, the second is a two-line entry.
+5. If the item needs a new kind of effect, add a member to `ItemEffect` in
+   `state/definitions.ts`; `applyUseItem` in `commands/applyCommand.ts` and
+   `validateUseItem` in `rules/items.ts` switch on it and will not compile until handled.
+
+## Change where loot appears
+
+`placeLoot` in `packages/map-generation/src/city.ts` chooses spawn tiles;
+`DEFAULT_CITY_OPTIONS.lootSpawns` sets how many. For the test map, add `L` markers in
+`packages/game-core/src/map/testMaps.ts`.
 
 ## Add a network message
 

@@ -39,6 +39,7 @@ export interface TestStateOptions {
   readonly pistol?: Partial<WeaponDefinition>;
   readonly startingReserveAmmo?: number;
   readonly holdoutRounds?: number;
+  readonly inventoryCapacity?: number;
 }
 
 const DEFAULT_PISTOL: WeaponDefinition = {
@@ -60,13 +61,20 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
         walker: { maxHealth: options.zombieHealth ?? 3, damage: options.zombieDamage ?? 2 },
       },
       weaponDefinitions: { pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
+      itemDefinitions: {
+        medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
+        ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
+      },
+      pickUpActionPointCost: 1,
     },
     survivor: {
       maxHealth: 10,
       maxActionPoints: options.maxActionPoints ?? 4,
       startingWeapon: "pistol",
       startingReserveAmmo: options.startingReserveAmmo ?? 12,
+      inventoryCapacity: options.inventoryCapacity ?? 3,
     },
+    lootTable: [{ type: "medkit", weight: 1 }],
     extraction: { holdoutRounds: options.holdoutRounds ?? 0 },
     layout: options.layout ?? TEST_LAYOUT,
     players: players.map((id) => ({ id, name: id })),

@@ -18,4 +18,9 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionReason, string>> = {
   WEAPON_EMPTY: "Your weapon is empty. Reload.",
   MAGAZINE_FULL: "Your weapon is already full.",
   NO_RESERVE_AMMO: "No ammunition left to reload with.",
+  ITEM_NOT_FOUND: "That item is gone.",
+  ITEM_NOT_HERE: "You must stand on an item to pick it up.",
+  INVENTORY_FULL: "You cannot carry any more.",
+  ITEM_NOT_CARRIED: "You are not carrying that.",
+  HEALTH_ALREADY_FULL: "You are already at full health.",
 };

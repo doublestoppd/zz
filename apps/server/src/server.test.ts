@@ -250,6 +250,20 @@ describe("gameplay", () => {
     await guest.expectNone("update");
   });
 
+  it("starts with ground loot rolled from the seed", async () => {
+    const { host, guest } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    const [first, second] = await Promise.all([host.next("update"), guest.next("update")]);
+    expect(first.state.items).toHaveLength(2);
+    expect(first.state.items).toEqual(second.state.items);
+    host.send({
+      t: "command",
+      seq: 1,
+      command: { type: "pick_up", itemId: first.state.items[0]!.id },
+    });
+    expect(await host.next("rejected")).toMatchObject({ seq: 1, reason: "ITEM_NOT_HERE" });
+  });
+
   it("ignores any playerId a client tries to smuggle in", async () => {
     const { host, guest, hostId } = await twoPlayerLobby();
     host.send({ t: "start_match" });

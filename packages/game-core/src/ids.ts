@@ -8,6 +8,7 @@
 export type PlayerId = string & { readonly __brand: "PlayerId" };
 export type ZombieId = string & { readonly __brand: "ZombieId" };
 export type MatchId = string & { readonly __brand: "MatchId" };
+export type ItemId = string & { readonly __brand: "ItemId" };
 
 export function playerId(raw: string): PlayerId {
   return raw as PlayerId;
@@ -19,4 +20,8 @@ export function zombieId(raw: string): ZombieId {
 
 export function matchId(raw: string): MatchId {
   return raw as MatchId;
+}
+
+export function itemId(raw: string): ItemId {
+  return raw as ItemId;
 }

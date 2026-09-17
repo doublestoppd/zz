@@ -3,6 +3,7 @@ import { positionKey, searchFrom, tileAt, type MapLayout, type Position } from "
 export interface LayoutExpectations {
   readonly survivorSpawns: number;
   readonly zombieSpawns: number;
+  readonly lootSpawns: number;
 }
 
 export interface ValidationResult {
@@ -33,6 +34,9 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
       `expected ${expected.zombieSpawns} zombie spawns, got ${layout.zombieSpawns.length}`,
     );
   }
+  if (layout.lootSpawns.length !== expected.lootSpawns) {
+    issues.push(`expected ${expected.lootSpawns} loot spawns, got ${layout.lootSpawns.length}`);
+  }
   if (layout.extractionZone.length === 0) issues.push("extraction zone is empty");
 
   const walkable = (p: Position): boolean => tileAt(map, p)?.walkable ?? false;
@@ -40,6 +44,7 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
     ["survivor spawn", layout.spawnPositions],
     ["extraction tile", layout.extractionZone],
     ["zombie spawn", layout.zombieSpawns],
+    ["loot spawn", layout.lootSpawns],
   ];
   const seen = new Set<string>();
   for (const [label, positions] of groups) {

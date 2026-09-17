@@ -6,4 +6,5 @@ export const DEFAULT_SURVIVOR: SurvivorDefinition = {
   maxActionPoints: 4,
   startingWeapon: "pistol",
   startingReserveAmmo: 12,
+  inventoryCapacity: 3,
 };

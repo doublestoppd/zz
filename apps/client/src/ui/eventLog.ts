@@ -18,6 +18,14 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return `${nameOf(state, event.playerId)} reloads (${event.loadedAmmo} loaded, ${event.reserveAmmo} left)`;
     case "entity_died":
       return `Zombie ${event.entityId} is destroyed`;
+    case "item_picked_up":
+      return `${nameOf(state, event.playerId)} picks up a ${event.itemType.replace("_", " ")}`;
+    case "item_used":
+      return `${nameOf(state, event.playerId)} uses a ${event.itemType.replace("_", " ")}`;
+    case "player_healed":
+      return `${nameOf(state, event.playerId)} heals ${event.amount} (${event.health} HP)`;
+    case "ammo_gained":
+      return `${nameOf(state, event.playerId)} gains ${event.rounds} rounds (${event.reserveAmmo} in reserve)`;
     case "turn_ended":
       return `${nameOf(state, event.playerId)} ended their turn`;
     case "turn_started":

@@ -3,6 +3,7 @@
  * arrow stays game-data -> game-core; game-core receives these values as parameters.
  */
 export { DEFAULT_GAME_RULES } from "./rules.js";
+export { ITEM_DEFINITIONS, LOOT_TABLE } from "./items.js";
 export { DEFAULT_EXTRACTION } from "./objectives.js";
 export { DEFAULT_SURVIVOR } from "./survivors.js";
 export { WEAPON_DEFINITIONS } from "./weapons.js";

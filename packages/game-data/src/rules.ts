@@ -1,4 +1,5 @@
 import type { GameRules } from "@zombie/game-core";
+import { ITEM_DEFINITIONS } from "./items.js";
 import { WEAPON_DEFINITIONS } from "./weapons.js";
 import { ZOMBIE_DEFINITIONS } from "./zombies.js";
 
@@ -7,4 +8,6 @@ export const DEFAULT_GAME_RULES: GameRules = {
   moveCostPerTile: 1,
   zombieDefinitions: ZOMBIE_DEFINITIONS,
   weaponDefinitions: WEAPON_DEFINITIONS,
+  itemDefinitions: ITEM_DEFINITIONS,
+  pickUpActionPointCost: 1,
 };

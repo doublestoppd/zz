@@ -25,5 +25,6 @@ describe("parseAsciiMap", () => {
     expect(SMALL_TEST_MAP.spawnPositions).toHaveLength(4);
     expect(SMALL_TEST_MAP.extractionZone.length).toBeGreaterThan(0);
     expect(SMALL_TEST_MAP.zombieSpawns).toHaveLength(3);
+    expect(SMALL_TEST_MAP.lootSpawns).toHaveLength(2);
   });
 });

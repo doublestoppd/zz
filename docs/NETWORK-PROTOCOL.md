@@ -62,7 +62,9 @@ everyone. Errors: `NOT_IN_MATCH`, `MATCH_ALREADY_STARTED`, `NOT_HOST`.
 { "t": "command", "seq": 12, "command": { "type": "move", "to": { "x": 3, "y": 1 } } }
 { "t": "command", "seq": 13, "command": { "type": "fire_weapon", "targetId": "z1" } }
 { "t": "command", "seq": 14, "command": { "type": "reload" } }
-{ "t": "command", "seq": 15, "command": { "type": "end_turn" } }
+{ "t": "command", "seq": 15, "command": { "type": "pick_up", "itemId": "i3" } }
+{ "t": "command", "seq": 16, "command": { "type": "use_item", "itemType": "medkit" } }
+{ "t": "command", "seq": 17, "command": { "type": "end_turn" } }
 ```
 
 `seq` is chosen by the client and echoed in `rejected`. The client keeps at most one command
