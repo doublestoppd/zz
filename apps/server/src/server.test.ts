@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { WebSocket } from "ws";
 import { SMALL_TEST_MAP, zombieId } from "@zombie/game-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -377,6 +380,31 @@ describe("gameplay", () => {
       }),
     );
     expect((await guest.next("rejected")).reason).toBe("NOT_YOUR_TURN");
+  });
+});
+
+describe("http side", () => {
+  it("answers the health check and serves the client from a static directory", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "zombie-static-"));
+    writeFileSync(join(dir, "index.html"), "<h1>ok</h1>");
+    writeFileSync(join(dir, "app.js"), "console.log(1)");
+    await restartWith({ staticDir: dir });
+    const base = `http://127.0.0.1:${handle.port}`;
+    const health = await fetch(`${base}/healthz`);
+    expect(health.status).toBe(200);
+    expect(await health.json()).toEqual({ ok: true });
+    const index = await fetch(`${base}/`);
+    expect(index.headers.get("content-type")).toContain("text/html");
+    expect(await index.text()).toBe("<h1>ok</h1>");
+    expect((await fetch(`${base}/app.js`)).headers.get("content-type")).toContain("javascript");
+    expect((await fetch(`${base}/missing.js`)).status).toBe(404);
+    expect((await fetch(`${base}/..%2F..%2Fetc%2Fpasswd`)).status).not.toBe(200);
+  });
+
+  it("serves only the health check when no static directory is configured", async () => {
+    const base = `http://127.0.0.1:${handle.port}`;
+    expect((await fetch(`${base}/healthz`)).status).toBe(200);
+    expect((await fetch(`${base}/`)).status).toBe(404);
   });
 });
 

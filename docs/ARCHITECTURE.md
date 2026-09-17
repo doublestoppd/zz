@@ -51,14 +51,16 @@ so nothing downstream knows which it is playing on. The server injects the layou
 
 ### `apps/server`
 
-| File                       | Owns                                                                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `net/socketServer.ts`      | The only file that imports `ws`. Decodes text through protocol, answers malformed input, creates a `ClientSession` per socket. |
-| `session/ClientSession.ts` | Socket ↔ player slot bookkeeping.                                                                                              |
-| `lobby/MatchRegistry.ts`   | Match codes, lookup, cleanup of abandoned matches.                                                                             |
-| `match/ServerMatch.ts`     | Membership, host, rejoin tokens, presence, start, command handling, broadcasting.                                              |
-| `match/MatchRuntime.ts`    | The single mutable reference to a `GameState` plus its version counter.                                                        |
-| `router.ts`                | Maps each `ClientMessage` to the registry or match method that owns it.                                                        |
+| File                       | Owns                                                                                                                                                      |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `net/socketServer.ts`      | The only file that imports `ws`. Decodes text through protocol, answers malformed input, creates a `ClientSession` per socket, applies the socket limits. |
+| `net/httpServer.ts`        | `/healthz` and optional static serving of the built client on the same port.                                                                              |
+| `errors.ts`, `log.ts`      | Fixed client-facing error texts; JSON-line logging.                                                                                                       |
+| `session/ClientSession.ts` | Socket ↔ player slot bookkeeping.                                                                                                                         |
+| `lobby/MatchRegistry.ts`   | Match codes, lookup, cleanup of abandoned matches.                                                                                                        |
+| `match/ServerMatch.ts`     | Membership, host, rejoin tokens, presence, start, command handling, broadcasting.                                                                         |
+| `match/MatchRuntime.ts`    | The single mutable reference to a `GameState` plus its version counter.                                                                                   |
+| `router.ts`                | Maps each `ClientMessage` to the registry or match method that owns it.                                                                                   |
 
 ### `apps/client`
 

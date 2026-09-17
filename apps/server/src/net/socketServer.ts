@@ -3,6 +3,7 @@ import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { decodeClientMessage, encodeMessage, type ClientMessage } from "@zombie/protocol";
 import { sendError } from "../errors.js";
 import type { ClientSession } from "../session/ClientSession.js";
+import { createHttpServer } from "./httpServer.js";
 
 function rawDataToString(data: RawData): string {
   if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
@@ -24,6 +25,8 @@ export interface SocketServerOptions {
   readonly pingIntervalMs?: number;
   /** Token bucket per socket: `burst` messages at once, refilled at `perSecond`. */
   readonly rateLimit?: { readonly burst: number; readonly perSecond: number };
+  /** Serve the built client from this directory on the same port (see net/httpServer.ts). */
+  readonly staticDir?: string;
 }
 
 export interface SocketServerHandle {
@@ -52,9 +55,11 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
   const log = options.log ?? ((): void => undefined);
   const maxConnections = options.maxConnections ?? DEFAULTS.maxConnections;
   const rateLimit = options.rateLimit ?? DEFAULTS.rateLimit;
+  // One listener serves /healthz (and optionally the client) over HTTP and upgrades to WebSocket.
+  const httpOptions = options.staticDir === undefined ? {} : { staticDir: options.staticDir };
+  const http = createHttpServer(httpOptions);
   const server = new WebSocketServer({
-    port: options.port,
-    host: options.host ?? "0.0.0.0",
+    server: http,
     maxPayload: options.maxPayloadBytes ?? DEFAULTS.maxPayloadBytes,
   });
 
@@ -124,6 +129,7 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       } catch (error) {
         // A bug in one handler must not take the whole server down.
         log(`handler error for session ${session.id}: ${String(error)}`);
+        sendError(session, "INTERNAL_ERROR");
       }
     });
 
@@ -137,9 +143,9 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
   });
 
   return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.once("listening", () => {
-      const address = server.address();
+    http.once("error", reject);
+    http.listen(options.port, options.host ?? "0.0.0.0", () => {
+      const address = http.address();
       const port = typeof address === "object" && address !== null ? address.port : options.port;
       resolve({
         port,
@@ -148,7 +154,9 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
             clearInterval(pinger);
             for (const client of server.clients) client.terminate();
             server.close(() => {
-              done();
+              http.close(() => {
+                done();
+              });
             });
           }),
       });

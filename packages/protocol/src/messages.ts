@@ -155,7 +155,8 @@ export type ErrorCode =
   | "DUPLICATE_COMMAND"
   | "STALE_STATE"
   | "RATE_LIMITED"
-  | "SESSION_REPLACED";
+  | "SESSION_REPLACED"
+  | "INTERNAL_ERROR";
 
 /** Session-level problems (not gameplay rejections). Sent to the sender only. */
 export interface ErrorMessage {

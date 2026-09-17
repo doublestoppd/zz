@@ -27,8 +27,23 @@ pnpm dev:server     # server only (PORT env var overrides 8080)
 pnpm dev:client     # client only (VITE_SERVER_URL overrides ws://<host>:8080)
 ```
 
-The server runs its TypeScript sources directly through `tsx` (`pnpm --filter @zombie/server start`);
-there is no separate compile step for it yet.
+In development the server runs its TypeScript sources through `tsx`. `pnpm build` bundles it
+with esbuild into a single `apps/server/dist/server.js` for production.
+
+## Deployment
+
+One Node process serves everything: `pnpm build`, then
+
+```sh
+PORT=8080 STATIC_DIR=apps/client/dist node apps/server/dist/server.js
+```
+
+serves the client at `/`, a health check at `/healthz`, and the game over WebSocket on the
+same port; a built client connects to its own origin (`wss://` behind TLS). Set
+`VITE_SERVER_URL` at build time to point the client elsewhere. The `Dockerfile` does the
+same in a container (`docker build -t zombie . && docker run -p 8080:8080 zombie`).
+Logs are JSON lines on stdout (errors on stderr). Terminate TLS in a reverse proxy; the
+server itself speaks plain HTTP and WS. Matches live in memory, so a restart ends them.
 
 Open `http://localhost:5173` in two browser tabs. In one, enter a name and **Create match**;
 in the other, enter a name and the four-letter code and **Join**. The host presses
@@ -50,7 +65,7 @@ pnpm typecheck      # tsc --noEmit for every package
 pnpm lint           # ESLint, including the architectural boundary rules
 pnpm format:check   # Prettier
 pnpm check          # all of the above
-pnpm build          # production client bundle (apps/client/dist)
+pnpm build          # client bundle (apps/client/dist) and server bundle (apps/server/dist/server.js)
 ```
 
 ## Repository map

@@ -159,7 +159,8 @@ drive logs and animation and are never required to rebuild the board.
 Codes: `MALFORMED_MESSAGE`, `INVALID_PLAYER_NAME`, `MATCH_NOT_FOUND`, `MATCH_FULL`,
 `MATCH_ALREADY_STARTED`, `MATCH_NOT_STARTED`, `NOT_IN_MATCH`, `ALREADY_IN_MATCH`, `NOT_HOST`,
 `INVALID_REJOIN_TOKEN`, `DUPLICATE_COMMAND`, `STALE_STATE`, `RATE_LIMITED`,
-`SESSION_REPLACED`. `seq` is present
+`SESSION_REPLACED`, `INTERNAL_ERROR` (a handler threw; the message was not applied). `seq` is
+present
 when the error answers a specific command. `MALFORMED_MESSAGE` covers invalid JSON, unknown
 `t`, unknown command types, and wrong field types; the connection stays open.
 

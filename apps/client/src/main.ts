@@ -9,8 +9,15 @@ import { Hud } from "./ui/Hud.js";
 import { clearIdentity, loadIdentity, saveIdentity } from "./ui/identityStorage.js";
 import { LobbyPanel } from "./ui/LobbyPanel.js";
 
+/**
+ * Where the game server is. Explicit VITE_SERVER_URL wins; the Vite dev server talks to the
+ * default local port; a built client served by the game server uses its own origin.
+ */
 const serverUrl: string =
-  (import.meta.env.VITE_SERVER_URL as string | undefined) ?? `ws://${location.hostname}:8080`;
+  (import.meta.env.VITE_SERVER_URL as string | undefined) ??
+  (import.meta.env.DEV
+    ? `ws://${location.hostname}:8080`
+    : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`);
 
 const store = new ClientStore();
 const connection = new GameConnection(serverUrl);
