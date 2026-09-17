@@ -118,9 +118,14 @@ class TestClient {
     });
   }
 
-  /** Asserts nothing of `type` arrives within a short window. */
-  async expectNone(type: ServerMessage["t"], withinMs = 150): Promise<void> {
-    await new Promise((r) => setTimeout(r, withinMs));
+  /**
+   * Asserts nothing of `type` was sent to this client before now. Sends a probe the server
+   * must answer (a second `start_match` is always an error) and, because a socket delivers
+   * in order, anything sent earlier has arrived once the probe's answer has.
+   */
+  async expectNone(type: ServerMessage["t"]): Promise<void> {
+    this.send({ t: "start_match" });
+    await this.next("error", (m) => m.code !== "RATE_LIMITED");
     expect(this.received.filter((m) => m.t === type)).toEqual([]);
   }
 
@@ -139,6 +144,24 @@ class TestClient {
 let handle: SocketServerHandle;
 let registry: MatchRegistry;
 const clients: TestClient[] = [];
+/** Callbacks scheduled by the registry, fired by tests instead of by the clock. */
+const scheduled: (() => void)[] = [];
+const manualScheduler = {
+  schedule(callback: () => void) {
+    scheduled.push(callback);
+    return {
+      cancel: () => {
+        const i = scheduled.indexOf(callback);
+        if (i !== -1) scheduled.splice(i, 1);
+      },
+    };
+  },
+};
+/** Resolves after the server has processed the next socket close. */
+let disconnectWaiters: (() => void)[] = [];
+function nextDisconnect(): Promise<void> {
+  return new Promise((resolve) => disconnectWaiters.push(resolve));
+}
 
 /** Restarts the server with different socket limits for one test. */
 async function restartWith(
@@ -152,6 +175,7 @@ async function restartWith(
     },
     onDisconnect: (session) => {
       handleDisconnect(registry, session);
+      for (const resolve of disconnectWaiters.splice(0)) resolve();
     },
     ...options,
   });
@@ -165,7 +189,10 @@ beforeEach(async () => {
       createLayout: () => SMALL_TEST_MAP,
     },
     abandonedMatchTtlMs: 50,
+    scheduler: manualScheduler,
   });
+  scheduled.length = 0;
+  disconnectWaiters = [];
   handle = await startSocketServer({
     port: 0,
     onMessage: (session, message) => {
@@ -173,6 +200,7 @@ beforeEach(async () => {
     },
     onDisconnect: (session) => {
       handleDisconnect(registry, session);
+      for (const resolve of disconnectWaiters.splice(0)) resolve();
     },
   });
 });
@@ -475,8 +503,9 @@ describe("presence", () => {
     lonely.send({ t: "create_match", playerName: "Solo" });
     await lonely.next("joined");
     expect(registry.size()).toBe(1);
+    const gone = nextDisconnect();
     await lonely.close();
-    await new Promise((r) => setTimeout(r, 20));
+    await gone;
     expect(registry.size()).toBe(0);
 
     const player = await connect();
@@ -484,10 +513,14 @@ describe("presence", () => {
     await player.next("joined");
     player.send({ t: "start_match" });
     await player.next("update");
+    const left = nextDisconnect();
     await player.close();
-    await new Promise((r) => setTimeout(r, 20));
+    await left;
     expect(registry.size()).toBe(1);
-    await new Promise((r) => setTimeout(r, 80));
+    expect(scheduled).toHaveLength(1);
+    scheduled.splice(0).forEach((fire) => {
+      fire();
+    });
     expect(registry.size()).toBe(0);
   });
 });
