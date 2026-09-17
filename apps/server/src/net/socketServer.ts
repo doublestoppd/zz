@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { decodeClientMessage, encodeMessage, type ClientMessage } from "@zombie/protocol";
-import type { ClientSession } from "../session/ClientSession.js";
 import { sendError } from "../errors.js";
+import type { ClientSession } from "../session/ClientSession.js";
 
 function rawDataToString(data: RawData): string {
   if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
@@ -16,6 +16,14 @@ export interface SocketServerOptions {
   readonly onMessage: (session: ClientSession, message: ClientMessage) => void;
   readonly onDisconnect: (session: ClientSession) => void;
   readonly log?: (line: string) => void;
+  /** Frames above this size close the socket (1009). The largest legitimate message is well under 1 KB. */
+  readonly maxPayloadBytes?: number;
+  /** New connections beyond this count are refused (1013). */
+  readonly maxConnections?: number;
+  /** A socket that has not answered the previous ping by the next one is terminated. */
+  readonly pingIntervalMs?: number;
+  /** Token bucket per socket: `burst` messages at once, refilled at `perSecond`. */
+  readonly rateLimit?: { readonly burst: number; readonly perSecond: number };
 }
 
 export interface SocketServerHandle {
@@ -23,15 +31,54 @@ export interface SocketServerHandle {
   close(): Promise<void>;
 }
 
+const DEFAULTS = {
+  maxPayloadBytes: 16 * 1024,
+  maxConnections: 200,
+  pingIntervalMs: 30_000,
+  rateLimit: { burst: 20, perSecond: 10 },
+} as const;
+
+/** Close codes from RFC 6455 used here. */
+const CLOSE_POLICY_VIOLATION = 1008;
+const CLOSE_TRY_AGAIN_LATER = 1013;
+
 /**
  * The only file that knows about the `ws` library. It turns sockets into ClientSessions,
- * decodes incoming text through the protocol package, and answers malformed input itself.
+ * decodes incoming text through the protocol package, answers malformed input itself, and
+ * applies the abuse limits (payload size, connection count, liveness, message rate) so
+ * nothing above it has to.
  */
 export function startSocketServer(options: SocketServerOptions): Promise<SocketServerHandle> {
   const log = options.log ?? ((): void => undefined);
-  const server = new WebSocketServer({ port: options.port, host: options.host ?? "0.0.0.0" });
+  const maxConnections = options.maxConnections ?? DEFAULTS.maxConnections;
+  const rateLimit = options.rateLimit ?? DEFAULTS.rateLimit;
+  const server = new WebSocketServer({
+    port: options.port,
+    host: options.host ?? "0.0.0.0",
+    maxPayload: options.maxPayloadBytes ?? DEFAULTS.maxPayloadBytes,
+  });
+
+  const alive = new WeakMap<WebSocket, boolean>();
+  const pinger = setInterval(() => {
+    for (const socket of server.clients) {
+      if (alive.get(socket) === false) {
+        socket.terminate();
+        continue;
+      }
+      alive.set(socket, false);
+      socket.ping();
+    }
+  }, options.pingIntervalMs ?? DEFAULTS.pingIntervalMs);
+  pinger.unref();
 
   server.on("connection", (socket) => {
+    if (server.clients.size > maxConnections) {
+      socket.close(CLOSE_TRY_AGAIN_LATER, "server full");
+      return;
+    }
+    alive.set(socket, true);
+    socket.on("pong", () => alive.set(socket, true));
+
     const session: ClientSession = {
       id: randomUUID(),
       matchCode: undefined,
@@ -39,9 +86,33 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       send(message) {
         if (socket.readyState === WebSocket.OPEN) socket.send(encodeMessage(message));
       },
+      close() {
+        socket.close(CLOSE_POLICY_VIOLATION, "session replaced");
+      },
+    };
+
+    const bucket = { tokens: rateLimit.burst, last: Date.now(), dropped: 0 };
+    const allow = (): boolean => {
+      const now = Date.now();
+      bucket.tokens = Math.min(
+        rateLimit.burst,
+        bucket.tokens + ((now - bucket.last) / 1000) * rateLimit.perSecond,
+      );
+      bucket.last = now;
+      if (bucket.tokens < 1) return false;
+      bucket.tokens -= 1;
+      bucket.dropped = 0;
+      return true;
     };
 
     socket.on("message", (data, isBinary) => {
+      if (!allow()) {
+        bucket.dropped += 1;
+        sendError(session, "RATE_LIMITED");
+        // A client that keeps flooding after being told is disconnected.
+        if (bucket.dropped > rateLimit.burst) socket.close(CLOSE_POLICY_VIOLATION, "rate limit");
+        return;
+      }
       const text = isBinary ? "" : rawDataToString(data);
       const decoded = decodeClientMessage(text);
       if (!decoded.ok) {
@@ -74,6 +145,7 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
         port,
         close: () =>
           new Promise<void>((done) => {
+            clearInterval(pinger);
             for (const client of server.clients) client.terminate();
             server.close(() => {
               done();

@@ -141,12 +141,22 @@ drive logs and animation and are never required to rebuild the board.
 
 ```json
 { "t": "error", "code": "NOT_HOST", "message": "Only the host can do that." }
+{ "t": "error", "code": "STALE_STATE", "message": "The board changed before your command arrived. Try again.", "seq": 12 }
 ```
 
 Codes: `MALFORMED_MESSAGE`, `INVALID_PLAYER_NAME`, `MATCH_NOT_FOUND`, `MATCH_FULL`,
 `MATCH_ALREADY_STARTED`, `MATCH_NOT_STARTED`, `NOT_IN_MATCH`, `ALREADY_IN_MATCH`, `NOT_HOST`,
-`INVALID_REJOIN_TOKEN`. `MALFORMED_MESSAGE` covers invalid JSON, unknown `t`, unknown command
-types, and wrong field types; the connection stays open.
+`INVALID_REJOIN_TOKEN`, `DUPLICATE_COMMAND`, `STALE_STATE`, `RATE_LIMITED`. `seq` is present
+when the error answers a specific command. `MALFORMED_MESSAGE` covers invalid JSON, unknown
+`t`, unknown command types, and wrong field types; the connection stays open.
+
+## Limits
+
+Applied by the socket layer before any message is read: text frames larger than 16 KB close
+the socket (code 1009); more than 200 concurrent connections are refused (1013); each socket
+may send a burst of 20 messages and then 10 per second, beyond which messages are dropped
+with `error RATE_LIMITED` and a client that keeps flooding is closed (1008); the server pings
+every 30 seconds and terminates a socket that did not answer the previous ping.
 
 ## Lifecycle
 

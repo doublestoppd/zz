@@ -20,7 +20,16 @@ class TestClient {
     resolve: (m: ServerMessage) => void;
   }[] = [];
 
-  private constructor(private readonly socket: WebSocket) {}
+  private constructor(private readonly socket: WebSocket) {
+    this.closed = new Promise((resolve) => {
+      socket.once("close", (code) => {
+        resolve(code);
+      });
+    });
+    socket.on("ping", () => {
+      this.pings += 1;
+    });
+  }
 
   static connect(port: number): Promise<TestClient> {
     return new Promise((resolve, reject) => {
@@ -43,6 +52,9 @@ class TestClient {
 
   /** Version of the latest `update` seen, whether or not a test has consumed it yet. */
   version = 0;
+  pings = 0;
+  /** Resolves with the close code once the server closes the socket. */
+  readonly closed: Promise<number>;
   private nextSeq = 1;
 
   send(message: ClientMessage): void {
@@ -127,6 +139,23 @@ class TestClient {
 let handle: SocketServerHandle;
 let registry: MatchRegistry;
 const clients: TestClient[] = [];
+
+/** Restarts the server with different socket limits for one test. */
+async function restartWith(
+  options: Partial<Parameters<typeof startSocketServer>[0]>,
+): Promise<void> {
+  await handle.close();
+  handle = await startSocketServer({
+    port: 0,
+    onMessage: (session, message) => {
+      handleClientMessage(registry, session, message);
+    },
+    onDisconnect: (session) => {
+      handleDisconnect(registry, session);
+    },
+    ...options,
+  });
+}
 
 beforeEach(async () => {
   registry = new MatchRegistry({
@@ -295,6 +324,33 @@ describe("gameplay", () => {
       }),
     );
     expect((await guest.next("rejected")).reason).toBe("NOT_YOUR_TURN");
+  });
+});
+
+describe("socket limits", () => {
+  it("drops messages over the rate limit and closes a client that keeps flooding", async () => {
+    await restartWith({ rateLimit: { burst: 3, perSecond: 1 } });
+    const client = await connect();
+    for (let i = 0; i < 4; i += 1) client.send({ t: "start_match" });
+    expect((await client.next("error", (m) => m.code === "RATE_LIMITED")).code).toBe(
+      "RATE_LIMITED",
+    );
+    for (let i = 0; i < 6; i += 1) client.send({ t: "start_match" });
+    expect(await client.closed).toBe(1008);
+  });
+
+  it("closes a socket that sends an oversized frame", async () => {
+    await restartWith({ maxPayloadBytes: 256 });
+    const client = await connect();
+    client.sendRaw("x".repeat(1024));
+    expect(await client.closed).toBe(1009);
+  });
+
+  it("pings connected clients on the configured interval", async () => {
+    await restartWith({ pingIntervalMs: 30 });
+    const client = await connect();
+    await new Promise((r) => setTimeout(r, 120));
+    expect(client.pings).toBeGreaterThanOrEqual(2);
   });
 });
 

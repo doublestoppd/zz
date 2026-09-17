@@ -140,7 +140,8 @@ export type ErrorCode =
   | "NOT_HOST"
   | "INVALID_REJOIN_TOKEN"
   | "DUPLICATE_COMMAND"
-  | "STALE_STATE";
+  | "STALE_STATE"
+  | "RATE_LIMITED";
 
 /** Session-level problems (not gameplay rejections). Sent to the sender only. */
 export interface ErrorMessage {

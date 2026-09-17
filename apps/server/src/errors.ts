@@ -14,6 +14,7 @@ const ERROR_TEXT: Readonly<Record<ErrorCode, string>> = {
   INVALID_REJOIN_TOKEN: "That rejoin token is not valid for this match.",
   DUPLICATE_COMMAND: "That command was already received.",
   STALE_STATE: "The board changed before your command arrived. Try again.",
+  RATE_LIMITED: "Too many messages; slow down.",
 };
 
 /** Answers the sender with a fixed, non-internal text; `seq` ties the error to a command. */
