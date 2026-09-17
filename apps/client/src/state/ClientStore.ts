@@ -64,6 +64,11 @@ export class ClientStore {
     this.patch({ pendingSeq: seq, lastRejection: undefined, lastError: undefined });
   }
 
+  /** The socket dropped: keep the match on screen, but no command can be pending any more. */
+  markDisconnected(): void {
+    this.patch({ pendingSeq: undefined });
+  }
+
   /** Forget the current identity (after leaving a match or a failed rejoin). */
   clearIdentity(): void {
     this.patch({

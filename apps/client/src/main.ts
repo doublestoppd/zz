@@ -19,19 +19,17 @@ const sounds = new SoundPlayer();
 
 connection.onStatus((status) => {
   store.setConnection(status);
-  // Back online with a remembered slot but no live identity: rejoin automatically.
+  // Back online with a remembered slot: rejoin automatically. The match view stays on
+  // screen through the outage; the server marks us absent and present again around it.
   const saved = loadIdentity();
-  if (status === "open" && store.get().me === undefined && saved !== undefined) {
+  if (status === "open" && saved !== undefined) {
     connection.send({
       t: "rejoin_match",
       matchCode: saved.matchCode,
       rejoinToken: saved.rejoinToken,
     });
   }
-  if (status === "closed" && store.get().me !== undefined) {
-    // The server will mark us absent; the next open re-sends rejoin_match.
-    store.clearIdentity();
-  }
+  if (status === "closed") store.markDisconnected();
 });
 connection.onMessage((message) => {
   store.applyServerMessage(message);
@@ -45,9 +43,13 @@ connection.onMessage((message) => {
     );
   if (
     message.t === "error" &&
-    (message.code === "MATCH_NOT_FOUND" || message.code === "INVALID_REJOIN_TOKEN")
+    (message.code === "MATCH_NOT_FOUND" ||
+      message.code === "INVALID_REJOIN_TOKEN" ||
+      message.code === "SESSION_REPLACED")
   ) {
+    // The slot is gone or belongs to another tab now: stop trying to rejoin it.
     clearIdentity();
+    store.clearIdentity();
   }
 });
 

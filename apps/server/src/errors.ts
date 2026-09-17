@@ -15,6 +15,7 @@ const ERROR_TEXT: Readonly<Record<ErrorCode, string>> = {
   DUPLICATE_COMMAND: "That command was already received.",
   STALE_STATE: "The board changed before your command arrived. Try again.",
   RATE_LIMITED: "Too many messages; slow down.",
+  SESSION_REPLACED: "Another connection took over this player.",
 };
 
 /** Answers the sender with a fixed, non-internal text; `seq` ties the error to a command. */

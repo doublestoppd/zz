@@ -421,6 +421,21 @@ describe("presence", () => {
     expect(snapshot.state.phase).toEqual({ kind: "player_turn", activePlayerId: guestId });
   });
 
+  it("tells a superseded socket it was replaced and closes it", async () => {
+    const { host, code, hostToken } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    await host.next("update");
+    const secondTab = await connect();
+    secondTab.send({ t: "rejoin_match", matchCode: code, rejoinToken: hostToken });
+    await secondTab.next("joined");
+    expect((await host.next("error")).code).toBe("SESSION_REPLACED");
+    expect(await host.closed).toBe(1008);
+    // The new socket owns the slot: its commands get gameplay answers, not NOT_IN_MATCH.
+    secondTab.version = (await secondTab.next("update")).version;
+    secondTab.command({ type: "reload" });
+    expect((await secondTab.next("rejected")).reason).toBe("MAGAZINE_FULL");
+  });
+
   it("rejects bad rejoin tokens", async () => {
     const { host, code } = await twoPlayerLobby();
     host.send({ t: "start_match" });

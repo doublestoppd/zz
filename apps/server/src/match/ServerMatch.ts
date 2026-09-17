@@ -103,8 +103,13 @@ export class ServerMatch {
     const member = this.members.find((m) => m.rejoinToken === rejoinToken);
     if (member === undefined) return "INVALID_REJOIN_TOKEN";
 
-    // A stale socket for the same slot is superseded by the new one.
-    if (member.session !== undefined) this.detach(member.session);
+    // A stale socket for the same slot is superseded by the new one and told so.
+    if (member.session !== undefined) {
+      const replaced = member.session;
+      sendError(replaced, "SESSION_REPLACED");
+      this.detach(replaced);
+      replaced.close();
+    }
     this.attach(session, member);
     session.send(this.joinedMessage(member));
     this.broadcastLobby();
