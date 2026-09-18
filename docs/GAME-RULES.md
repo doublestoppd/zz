@@ -10,8 +10,11 @@ that file is named so the rule can be changed in one place.
   road grid, blocks of buildings with doors, four survivor spawns together on the western
   road, a 2x2 extraction zone as far from the spawns as the streets allow, five walkers
   spawned at least a third of the longest path away, and six loot spawns on open ground
-  inside buildings where possible. Tile types: `floor`, `road`, `door`
-  (all walkable, none block sight) and `wall`. The same seed always produces the same city.
+  inside buildings where possible. Tile types: `floor` and `road` (walkable, see-through),
+  `wall` (neither), and the openings `door` and `window`, each holding a barrier entity
+  whose state decides whether it can be passed or seen through (see Doors and windows).
+  Zombies and the extraction zone are always placed outdoors, reachable without passing a
+  door or window. The same seed always produces the same city.
 - Tests use the hand-authored fixture `SMALL_TEST_MAP` (`map/testMaps.ts`) instead.
 - Every survivor starts with the values in `packages/game-data/src/survivors.ts`
   (10 health, 4 action points) and full action points.
@@ -68,8 +71,9 @@ round N+1: ...
   breadth-first search (`pathfinding/bfs.ts`). Other players and zombies block the path.
 - Cost is `moveCostPerTile` (currently 1) action points per tile stepped, for the whole path.
 - A move is rejected, in this order of checks, when the destination is:
-  outside the map, a wall, the player's own tile, occupied, unreachable, or more expensive
-  than the player's remaining action points.
+  outside the map, a wall or a shut door or window, the player's own tile, occupied,
+  unreachable, or more expensive than the player's remaining action points. Shut doors and
+  intact windows block the path as walls do; a move never opens anything.
 - Turn checks come first for every command: unknown player, match finished, not a player
   turn, not the active player (`commands/turnChecks.ts`).
 
@@ -98,7 +102,9 @@ in this order:
 4. **Wait** otherwise.
 
 A zombie that sees nobody and hears nothing stays where it is, so survivors can slip past
-zombies by keeping walls between them and staying quiet.
+zombies by keeping walls between them and staying quiet. Zombies path around shut doors
+and intact windows exactly as around walls; they cannot interact with them, though they can
+see through windows.
 
 Zombies take damage only from survivor attacks (see Combat) and die at zero health.
 
@@ -135,7 +141,8 @@ magazine 6, 1 action point to fire, 1 action point to reload.
   so a diagonal counts as one.
 - **Line of sight** follows Bresenham's line between the two tiles, checked in both
   directions so it is symmetric. Any tile strictly between them that `blocksVision` (walls)
-  blocks the shot. Survivors and zombies never block sight.
+  blocks the shot, as does a closed or locked door. Windows, open doors, and broken
+  barriers never block sight, and neither do survivors or zombies.
 - **Noise**: every shot, hit or not, makes a noise of the weapon's `noise` (pistol 8) at
   the shooter's tile (see Noise).
 - **Reload** fills the magazine from reserve ammunition, limited by what the reserve holds.
@@ -160,6 +167,42 @@ The first and only scenario. Settings come from `packages/game-data/src/objectiv
 - Every change to `roundsHeld` emits `extraction_progress`. Victory emits `match_ended`.
 - Defeat (everyone down) is checked before the objective, so a team that all goes down in
   the zone still loses.
+
+## Doors and windows (`rules/barriers.ts`)
+
+Every `door` and `window` tile holds one barrier entity in `state.barriers`, the only part
+of the terrain that changes during a match. Zombies never open, close, or break anything:
+a shut door is a wall to them, so survivors can shut zombies out or slip past unseen.
+
+| Kind, state      | Movement | Vision | How it changes                                            |
+| ---------------- | -------- | ------ | --------------------------------------------------------- |
+| door, `open`     | passes   | clear  | `close_door` (1 AP) when nobody stands in the doorway     |
+| door, `closed`   | blocks   | blocks | `open_door` (1 AP)                                        |
+| door, `locked`   | blocks   | blocks | `open_door` (1 AP) spends a carried key; or `force_entry` |
+| door, `broken`   | passes   | clear  | permanent                                                 |
+| window, `closed` | blocks   | clear  | `force_entry`                                             |
+| window, `broken` | passes   | clear  | permanent                                                 |
+
+- **Reach**: a survivor works a barrier from their own tile or an orthogonally adjacent
+  one (never diagonally).
+- **Open** (`open_door`). Checked in order: the barrier exists, it is in reach, it is a
+  door, it is not already open, it is not broken, a locked door needs a key in the
+  inventory, action points (`openDoorActionPointCost`, 1). Opening a locked door consumes
+  one key; a key has no other use and cannot be used through `use_item`.
+- **Close** (`close_door`). Checked in order: exists, in reach, a door, not broken, open,
+  nobody (the closer included) stands on its tile, action points
+  (`closeDoorActionPointCost`, 1).
+- **Force** (`force_entry`). Checked in order: exists, in reach, forceable (a locked door or
+  an intact window; a closed door is simply opened), action points
+  (`forceEntryActionPointCost`, 2). The barrier becomes `broken` for good and a noise of
+  `forceEntryNoise` (6) is made at its tile through the ordinary noise rules, so the
+  choice at a locked entrance is: find a key (quiet, costs the key), walk around (time), or
+  break in (fast, loud).
+- Keys drop from home, police, and shop cabinets and from ground loot
+  (`packages/game-data/src/containers.ts`, `items.ts`).
+- Buildings come from templates in `packages/map-generation/src/templates/buildings.ts`:
+  `+` is a closed door, `k` a locked door, `w` a window. Hand-authored maps use `+`, `O`
+  (open), `K` (locked), and `W`.
 
 ## Scavenging (`rules/search.ts`)
 
@@ -204,4 +247,4 @@ costs 1.
 ## Not yet implemented
 
 Melee, more weapons, dropping or trading items, other game modes, noise from movement or
-doors.
+from doors opening, zombies breaking doors, barricades.

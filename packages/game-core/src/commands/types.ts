@@ -1,4 +1,4 @@
-import type { ContainerId, ItemId, PlayerId, ZombieId } from "../ids.js";
+import type { BarrierId, ContainerId, ItemId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
 import type { ItemType } from "../state/types.js";
 
@@ -13,6 +13,9 @@ export type PlayerCommand =
   | PickUpCommand
   | UseItemCommand
   | SearchCommand
+  | OpenDoorCommand
+  | CloseDoorCommand
+  | ForceEntryCommand
   | EndTurnCommand;
 
 export interface MoveCommand {
@@ -54,6 +57,27 @@ export interface SearchCommand {
   readonly type: "search";
   readonly playerId: PlayerId;
   readonly containerId: ContainerId;
+}
+
+/** Open a closed door in reach; a locked door opens only by spending a carried key. */
+export interface OpenDoorCommand {
+  readonly type: "open_door";
+  readonly playerId: PlayerId;
+  readonly barrierId: BarrierId;
+}
+
+/** Close an open, unobstructed door in reach. */
+export interface CloseDoorCommand {
+  readonly type: "close_door";
+  readonly playerId: PlayerId;
+  readonly barrierId: BarrierId;
+}
+
+/** Break a locked door or an intact window in reach. Loud; the barrier stays broken. */
+export interface ForceEntryCommand {
+  readonly type: "force_entry";
+  readonly playerId: PlayerId;
+  readonly barrierId: BarrierId;
 }
 
 export interface EndTurnCommand {

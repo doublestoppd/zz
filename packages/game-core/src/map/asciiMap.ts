@@ -1,10 +1,17 @@
-import type { ContainerCategory } from "../state/types.js";
+import type { BarrierKind, BarrierState, ContainerCategory } from "../state/types.js";
 import { TILE_DEFINITIONS, type GameMap, type Position, type Tile } from "./types.js";
 
 /** Where a searchable container stands and what kind of place it is in. */
 export interface ContainerSpawn {
   readonly position: Position;
   readonly category: ContainerCategory;
+}
+
+/** A door or window in an opening tile, with the state it starts the match in. */
+export interface BarrierSpawn {
+  readonly position: Position;
+  readonly kind: BarrierKind;
+  readonly state: BarrierState;
 }
 
 /**
@@ -23,13 +30,16 @@ export interface MapLayout {
   readonly lootSpawns: readonly Position[];
   /** Searchable containers, in id order. */
   readonly containers: readonly ContainerSpawn[];
+  /** Doors and windows, in id order. Every `door` and `window` tile has exactly one. */
+  readonly barriers: readonly BarrierSpawn[];
 }
 
 /**
  * Legend for hand-authored maps:
- *   `#` wall   `.` floor   `=` road   `+` door   `S` floor + survivor spawn
+ *   `#` wall   `.` floor   `=` road   `S` floor + survivor spawn
  *   `E` floor + extraction zone   `Z` floor + zombie spawn   `L` floor + loot spawn
  *   `C` floor + searchable container (category "home")
+ *   `+` closed door   `O` open door   `K` locked door   `W` window (intact)
  */
 export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const height = rows.length;
@@ -43,6 +53,7 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const zombieSpawns: Position[] = [];
   const lootSpawns: Position[] = [];
   const containers: ContainerSpawn[] = [];
+  const barriers: BarrierSpawn[] = [];
   const tiles: Tile[][] = [];
 
   rows.forEach((row, y) => {
@@ -64,6 +75,19 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
           break;
         case "+":
           tileRow.push(TILE_DEFINITIONS.door);
+          barriers.push({ position: { x, y }, kind: "door", state: "closed" });
+          break;
+        case "O":
+          tileRow.push(TILE_DEFINITIONS.door);
+          barriers.push({ position: { x, y }, kind: "door", state: "open" });
+          break;
+        case "K":
+          tileRow.push(TILE_DEFINITIONS.door);
+          barriers.push({ position: { x, y }, kind: "door", state: "locked" });
+          break;
+        case "W":
+          tileRow.push(TILE_DEFINITIONS.window);
+          barriers.push({ position: { x, y }, kind: "window", state: "closed" });
           break;
         case "S":
           tileRow.push(TILE_DEFINITIONS.floor);
@@ -99,5 +123,6 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
     zombieSpawns,
     lootSpawns,
     containers,
+    barriers,
   };
 }

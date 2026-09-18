@@ -11,7 +11,7 @@ export type PickUpValidation =
   | { readonly ok: false; readonly reason: PickUpRejectionReason };
 
 export type UseItemRejectionReason =
-  "ITEM_NOT_CARRIED" | "HEALTH_ALREADY_FULL" | "INSUFFICIENT_ACTION_POINTS";
+  "ITEM_NOT_CARRIED" | "ITEM_NOT_USABLE" | "HEALTH_ALREADY_FULL" | "INSUFFICIENT_ACTION_POINTS";
 
 export type UseItemValidation =
   | { readonly ok: true; readonly definition: ItemDefinition }
@@ -40,8 +40,9 @@ export function validatePickUp(
 }
 
 /**
- * Reasons in order: the item is carried, the effect would do something, action points.
- * A medkit at full health is refused so a click cannot waste it; ammo always has a use.
+ * Reasons in order: the item is carried, it can be used on its own, the effect would do
+ * something, action points. A medkit at full health is refused so a click cannot waste it;
+ * ammo always has a use; a key is only ever spent by opening a locked door.
  */
 export function validateUseItem(
   state: GameState,
@@ -50,6 +51,7 @@ export function validateUseItem(
 ): UseItemValidation {
   if (!player.inventory.includes(itemType)) return { ok: false, reason: "ITEM_NOT_CARRIED" };
   const definition = state.rules.itemDefinitions[itemType];
+  if (definition.effect.kind === "key") return { ok: false, reason: "ITEM_NOT_USABLE" };
   if (definition.effect.kind === "heal" && player.health >= player.maxHealth) {
     return { ok: false, reason: "HEALTH_ALREADY_FULL" };
   }

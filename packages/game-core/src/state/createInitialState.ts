@@ -1,4 +1,4 @@
-import { containerId, itemId, zombieId, type MatchId, type PlayerId } from "../ids.js";
+import { barrierId, containerId, itemId, zombieId, type MatchId, type PlayerId } from "../ids.js";
 import type { MapLayout } from "../map/asciiMap.js";
 import { createRng, deriveSeed, RNG_STREAM } from "../random/rng.js";
 import { pickWeighted } from "../random/weighted.js";
@@ -11,6 +11,7 @@ import type {
   ZombieSpawnTableEntry,
 } from "./definitions.js";
 import type {
+  Barrier,
   GameRules,
   GameState,
   GroundItem,
@@ -94,6 +95,13 @@ export function createInitialState(setup: MatchSetup): GameState {
     searched: false,
   }));
 
+  const barriers: Barrier[] = layout.barriers.map((spawn, index) => ({
+    id: barrierId(`b${index + 1}`),
+    kind: spawn.kind,
+    position: spawn.position,
+    state: spawn.state,
+  }));
+
   const withoutPhase: Omit<GameState, "phase"> = {
     matchId: setup.matchId,
     seed: setup.seed,
@@ -106,6 +114,7 @@ export function createInitialState(setup: MatchSetup): GameState {
     zombies,
     items,
     containers,
+    barriers,
     noises: [],
     noiseCounter: 0,
     objective: createObjective(layout, setup.objective),

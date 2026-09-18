@@ -19,20 +19,20 @@ packages/
 
 ### `packages/game-core`
 
-| Directory      | Owns                                                                                                                                           |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ids.ts`       | Branded `PlayerId`, `ZombieId`, `ItemId`, `MatchId` and their factories.                                                                       |
-| `state/`       | `GameState` and entity types; definitions (survivor, weapon, zombie, item, objective settings); `createInitialState`; `validateMatchSetup`.    |
-| `map/`         | `GameMap`, `Tile`, `Position`, position helpers, the ASCII map parser and the fixture map.                                                     |
-| `random/`      | The seeded `Rng`, `deriveSeed`, the named stream table, and `pickWeighted`.                                                                    |
-| `pathfinding/` | Breadth-first search: shortest path, reachable set, and `searchFrom` for many goals.                                                           |
-| `rules/`       | Board rules: occupancy and passability, movement, health and down status, line of sight, fire and reload, pick up and use item, search, noise. |
-| `turn/`        | Turn order and eligibility; phase transitions; `advanceUntilPlayerInput`.                                                                      |
-| `zombies/`     | Zombie decision (`targetSelection.ts`: attack, pursue by sight, investigate noise, wait) and the per-round zombie phase.                       |
-| `objectives/`  | Objective creation, per-mode evaluation, zone tiles and progress summary; `extraction.ts` is the one mode so far.                              |
-| `commands/`    | Command and rejection unions; shared turn checks; `applyCommand`.                                                                              |
-| `events/`      | The `GameEvent` union.                                                                                                                         |
-| `testing/`     | `makeTestState` builder used by tests only.                                                                                                    |
+| Directory      | Owns                                                                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ids.ts`       | Branded `PlayerId`, `ZombieId`, `ItemId`, `MatchId` and their factories.                                                                                          |
+| `state/`       | `GameState` and entity types; definitions (survivor, weapon, zombie, item, objective settings); barrier lookups; `createInitialState`; `validateMatchSetup`.      |
+| `map/`         | `GameMap`, `Tile`, `Position`, position helpers, the ASCII map parser and the fixture map.                                                                        |
+| `random/`      | The seeded `Rng`, `deriveSeed`, the named stream table, and `pickWeighted`.                                                                                       |
+| `pathfinding/` | Breadth-first search: shortest path, reachable set, and `searchFrom` for many goals.                                                                              |
+| `rules/`       | Board rules: occupancy and passability, movement, health and down status, line of sight, fire and reload, pick up and use item, search, noise, doors and windows. |
+| `turn/`        | Turn order and eligibility; phase transitions; `advanceUntilPlayerInput`.                                                                                         |
+| `zombies/`     | Zombie decision (`targetSelection.ts`: attack, pursue by sight, investigate noise, wait) and the per-round zombie phase.                                          |
+| `objectives/`  | Objective creation, per-mode evaluation, zone tiles and progress summary; `extraction.ts` is the one mode so far.                                                 |
+| `commands/`    | Command and rejection unions; shared turn checks; `applyCommand`.                                                                                                 |
+| `events/`      | The `GameEvent` union.                                                                                                                                            |
+| `testing/`     | `makeTestState` builder used by tests only.                                                                                                                       |
 
 Public API is `src/index.ts`. Other packages may not import deeper paths (ESLint enforces it).
 
@@ -164,6 +164,8 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 | Where is damage applied, a survivor downed, or a zombie killed?  | `packages/game-core/src/rules/health.ts`                                                                |
 | Where is zombie behaviour selected?                              | `packages/game-core/src/zombies/targetSelection.ts`                                                     |
 | Where are noises made, heard, and decayed?                       | `packages/game-core/src/rules/noise.ts`; intensities in `packages/game-data/src/{weapons,rules}.ts`     |
+| Where do doors and windows block movement or sight?              | `packages/game-core/src/state/barriers.ts`, read by `rules/occupancy.ts` and `rules/lineOfSight.ts`     |
+| Where are open, close, and force entry validated?                | `packages/game-core/src/rules/barriers.ts`; applied in `commands/handlers/barriers.ts`                  |
 | Where are pick-up and use-item validated?                        | `packages/game-core/src/rules/items.ts`                                                                 |
 | Where is searching validated and loot rolled?                    | `packages/game-core/src/rules/search.ts`; tables in `packages/game-data/src/containers.ts`              |
 | Where do containers get placed in buildings?                     | `packages/map-generation/src/templates/buildings.ts` (`c` cells and categories), collected in `city.ts` |
@@ -185,19 +187,20 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 
 ## Roadmap
 
-| Milestone              | Status | Scope                                                                                                   |
-| ---------------------- | ------ | ------------------------------------------------------------------------------------------------------- |
-| 0 Architecture         | done   | this document and the ADRs                                                                              |
-| 1 Multiplayer movement | done   | lobby, sessions, turns, AP, move, end turn, sync, tests                                                 |
-| 2 Zombie phase         | done   | zombie spawns, nearest-survivor targeting, step or attack, `down` status, defeat                        |
-| 3 Basic combat         | done   | pistol, ammo and reload, Chebyshev range, symmetric Bresenham line of sight, zombie death               |
-| 4 Extraction objective | done   | end-of-round evaluation, holdout rounds, victory, match-over screen                                     |
-| 5 Procedural city      | done   | road grid, lots with authored building templates, marker placement, validation, deterministic retry     |
-| 6 Inventory and loot   | done   | ground items rolled from a loot table, small inventory, pick up, medkit and ammo box                    |
-| 7 Presentation polish  | done   | event-driven tweens, synthesized sounds with mute, keyboard controls, health bars, auto-reconnect, a11y |
-| Audit follow-up        | done   | see [CODEBASE-AUDIT.md](CODEBASE-AUDIT.md) and its resolution log                                       |
-| Gameplay A Scavenging  | done   | searchable containers by building category, `search` command, deterministic per-container loot          |
-| Gameplay B Noise       | done   | gunfire and search noises, zombie sight range and line of sight, noise investigation with memory        |
+| Milestone              | Status | Scope                                                                                                      |
+| ---------------------- | ------ | ---------------------------------------------------------------------------------------------------------- |
+| 0 Architecture         | done   | this document and the ADRs                                                                                 |
+| 1 Multiplayer movement | done   | lobby, sessions, turns, AP, move, end turn, sync, tests                                                    |
+| 2 Zombie phase         | done   | zombie spawns, nearest-survivor targeting, step or attack, `down` status, defeat                           |
+| 3 Basic combat         | done   | pistol, ammo and reload, Chebyshev range, symmetric Bresenham line of sight, zombie death                  |
+| 4 Extraction objective | done   | end-of-round evaluation, holdout rounds, victory, match-over screen                                        |
+| 5 Procedural city      | done   | road grid, lots with authored building templates, marker placement, validation, deterministic retry        |
+| 6 Inventory and loot   | done   | ground items rolled from a loot table, small inventory, pick up, medkit and ammo box                       |
+| 7 Presentation polish  | done   | event-driven tweens, synthesized sounds with mute, keyboard controls, health bars, auto-reconnect, a11y    |
+| Audit follow-up        | done   | see [CODEBASE-AUDIT.md](CODEBASE-AUDIT.md) and its resolution log                                          |
+| Gameplay A Scavenging  | done   | searchable containers by building category, `search` command, deterministic per-container loot             |
+| Gameplay B Noise       | done   | gunfire and search noises, zombie sight range and line of sight, noise investigation with memory           |
+| Gameplay C Doors       | done   | door and window barriers with open/closed/locked/broken state, keys, forced entry through the noise system |
 
 Deliberately not generalised yet: no quest engine, no entity-component system, no action
 registry, no transport abstraction, no delta sync, no persistence or accounts, no plugin

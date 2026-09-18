@@ -44,6 +44,7 @@ export interface TestStateOptions {
   readonly searchActionPointCost?: number;
   readonly searchNoise?: number;
   readonly zombieSightRange?: number;
+  readonly forceEntryNoise?: number;
 }
 
 const DEFAULT_PISTOL: WeaponDefinition = {
@@ -75,11 +76,16 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
         bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
         ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
+        key: { effect: { kind: "key" }, useActionPointCost: 0 },
       },
       pickUpActionPointCost: 1,
       searchActionPointCost: options.searchActionPointCost ?? 2,
       searchNoise: options.searchNoise ?? 2,
       noiseDurationRounds: 2,
+      openDoorActionPointCost: 1,
+      closeDoorActionPointCost: 1,
+      forceEntryActionPointCost: 2,
+      forceEntryNoise: options.forceEntryNoise ?? 6,
       searchLootTables: {
         home: {
           minRolls: 1,

@@ -1,7 +1,9 @@
 import {
+  barrierAt,
   legalFireTargets,
   positionsEqual,
   searchableContainersInReach,
+  validateOpenDoor,
   type GameState,
   type PlayerId,
   type Position,
@@ -12,8 +14,11 @@ import { decideMoveIntent } from "./moveIntent.js";
 /**
  * Turns a tile click into the one command it can mean: fire at the zombie standing there
  * if that shot is legal, else search the unsearched container there if it is in reach,
- * else move there if that move is legal, else nothing. The server remains the authority;
- * a command returned here can still be rejected.
+ * else open the door there if it is in reach (a locked door is still asked for, so the
+ * server's "locked" answer tells the player about keys and forcing), else move there if
+ * that move is legal, else nothing. Closing and forcing are deliberate acts, reached
+ * through the HUD buttons and keys rather than a click that might be a mis-aimed move.
+ * The server remains the authority; a command returned here can still be rejected.
  */
 export function decideClickIntent(
   state: GameState,
@@ -29,5 +34,12 @@ export function decideClickIntent(
     positionsEqual(c.position, tile),
   );
   if (container !== undefined) return { type: "search", containerId: container.id };
+  const barrier = barrierAt(state, tile);
+  if (barrier?.kind === "door") {
+    const open = validateOpenDoor(state, player, barrier.id);
+    if (open.ok || open.reason === "DOOR_LOCKED") {
+      return { type: "open_door", barrierId: barrier.id };
+    }
+  }
   return decideMoveIntent(state, me, tile);
 }

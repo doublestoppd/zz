@@ -24,6 +24,6 @@ describe("keyToCommand", () => {
 
   it("does nothing off-turn or for unknown keys", () => {
     expect(keyToCommand("e", state, P2)).toBeUndefined();
-    expect(keyToCommand("x", state, P1)).toBeUndefined();
+    expect(keyToCommand("j", state, P1)).toBeUndefined();
   });
 });

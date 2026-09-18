@@ -1,4 +1,5 @@
 import {
+  barrierOptions,
   chebyshevDistance,
   itemsUnderPlayer,
   legalFireTargets,
@@ -28,6 +29,9 @@ export const KEY_HELP: readonly (readonly [string, string])[] = [
   ["R", "reload"],
   ["P", "pick up the item underfoot"],
   ["Q", "search the nearest container in reach"],
+  ["O", "open the door next to you (a key opens a locked one)"],
+  ["C", "close the open door next to you"],
+  ["X", "force the locked door or window next to you (loud)"],
   ["E", "end turn"],
 ];
 
@@ -63,6 +67,18 @@ export function keyToCommand(
     case "q": {
       const container = searchableContainersInReach(state, player)[0];
       return container === undefined ? undefined : { type: "search", containerId: container.id };
+    }
+    case "o": {
+      const door = barrierOptions(state, player).open[0];
+      return door === undefined ? undefined : { type: "open_door", barrierId: door.id };
+    }
+    case "c": {
+      const door = barrierOptions(state, player).close[0];
+      return door === undefined ? undefined : { type: "close_door", barrierId: door.id };
+    }
+    case "x": {
+      const barrier = barrierOptions(state, player).force[0];
+      return barrier === undefined ? undefined : { type: "force_entry", barrierId: barrier.id };
     }
     case "f": {
       const targets = legalFireTargets(state, player);

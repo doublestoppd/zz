@@ -1,4 +1,12 @@
-import type { ContainerId, ItemId, MatchId, NoiseId, PlayerId, ZombieId } from "../ids.js";
+import type {
+  BarrierId,
+  ContainerId,
+  ItemId,
+  MatchId,
+  NoiseId,
+  PlayerId,
+  ZombieId,
+} from "../ids.js";
 import type { GameMap, Position } from "../map/types.js";
 import type {
   ItemDefinition,
@@ -32,6 +40,8 @@ export interface GameState {
   readonly items: readonly GroundItem[];
   /** Searchable objects inside buildings. Each yields loot once. */
   readonly containers: readonly SearchableContainer[];
+  /** Doors and windows: the only dynamic terrain. One per `door`/`window` tile. */
+  readonly barriers: readonly Barrier[];
   /** Recent loud actions that zombies may investigate. Expire after `noiseDurationRounds`. */
   readonly noises: readonly NoiseEvent[];
   /** Counter behind noise ids, so ids are unique and creation order is recoverable. */
@@ -69,6 +79,14 @@ export interface GameRules {
   readonly searchNoise: number;
   /** Zombie phases a noise stays audible for, counting the one right after it is made. */
   readonly noiseDurationRounds: number;
+  /** Action points to open a closed (or, with a key, locked) door. */
+  readonly openDoorActionPointCost: number;
+  /** Action points to close an open door. */
+  readonly closeDoorActionPointCost: number;
+  /** Action points to break a locked door or an intact window. */
+  readonly forceEntryActionPointCost: number;
+  /** Noise intensity (hearing radius in tiles) of forced entry; 0 means silent. */
+  readonly forceEntryNoise: number;
   /** What each kind of location yields when searched. */
   readonly searchLootTables: Readonly<Record<ContainerCategory, SearchLootTable>>;
 }
@@ -86,8 +104,25 @@ export interface SearchableContainer {
   readonly searched: boolean;
 }
 
+/** What a barrier is. Doors open and close; windows only stand or break. */
+export type BarrierKind = "door" | "window";
+
+/**
+ * The state of a door or window. A door is `open`, `closed`, `locked`, or `broken`; a
+ * window is `closed` (intact) or `broken`. `broken` is permanent and behaves like open.
+ */
+export type BarrierState = "open" | "closed" | "locked" | "broken";
+
+/** A door or window standing in an opening tile. `rules/barriers.ts` reads its state. */
+export interface Barrier {
+  readonly id: BarrierId;
+  readonly kind: BarrierKind;
+  readonly position: Position;
+  readonly state: BarrierState;
+}
+
 /** Runtime list of item types; the type is derived from it so decoders and UIs can iterate. */
-export const ITEM_TYPES = ["bandage", "medkit", "ammo_box"] as const;
+export const ITEM_TYPES = ["bandage", "medkit", "ammo_box", "key"] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
 
 export interface GroundItem {
@@ -145,7 +180,7 @@ export interface ZombieState {
 }
 
 /** What made a noise. Drives client presentation and, later, per-source rules. */
-export type NoiseSourceType = "gunfire" | "search";
+export type NoiseSourceType = "gunfire" | "search" | "forced_entry";
 
 /**
  * A sound remembered by the world. `intensity` is the hearing radius in tiles (Chebyshev):

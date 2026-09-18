@@ -13,9 +13,10 @@ export interface ValidationResult {
 }
 
 /**
- * Checks everything the game relies on: counts, walkability, distinctness, and that every
- * extraction tile and zombie spawn is reachable from every survivor spawn. Entities are
- * ignored for reachability because the board is empty at this point.
+ * Checks everything the game relies on: counts, walkability, distinctness, that every
+ * door and window tile carries a barrier, and that every marker is reachable from every
+ * survivor spawn. Entities are ignored for reachability because the board is empty at this
+ * point, and barriers are ignored too: any door or window can be opened or forced.
  */
 export function validateLayout(layout: MapLayout, expected: LayoutExpectations): ValidationResult {
   const issues: string[] = [];
@@ -46,6 +47,7 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
     ["zombie spawn", layout.zombieSpawns],
     ["loot spawn", layout.lootSpawns],
     ["container", layout.containers.map((c) => c.position)],
+    ["barrier", layout.barriers.map((b) => b.position)],
   ];
   const seen = new Set<string>();
   for (const [label, positions] of groups) {
@@ -56,6 +58,24 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
       seen.add(key);
     }
   }
+  const barrierKeys = new Set(layout.barriers.map((b) => positionKey(b.position)));
+  for (const b of layout.barriers) {
+    const type = tileAt(map, b.position)?.type;
+    if (type !== b.kind)
+      issues.push(
+        `${b.kind} at (${b.position.x}, ${b.position.y}) is on a ${type ?? "missing"} tile`,
+      );
+  }
+  map.tiles.forEach((row, y) => {
+    row.forEach((tile, x) => {
+      if (
+        (tile.type === "door" || tile.type === "window") &&
+        !barrierKeys.has(positionKey({ x, y }))
+      ) {
+        issues.push(`${tile.type} tile (${x}, ${y}) has no barrier`);
+      }
+    });
+  });
   if (issues.length > 0) return { ok: false, issues };
 
   const unlimited = map.width * map.height;

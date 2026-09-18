@@ -1,15 +1,19 @@
 import Phaser from "phaser";
 import {
+  barrierOptions,
   legalFireTargets,
   legalMoveDestinations,
   objectiveZoneTiles,
   searchableContainersInReach,
+  type Barrier,
+  type BarrierId,
   type GameEvent,
   type GameMap,
   type GameState,
   type ItemId,
   type ContainerId,
   type ItemType,
+  type NoiseSourceType,
   type PlayerId,
   type SearchableContainer,
   type PlayerState,
@@ -44,6 +48,12 @@ const COLOURS = {
   containerReachable: 0xffd54f,
   noiseGunfire: 0xffb74d,
   noiseSearch: 0x90caf9,
+  noiseForcedEntry: 0xff8a65,
+  doorWood: 0x8d5a2b,
+  doorLock: 0xffd54f,
+  windowGlass: 0x9fd3e6,
+  barrierAction: 0x80cbc4,
+  barrierForce: 0xff8a65,
   activeRing: 0xffffff,
   absent: 0x777777,
   down: 0x5a5a5a,
@@ -60,14 +70,24 @@ const COLOURS = {
 const TILE_COLOURS: Readonly<Record<TileType, number>> = {
   floor: COLOURS.floor,
   road: COLOURS.road,
-  door: COLOURS.door,
+  // Openings: the barrier sprite standing in the tile shows the door or window itself.
+  door: COLOURS.floor,
+  window: COLOURS.wall,
   wall: COLOURS.wall,
+};
+
+/** What each noise source looks like on the board; the compiler demands every source. */
+const NOISE_COLOURS: Readonly<Record<NoiseSourceType, number>> = {
+  gunfire: COLOURS.noiseGunfire,
+  search: COLOURS.noiseSearch,
+  forced_entry: COLOURS.noiseForcedEntry,
 };
 
 const ITEM_LABELS: Readonly<Record<ItemType, string>> = {
   bandage: "b",
   medkit: "+",
   ammo_box: "A",
+  key: "k",
 };
 
 interface EntitySprite {
@@ -89,6 +109,26 @@ interface ContainerSprite {
   readonly label: Phaser.GameObjects.Text;
 }
 
+/** Rebuilt whenever the barrier's state changes, so the shape always matches the state. */
+interface BarrierSprite {
+  readonly container: Phaser.GameObjects.Container;
+  readonly state: Barrier["state"];
+}
+
+/**
+ * Draw order, bottom to top. Phaser sorts the display list by depth, so anything below the
+ * tile layer's depth would be painted over by the opaque tiles and never seen.
+ */
+const DEPTH = {
+  tiles: 0,
+  furniture: 1, // containers, doors, windows
+  highlights: 2,
+  hover: 3,
+  items: 4,
+  entities: 5,
+  effects: 10,
+} as const;
+
 /**
  * Draws the board as a function of the latest GameState. The static map is drawn once;
  * player, zombie, and item markers are reconciled by id on every render so the picture
@@ -105,6 +145,7 @@ export class BoardRenderer implements AnimationStage {
   private readonly zombies = new Map<ZombieId, EntitySprite>();
   private readonly items = new Map<ItemId, ItemSprite>();
   private readonly containers = new Map<ContainerId, ContainerSprite>();
+  private readonly barriers = new Map<BarrierId, BarrierSprite>();
   private drawnMap: GameMap | undefined;
   private shownState: GameState | undefined;
   private readonly animation = new AnimationPlayer(this);
@@ -114,11 +155,11 @@ export class BoardRenderer implements AnimationStage {
     private readonly scene: Phaser.Scene,
     private readonly sounds: SoundPlayer,
   ) {
-    this.tileLayer = scene.add.graphics();
-    this.highlightLayer = scene.add.graphics();
-    this.noiseLayer = scene.add.graphics();
-    this.hoverLayer = scene.add.graphics();
-    this.effectLayer = scene.add.graphics().setDepth(10);
+    this.tileLayer = scene.add.graphics().setDepth(DEPTH.tiles);
+    this.highlightLayer = scene.add.graphics().setDepth(DEPTH.highlights);
+    this.noiseLayer = scene.add.graphics().setDepth(DEPTH.highlights);
+    this.hoverLayer = scene.add.graphics().setDepth(DEPTH.hover);
+    this.effectLayer = scene.add.graphics().setDepth(DEPTH.effects);
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
@@ -136,6 +177,7 @@ export class BoardRenderer implements AnimationStage {
       this.drawHighlights(state, me);
       this.drawNoises(state);
       this.reconcileContainers(state);
+      this.reconcileBarriers(state);
       this.reconcileItems(state);
       this.reconcilePlayers(state);
       this.reconcileZombies(state);
@@ -261,6 +303,17 @@ export class BoardRenderer implements AnimationStage {
       const { x, y } = tileToPixel(c.position);
       g.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     }
+    const doors = barrierOptions(state, player);
+    g.lineStyle(3, COLOURS.barrierAction);
+    for (const b of [...doors.open, ...doors.close]) {
+      const { x, y } = tileToPixel(b.position);
+      g.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    }
+    g.lineStyle(3, COLOURS.barrierForce);
+    for (const b of doors.force) {
+      const { x, y } = tileToPixel(b.position);
+      g.strokeRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+    }
   }
 
   /**
@@ -271,7 +324,7 @@ export class BoardRenderer implements AnimationStage {
     const g = this.noiseLayer;
     g.clear();
     for (const noise of state.noises) {
-      const colour = noise.sourceType === "gunfire" ? COLOURS.noiseGunfire : COLOURS.noiseSearch;
+      const colour = NOISE_COLOURS[noise.sourceType];
       const alpha = Math.min(1, noise.remainingRounds / state.rules.noiseDurationRounds);
       const { x, y } = tileCenter(noise.position);
       g.fillStyle(colour, 0.8 * alpha);
@@ -316,10 +369,75 @@ export class BoardRenderer implements AnimationStage {
     const label = this.scene.add
       .text(0, 0, "?", { fontSize: "14px", color: "#ffffff" })
       .setOrigin(0.5);
-    const group = this.scene.add.container(0, 0, [body, label]).setDepth(-1);
+    const group = this.scene.add.container(0, 0, [body, label]).setDepth(DEPTH.furniture);
     const sprite: ContainerSprite = { container: group, body, label };
     this.containers.set(container.id, sprite);
     return sprite;
+  }
+
+  private reconcileBarriers(state: GameState): void {
+    const seen = new Set<BarrierId>();
+    for (const barrier of state.barriers) {
+      seen.add(barrier.id);
+      const existing = this.barriers.get(barrier.id);
+      if (existing?.state === barrier.state) continue;
+      existing?.container.destroy();
+      const { x, y } = tileCenter(barrier.position);
+      this.barriers.set(barrier.id, {
+        container: this.createBarrierSprite(barrier).setPosition(x, y),
+        state: barrier.state,
+      });
+    }
+    for (const [id, sprite] of this.barriers) {
+      if (!seen.has(id)) {
+        sprite.container.destroy();
+        this.barriers.delete(id);
+      }
+    }
+  }
+
+  /**
+   * A door fills its opening when closed or locked (with a lock mark), shrinks to a leaf
+   * along one edge when open, and lies splintered when broken; a window is a pane of glass
+   * across the opening, shattered when broken.
+   */
+  private createBarrierSprite(barrier: Barrier): Phaser.GameObjects.Container {
+    const parts: Phaser.GameObjects.GameObject[] = [];
+    if (barrier.kind === "door") {
+      const shut = barrier.state === "closed" || barrier.state === "locked";
+      const body = shut
+        ? this.scene.add.rectangle(0, 0, TILE_SIZE * 0.9, TILE_SIZE * 0.9, COLOURS.doorWood)
+        : this.scene.add.rectangle(
+            -TILE_SIZE * 0.3,
+            0,
+            TILE_SIZE * 0.3,
+            TILE_SIZE * 0.9,
+            COLOURS.doorWood,
+          );
+      if (barrier.state === "broken") body.setAlpha(0.35);
+      parts.push(body);
+      if (barrier.state === "locked") {
+        parts.push(
+          this.scene.add.rectangle(0, 0, TILE_SIZE * 0.3, TILE_SIZE * 0.3, COLOURS.doorLock),
+        );
+      }
+    } else {
+      const pane = this.scene.add.rectangle(
+        0,
+        0,
+        TILE_SIZE * 0.9,
+        TILE_SIZE * 0.4,
+        COLOURS.windowGlass,
+      );
+      if (barrier.state === "broken") pane.setAlpha(0.3);
+      parts.push(pane);
+    }
+    if (barrier.state === "broken") {
+      parts.push(
+        this.scene.add.text(0, 0, "x", { fontSize: "16px", color: "#ffffff" }).setOrigin(0.5),
+      );
+    }
+    return this.scene.add.container(0, 0, parts).setDepth(DEPTH.furniture);
   }
 
   private reconcileItems(state: GameState): void {
@@ -343,7 +461,7 @@ export class BoardRenderer implements AnimationStage {
     const label = this.scene.add
       .text(0, 0, ITEM_LABELS[type], { fontSize: "12px", color: "#000000" })
       .setOrigin(0.5);
-    const container = this.scene.add.container(0, 0, [body, label]);
+    const container = this.scene.add.container(0, 0, [body, label]).setDepth(DEPTH.items);
     const sprite: ItemSprite = { container };
     this.items.set(id, sprite);
     return sprite;
@@ -381,7 +499,9 @@ export class BoardRenderer implements AnimationStage {
       .text(0, 0, player.name.slice(0, 1).toUpperCase(), { fontSize: "16px", color: "#ffffff" })
       .setOrigin(0.5);
     const [healthBack, healthFill] = createHealthBar(this.scene);
-    const container = this.scene.add.container(0, 0, [ring, body, label, healthBack, healthFill]);
+    const container = this.scene.add
+      .container(0, 0, [ring, body, label, healthBack, healthFill])
+      .setDepth(DEPTH.entities);
     const sprite: EntitySprite = { container, body, ring, colour, healthFill };
     this.players.set(player.id, sprite);
     return sprite;
@@ -411,7 +531,9 @@ export class BoardRenderer implements AnimationStage {
       .text(0, 0, "Z", { fontSize: "16px", color: "#ffffff" })
       .setOrigin(0.5);
     const [healthBack, healthFill] = createHealthBar(this.scene);
-    const container = this.scene.add.container(0, 0, [body, label, healthBack, healthFill]);
+    const container = this.scene.add
+      .container(0, 0, [body, label, healthBack, healthFill])
+      .setDepth(DEPTH.entities);
     const sprite: EntitySprite = { container, body, colour: COLOURS.zombie, healthFill };
     this.zombies.set(zombie.id, sprite);
     return sprite;

@@ -70,5 +70,8 @@ export function applyUseItem(state: GameState, command: UseItemCommand): Command
         ],
       });
     }
+    case "key":
+      // Unreachable: validateUseItem refuses keys. Kept so the switch stays exhaustive.
+      return { ok: false, reason: "ITEM_NOT_USABLE" };
   }
 }

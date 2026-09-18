@@ -18,7 +18,7 @@ export {
   type DamageOutcome,
   type ZombieDamageOutcome,
 } from "./health.js";
-export { hasLineOfSight, tilesBetween } from "./lineOfSight.js";
+export { hasLineOfSight, tilesBetween, type VisionBoard } from "./lineOfSight.js";
 export {
   legalFireTargets,
   validateFire,
@@ -48,3 +48,21 @@ export {
   type SearchValidation,
 } from "./search.js";
 export { canHear, decayNoises, makeNoise, noiseScore, type NoiseOutcome } from "./noise.js";
+export {
+  BARRIER_REACH,
+  barrierAt,
+  barrierBlocksMovement,
+  barrierBlocksVision,
+  barrierOptions,
+  carriesKey,
+  isBlockedByBarrier,
+  isForceable,
+  validateCloseDoor,
+  validateForceEntry,
+  validateOpenDoor,
+  type BarrierOptions,
+  type BarrierRejectionReason,
+  type CloseDoorValidation,
+  type ForceEntryValidation,
+  type OpenDoorValidation,
+} from "./barriers.js";

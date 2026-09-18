@@ -1,6 +1,9 @@
 export type {
   AmmoGainedEvent,
+  BarrierForcedEvent,
   ContainerSearchedEvent,
+  DoorClosedEvent,
+  DoorOpenedEvent,
   EntityDamagedEvent,
   EntityDiedEvent,
   ExtractionProgressEvent,

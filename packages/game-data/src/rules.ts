@@ -16,5 +16,10 @@ export const DEFAULT_GAME_RULES: GameRules = {
   searchNoise: 2,
   /** A noise is heard in the zombie phase right after it and one more. */
   noiseDurationRounds: 2,
+  openDoorActionPointCost: 1,
+  closeDoorActionPointCost: 1,
+  forceEntryActionPointCost: 2,
+  /** Breaking a lock or a window is loud: between a search (2) and a pistol shot (8). */
+  forceEntryNoise: 6,
   searchLootTables: SEARCH_LOOT_TABLES,
 };

@@ -16,6 +16,17 @@ describe("parseAsciiMap", () => {
     expect(layout.extractionZone).toEqual([{ x: 2, y: 1 }]);
   });
 
+  it("turns door and window symbols into barriers with their starting state", () => {
+    const layout = parseAsciiMap(["+OKW"]);
+    expect(layout.map.tiles[0]?.map((t) => t.type)).toEqual(["door", "door", "door", "window"]);
+    expect(layout.barriers).toEqual([
+      { position: { x: 0, y: 0 }, kind: "door", state: "closed" },
+      { position: { x: 1, y: 0 }, kind: "door", state: "open" },
+      { position: { x: 2, y: 0 }, kind: "door", state: "locked" },
+      { position: { x: 3, y: 0 }, kind: "window", state: "closed" },
+    ]);
+  });
+
   it("rejects ragged rows and unknown symbols", () => {
     expect(() => parseAsciiMap(["##", "#"])).toThrow(/row 1/);
     expect(() => parseAsciiMap(["#?"])).toThrow(/unknown symbol/);

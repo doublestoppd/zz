@@ -28,7 +28,9 @@ export interface SurvivorDefinition {
 /** What using an item does. Add a member here for a new kind of effect. */
 export type ItemEffect =
   | { readonly kind: "heal"; readonly amount: number }
-  | { readonly kind: "ammo"; readonly rounds: number };
+  | { readonly kind: "ammo"; readonly rounds: number }
+  /** Not usable on its own: spent by `open_door` on a locked door (rules/barriers.ts). */
+  | { readonly kind: "key" };
 
 /** Statistics for one item type. Values come from game-data. */
 export interface ItemDefinition {

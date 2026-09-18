@@ -1,4 +1,7 @@
 export type {
+  Barrier,
+  BarrierKind,
+  BarrierState,
   ContainerCategory,
   EquippedWeapon,
   ExtractionObjectiveState,
@@ -20,6 +23,7 @@ export type {
 } from "./types.js";
 export { CONTAINER_CATEGORIES, ITEM_TYPES } from "./types.js";
 export { findPlayer, replacePlayer } from "./players.js";
+export { setBarrierState, type BarrierBoard } from "./barriers.js";
 export type {
   ExtractionSettings,
   ItemDefinition,

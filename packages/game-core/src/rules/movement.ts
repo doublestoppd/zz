@@ -3,6 +3,7 @@ import { isInBounds, positionsEqual, tileAt } from "../map/position.js";
 import type { Position } from "../map/types.js";
 import { findShortestPath, reachablePositions } from "../pathfinding/bfs.js";
 import type { GameState, PlayerState } from "../state/types.js";
+import { isBlockedByBarrier } from "../state/barriers.js";
 import { canStandOn, passabilityFor } from "./occupancy.js";
 
 export type MoveRejectionReason =
@@ -37,7 +38,10 @@ export function validateMove(
   if (!isInBounds(state.map, destination)) {
     return { ok: false, reason: "DESTINATION_OUT_OF_BOUNDS" };
   }
-  if (!(tileAt(state.map, destination)?.walkable ?? false)) {
+  if (
+    !(tileAt(state.map, destination)?.walkable ?? false) ||
+    isBlockedByBarrier(state, destination)
+  ) {
     return { ok: false, reason: "DESTINATION_BLOCKED" };
   }
   if (positionsEqual(player.position, destination)) {

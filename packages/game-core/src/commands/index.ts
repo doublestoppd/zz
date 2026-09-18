@@ -1,6 +1,9 @@
 export type {
+  CloseDoorCommand,
   Command,
   EndTurnCommand,
+  ForceEntryCommand,
+  OpenDoorCommand,
   FireWeaponCommand,
   MoveCommand,
   PickUpCommand,

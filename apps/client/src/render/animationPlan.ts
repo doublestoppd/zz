@@ -8,6 +8,8 @@ export type SoundName =
   | "pickup"
   | "reload"
   | "zombie"
+  | "door"
+  | "crash"
   | "your_turn"
   | "victory"
   | "defeat";
@@ -94,6 +96,13 @@ export function planAnimations(
       case "weapon_reloaded":
       case "ammo_gained":
         steps.push({ kind: "sound", name: "reload" });
+        break;
+      case "door_opened":
+      case "door_closed":
+        steps.push({ kind: "sound", name: "door" });
+        break;
+      case "barrier_forced":
+        steps.push({ kind: "sound", name: "crash" });
         break;
       case "turn_started":
         if (event.playerId === me) steps.push({ kind: "sound", name: "your_turn" });

@@ -1,5 +1,10 @@
 import { tileAt } from "../map/position.js";
-import type { GameMap, Position } from "../map/types.js";
+import type { Position } from "../map/types.js";
+import type { GameState } from "../state/types.js";
+import { barrierAt, barrierBlocksVision } from "../state/barriers.js";
+
+/** What sight is computed over: the terrain and the doors standing in it. */
+export type VisionBoard = Pick<GameState, "map" | "barriers">;
 
 /**
  * The tiles a straight line from `from` to `to` passes through, excluding both endpoints,
@@ -33,15 +38,22 @@ export function tilesBetween(from: Position, to: Position): Position[] {
   return tiles;
 }
 
-function isClear(map: GameMap, from: Position, to: Position): boolean {
-  return tilesBetween(from, to).every((p) => !(tileAt(map, p)?.blocksVision ?? true));
+function blocksVision(board: VisionBoard, p: Position): boolean {
+  if (tileAt(board.map, p)?.blocksVision ?? true) return true;
+  const barrier = barrierAt(board, p);
+  return barrier !== undefined && barrierBlocksVision(barrier);
+}
+
+function isClear(board: VisionBoard, from: Position, to: Position): boolean {
+  return tilesBetween(from, to).every((p) => !blocksVision(board, p));
 }
 
 /**
- * True when no tile strictly between the two positions blocks vision. Bresenham lines are
- * not symmetric, so both directions are checked and sight exists only when both are clear;
- * cover therefore never depends on who is looking.
+ * True when no tile strictly between the two positions blocks vision: walls always do,
+ * closed and locked doors do, windows and open or broken barriers never do. Bresenham
+ * lines are not symmetric, so both directions are checked and sight exists only when both
+ * are clear; cover therefore never depends on who is looking.
  */
-export function hasLineOfSight(map: GameMap, from: Position, to: Position): boolean {
-  return isClear(map, from, to) && isClear(map, to, from);
+export function hasLineOfSight(board: VisionBoard, from: Position, to: Position): boolean {
+  return isClear(board, from, to) && isClear(board, to, from);
 }

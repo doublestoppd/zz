@@ -1,8 +1,13 @@
 import {
+  barrierOptions,
   ITEM_TYPES,
   itemsUnderPlayer,
   searchableContainersInReach,
+  type Barrier,
+  type BarrierOptions,
+  type GameState,
   type ItemType,
+  type PlayerState,
 } from "@zombie/game-core";
 import type { SoundPlayer } from "../audio/SoundPlayer.js";
 import { KEY_HELP } from "../input/keyboard.js";
@@ -22,6 +27,7 @@ const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
   bandage: "Use bandage",
   medkit: "Use medkit",
   ammo_box: "Open ammo box",
+  key: "Use key",
 };
 
 /** Round, turn, action points, end-turn control, and the event log. */
@@ -38,6 +44,9 @@ export class Hud {
   private readonly inventoryLine = el("div");
   private readonly pickUpButton: HTMLButtonElement;
   private readonly searchButton: HTMLButtonElement;
+  private readonly openDoorButton: HTMLButtonElement;
+  private readonly closeDoorButton: HTMLButtonElement;
+  private readonly forceEntryButton: HTMLButtonElement;
   private readonly useButtons = new Map<ItemType, HTMLButtonElement>();
   private readonly reloadButton: HTMLButtonElement;
   private readonly endTurnButton: HTMLButtonElement;
@@ -77,6 +86,22 @@ export class Hud {
           : searchableContainersInReach(client.game.state, me)[0];
       if (container !== undefined) sender.send({ type: "search", containerId: container.id });
     });
+    const barrierIn = (pick: (o: BarrierOptions) => Barrier | undefined): Barrier | undefined => {
+      const me = currentPlayer(store.get());
+      return me === undefined ? undefined : pick(barrierOptions(me.game, me.player));
+    };
+    this.openDoorButton = button("Open door", () => {
+      const door = barrierIn((o) => o.open[0]);
+      if (door !== undefined) sender.send({ type: "open_door", barrierId: door.id });
+    });
+    this.closeDoorButton = button("Close door", () => {
+      const door = barrierIn((o) => o.close[0]);
+      if (door !== undefined) sender.send({ type: "close_door", barrierId: door.id });
+    });
+    this.forceEntryButton = button("Force entry", () => {
+      const barrier = barrierIn((o) => o.force[0]);
+      if (barrier !== undefined) sender.send({ type: "force_entry", barrierId: barrier.id });
+    });
     this.pickUpButton = button("Pick up", () => {
       const client = store.get();
       const me = client.game?.state.players.find((p) => p.id === client.me?.playerId);
@@ -114,6 +139,7 @@ export class Hud {
         " ",
         ...[...this.useButtons.values()].flatMap((b) => [b, " "]),
       ]),
+      el("div", {}, [this.openDoorButton, " ", this.closeDoorButton, " ", this.forceEntryButton]),
       el("div", {}, [this.reloadButton, " ", this.endTurnButton, " ", this.muteButton]),
       this.messageLine,
       el("details", {}, [
@@ -193,6 +219,17 @@ export class Hud {
       reachable.length === 0
         ? "Search"
         : `Search ${reachable[0]?.category ?? ""} cabinet (${game.rules.searchActionPointCost} AP)`;
+    const doors =
+      mine === undefined ? { open: [], close: [], force: [] } : barrierOptions(game, mine);
+    this.openDoorButton.disabled = busy || doors.open.length === 0;
+    this.openDoorButton.textContent =
+      doors.open[0]?.state === "locked"
+        ? `Unlock door with key (${game.rules.openDoorActionPointCost} AP)`
+        : `Open door (${game.rules.openDoorActionPointCost} AP)`;
+    this.closeDoorButton.disabled = busy || doors.close.length === 0;
+    this.closeDoorButton.textContent = `Close door (${game.rules.closeDoorActionPointCost} AP)`;
+    this.forceEntryButton.disabled = busy || doors.force.length === 0;
+    this.forceEntryButton.textContent = `Force ${doors.force[0]?.kind ?? "entry"} (${game.rules.forceEntryActionPointCost} AP, loud)`;
     const underfoot = mine === undefined ? [] : itemsUnderPlayer(game, mine);
     this.pickUpButton.disabled = busy || underfoot.length === 0;
     this.pickUpButton.textContent =
@@ -203,7 +240,9 @@ export class Hud {
         ? ""
         : `Carrying (${carried.length}/${mine.inventoryCapacity}): ${carried.length === 0 ? "nothing" : carried.map((i) => i.replace("_", " ")).join(", ")}`;
     for (const [type, useButton] of this.useButtons) {
-      useButton.hidden = !carried.includes(type);
+      // Keys have no use of their own: they are spent by opening a locked door.
+      useButton.hidden =
+        !carried.includes(type) || game.rules.itemDefinitions[type].effect.kind === "key";
       useButton.disabled = busy;
     }
     this.messageLine.textContent =
@@ -222,6 +261,15 @@ export class Hud {
     );
     this.log.scrollTop = this.log.scrollHeight;
   }
+}
+
+/** The viewer's own survivor together with the match state, when both exist. */
+function currentPlayer(
+  client: ClientState,
+): { readonly game: GameState; readonly player: PlayerState } | undefined {
+  const game = client.game?.state;
+  const player = game?.players.find((p) => p.id === client.me?.playerId);
+  return game === undefined || player === undefined ? undefined : { game, player };
 }
 
 function restartAnimation(element: HTMLElement): void {

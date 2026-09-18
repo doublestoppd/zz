@@ -1,11 +1,11 @@
 import type { ContainerCategory, TileType } from "@zombie/game-core";
 
 /**
- * Authored building footprints. Legend: `#` wall, `.` interior floor, `+` door,
- * `c` interior floor with a searchable container. Every template has at least one door on
- * its bottom edge; rotation supplies the others. The category decides which loot table the
- * building's containers roll from. Add a template here to enrich the city; the placer picks
- * any that fits the lot.
+ * Authored building footprints. Legend: `#` wall, `.` interior floor, `+` closed door,
+ * `k` locked door, `w` window, `c` interior floor with a searchable container. Every
+ * template has at least one door on its bottom edge; rotation supplies the others. The
+ * category decides which loot table the building's containers roll from. Add a template
+ * here to enrich the city; the placer picks any that fits the lot.
  */
 export interface BuildingTemplate {
   readonly category: ContainerCategory;
@@ -15,22 +15,24 @@ export interface BuildingTemplate {
 export const BUILDING_TEMPLATES: readonly BuildingTemplate[] = [
   // Kiosk
   { category: "shop", rows: ["###", "#c#", "#+#"] },
-  // Small hut
-  { category: "home", rows: ["####", "#c.#", "#..#", "#+##"] },
-  // House
-  { category: "home", rows: ["#####", "#c..#", "#...#", "#..c#", "##+##"] },
-  // Clinic with two doors
-  { category: "clinic", rows: ["#######", "#c...c#", "#.....#", "#+###+#"] },
-  // Police station
-  { category: "police", rows: ["########", "#c....c#", "#......#", "###+####"] },
+  // Small hut with a back window
+  { category: "home", rows: ["#w##", "#c.#", "#..#", "#+##"] },
+  // House: windows on two sides
+  { category: "home", rows: ["##w##", "#c..#", "w...#", "#..c#", "##+##"] },
+  // Clinic: a public door and a locked back door
+  { category: "clinic", rows: ["##w#w##", "#c...c#", "#.....#", "#+###k#"] },
+  // Police station: the only door is locked; the window is the loud way in
+  { category: "police", rows: ["###w####", "#c....c#", "w......#", "###k####"] },
   // L-shaped shop (the notch stays open ground)
-  { category: "shop", rows: ["######", "#c...#", "#....#", "#..###", "#+.#.."] },
+  { category: "shop", rows: ["######", "#c...#", "w....#", "#..###", "#+.#.."] },
 ];
 
 const LEGEND: Readonly<Record<string, TileType>> = {
   "#": "wall",
   ".": "floor",
   "+": "door",
+  k: "door",
+  w: "window",
   c: "floor",
 };
 
@@ -41,6 +43,8 @@ export interface Stamp {
   readonly cells: readonly (readonly (TileType | undefined)[])[];
   /** Row-major flags marking cells that hold a searchable container. */
   readonly containers: readonly (readonly boolean[])[];
+  /** Row-major flags marking door cells that start locked. */
+  readonly locked: readonly (readonly boolean[])[];
 }
 
 export function templateToStamp(rows: readonly string[]): Stamp {
@@ -52,7 +56,8 @@ export function templateToStamp(rows: readonly string[]): Stamp {
     }),
   );
   const containers = rows.map((row) => Array.from({ length: width }, (_, x) => row[x] === "c"));
-  return { width, height: rows.length, cells, containers };
+  const locked = rows.map((row) => Array.from({ length: width }, (_, x) => row[x] === "k"));
+  return { width, height: rows.length, cells, containers, locked };
 }
 
 /** Rotates a stamp clockwise by 90 degrees `quarterTurns` times. */
@@ -71,6 +76,7 @@ export function rotateStamp(stamp: Stamp, quarterTurns: number): Stamp {
       height: current.width,
       cells: rotate<TileType | undefined>(current.cells, undefined),
       containers: rotate<boolean>(current.containers, false),
+      locked: rotate<boolean>(current.locked, false),
     };
   }
   return current;

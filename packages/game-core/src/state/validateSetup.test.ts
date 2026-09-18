@@ -17,6 +17,10 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
       searchActionPointCost: 2,
       searchNoise: 2,
       noiseDurationRounds: 2,
+      openDoorActionPointCost: 1,
+      closeDoorActionPointCost: 1,
+      forceEntryActionPointCost: 2,
+      forceEntryNoise: 6,
       searchLootTables: {
         home: {
           minRolls: 1,
@@ -67,6 +71,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
         bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
         ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
+        key: { effect: { kind: "key" }, useActionPointCost: 0 },
       },
     },
     survivor: {
@@ -100,6 +105,28 @@ describe("validateMatchSetup", () => {
       "rules.moveCostPerTile must be an integer >= 1, got 0",
     ]);
     expect(() => createInitialState(bad)).toThrow(/moveCostPerTile/);
+  });
+
+  it("rejects opening tiles without a barrier, misplaced barriers, and open windows", () => {
+    const base = setup({ layout: parseAsciiMap(["######", "#SL+E#", "#S.ZW#", "######"]) });
+    expect(validateMatchSetup(base)).toEqual([]);
+    const bare = { ...base.layout, barriers: [] };
+    expect(validateMatchSetup(setup({ layout: bare }))).toEqual([
+      "door tile (3, 1) has no barrier",
+      "window tile (4, 2) has no barrier",
+    ]);
+    const wrong = {
+      ...base.layout,
+      barriers: [
+        { position: { x: 1, y: 1 }, kind: "door", state: "closed" },
+        { position: { x: 3, y: 1 }, kind: "door", state: "closed" },
+        { position: { x: 4, y: 2 }, kind: "window", state: "open" },
+      ] as const,
+    };
+    expect(validateMatchSetup(setup({ layout: wrong }))).toEqual([
+      "door at (1, 1) is not on a door tile",
+      "window at (4, 2) cannot be open",
+    ]);
   });
 
   it("rejects spawns that are out of bounds, in walls, duplicated, or overlapping", () => {

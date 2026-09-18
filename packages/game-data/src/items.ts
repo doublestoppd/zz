@@ -5,6 +5,8 @@ export const ITEM_DEFINITIONS: Readonly<Record<ItemType, ItemDefinition>> = {
   bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
   medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
   ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
+  /** Spent by opening a locked door; never used directly, so the cost is moot. */
+  key: { effect: { kind: "key" }, useActionPointCost: 0 },
 };
 
 /** Relative weights used when rolling what lies at each loot spawn. */
@@ -12,4 +14,5 @@ export const LOOT_TABLE: readonly LootTableEntry[] = [
   { type: "bandage", weight: 2 },
   { type: "medkit", weight: 1 },
   { type: "ammo_box", weight: 2 },
+  { type: "key", weight: 1 },
 ];

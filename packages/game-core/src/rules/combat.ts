@@ -42,7 +42,7 @@ export function validateFire(
   if (chebyshevDistance(player.position, target.position) > weapon.range) {
     return { ok: false, reason: "OUT_OF_RANGE" };
   }
-  if (!hasLineOfSight(state.map, player.position, target.position)) {
+  if (!hasLineOfSight(state, player.position, target.position)) {
     return { ok: false, reason: "NO_LINE_OF_SIGHT" };
   }
   if (player.weapon.loadedAmmo <= 0) return { ok: false, reason: "WEAPON_EMPTY" };

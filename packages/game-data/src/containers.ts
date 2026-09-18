@@ -12,6 +12,7 @@ export const SEARCH_LOOT_TABLES: Readonly<Record<ContainerCategory, SearchLootTa
       { type: "bandage", weight: 4 },
       { type: "ammo_box", weight: 2 },
       { type: "medkit", weight: 1 },
+      { type: "key", weight: 1 },
       { type: "nothing", weight: 3 },
     ],
   },
@@ -30,6 +31,7 @@ export const SEARCH_LOOT_TABLES: Readonly<Record<ContainerCategory, SearchLootTa
     entries: [
       { type: "ammo_box", weight: 5 },
       { type: "medkit", weight: 1 },
+      { type: "key", weight: 2 },
       { type: "nothing", weight: 2 },
     ],
   },

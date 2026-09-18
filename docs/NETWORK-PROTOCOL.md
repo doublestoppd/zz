@@ -67,6 +67,9 @@ everyone. Errors: `NOT_IN_MATCH`, `MATCH_ALREADY_STARTED`, `NOT_HOST`.
 { "t": "command", "seq": 15, "expectedVersion": 6, "command": { "type": "pick_up", "itemId": "i3" } }
 { "t": "command", "seq": 16, "expectedVersion": 7, "command": { "type": "use_item", "itemType": "medkit" } }
 { "t": "command", "seq": 18, "expectedVersion": 8, "command": { "type": "search", "containerId": "c4" } }
+{ "t": "command", "seq": 19, "expectedVersion": 9, "command": { "type": "open_door", "barrierId": "b2" } }
+{ "t": "command", "seq": 20, "expectedVersion": 10, "command": { "type": "close_door", "barrierId": "b2" } }
+{ "t": "command", "seq": 21, "expectedVersion": 11, "command": { "type": "force_entry", "barrierId": "b7" } }
 { "t": "command", "seq": 17, "expectedVersion": 8, "command": { "type": "end_turn" } }
 ```
 

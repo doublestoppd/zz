@@ -45,9 +45,10 @@ it should be: move it out of code into game-data and pass it through `GameRules`
 ## Add a building template
 
 Append an ASCII footprint to `BUILDING_TEMPLATES` in
-`packages/map-generation/src/templates/buildings.ts` (`#` wall, `.` interior, `+` door, and a
-space for "leave the ground alone"). Put at least one door on the bottom edge; rotation
-supplies the other orientations. The placer picks any template that fits a lot, so small
+`packages/map-generation/src/templates/buildings.ts` (`#` wall, `.` interior, `+` closed
+door, `k` locked door, `w` window, `c` container, and a space for "leave the ground alone").
+Put at least one door on the bottom edge; rotation supplies the other orientations. Doors
+and windows become barrier entities automatically (`placeBuilding` in `city.ts`). The placer picks any template that fits a lot, so small
 templates are used most often. Run the map-generation tests: the 200-seed validation loop
 will catch a template that seals its own door.
 
@@ -106,8 +107,11 @@ own layout in `testing/makeTestState.ts`.
 3. `apps/client/src/render/BoardRenderer.ts` (`ITEM_LABELS`) and `apps/client/src/ui/Hud.ts`
    (`ITEM_USE_LABELS`): the compiler flags both.
 4. If the item needs a new kind of effect, add a member to `ItemEffect` in
-   `state/definitions.ts`; `applyUseItem` in `commands/applyCommand.ts` and
+   `state/definitions.ts`; `applyUseItem` in `commands/handlers/items.ts` and
    `validateUseItem` in `rules/items.ts` switch on it and will not compile until handled.
+   An item that is spent by another command rather than used on its own (the key, spent by
+   `open_door`) gets an effect kind that `validateUseItem` refuses and a check in that
+   command's rule (`carriesKey` in `rules/barriers.ts`).
 
 ## Add a loot table or container category
 
@@ -161,6 +165,26 @@ intended shape until a third mode proves otherwise.
    `apps/client/src/audio/SoundPlayer.ts`. Sounds are synthesized; there are no audio files.
 3. Add a case to `animationPlan.test.ts`; it runs without Phaser.
 
+## Change door rules or add a barrier kind
+
+1. Movement and vision effects live in `packages/game-core/src/state/barriers.ts`
+   (`barrierBlocksMovement`, `barrierBlocksVision`); every pathfinding call goes through
+   `passabilityFor` and every sight check through `hasLineOfSight`, so changing those two
+   functions changes survivors, zombies, and shooting alike.
+2. Interactions are validated in `rules/barriers.ts` (`validateOpenDoor`,
+   `validateCloseDoor`, `validateForceEntry`) and applied in
+   `commands/handlers/barriers.ts`; costs and the forced-entry noise are `GameRules`
+   numbers in `packages/game-data/src/rules.ts`, checked by `validateSetup.ts`.
+3. A new kind extends `BarrierKind` in `state/types.ts`; the `TileType` for its opening,
+   the ASCII legend (`map/asciiMap.ts`), the template legend
+   (`map-generation/src/templates/buildings.ts`), the layout validator, and the client's
+   `createBarrierSprite` in `BoardRenderer.ts` then need a case. Keep windows' "never block
+   vision" and doors' "opaque when shut" as data on the kind if a third kind blurs them.
+4. Letting zombies interact (break doors) belongs in `zombies/targetSelection.ts` as a
+   decision kind, not in passability: a zombie that plans through a door must pay for it.
+5. Tests: `rules/barriers.test.ts` covers movement, sight, pathfinding, locked-state
+   rejections, and action point costs with one-row corridors.
+
 ## Add a noise source or change what zombies notice
 
 1. A new loud action calls `makeNoise(state, position, intensity, sourceType)` from
@@ -168,8 +192,9 @@ intended shape until a third mode proves otherwise.
    `commands/handlers/combat.ts` and `handlers/search.ts`) and appends the returned events.
    Put the intensity in game data (a `WeaponDefinition.noise` field, `GameRules.searchNoise`)
    rather than in the handler, and add a `validateSetup.ts` check for it.
-2. A new `sourceType` extends `NoiseSourceType` in `state/types.ts`; the client log and the
-   board marker colour in `apps/client/src/render/BoardRenderer.ts` switch on it.
+2. A new `sourceType` extends `NoiseSourceType` in `state/types.ts`; the client log
+   (`NOISE_LABELS` in `ui/eventLog.ts`) and the board marker colour (`NOISE_COLOURS` in
+   `render/BoardRenderer.ts`) are records over it, so the compiler demands an entry.
 3. Hearing and preference live in `rules/noise.ts` (`canHear`, `noiseScore`); sight in
    `zombies/targetSelection.ts` (`canSee`, reading `ZombieDefinition.sightRange`). The
    priority order (attack, pursue, investigate, wait) is `decideZombieAction`.

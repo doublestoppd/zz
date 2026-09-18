@@ -21,7 +21,7 @@ describe("tilesBetween", () => {
 });
 
 describe("hasLineOfSight", () => {
-  const { map } = parseAsciiMap(["......", "..#...", "......"]);
+  const map = { ...parseAsciiMap(["......", "..#...", "......"]), barriers: [] };
 
   it("is clear across open floor and between adjacent tiles", () => {
     expect(hasLineOfSight(map, { x: 0, y: 0 }, { x: 5, y: 0 })).toBe(true);
@@ -34,7 +34,7 @@ describe("hasLineOfSight", () => {
   });
 
   it("is symmetric: a diagonal line that clips a wall is blocked from both ends", () => {
-    const { map: corner } = parseAsciiMap(["....", ".#..", "....", "...."]);
+    const corner = { ...parseAsciiMap(["....", ".#..", "....", "...."]), barriers: [] };
     for (let y1 = 0; y1 < 4; y1 += 1) {
       for (let x1 = 0; x1 < 4; x1 += 1) {
         for (let y2 = 0; y2 < 4; y2 += 1) {

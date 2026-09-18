@@ -1,5 +1,6 @@
 import type { GameState } from "../state/types.js";
 import { advanceUntilPlayerInput } from "../turn/phases.js";
+import { applyCloseDoor, applyForceEntry, applyOpenDoor } from "./handlers/barriers.js";
 import { applyFireWeapon, applyReload } from "./handlers/combat.js";
 import { applyPickUp, applyUseItem } from "./handlers/items.js";
 import { applyMove } from "./handlers/move.js";
@@ -40,6 +41,12 @@ function applyOne(state: GameState, command: Command): CommandResult {
       return applyUseItem(state, command);
     case "search":
       return applySearch(state, command);
+    case "open_door":
+      return applyOpenDoor(state, command);
+    case "close_door":
+      return applyCloseDoor(state, command);
+    case "force_entry":
+      return applyForceEntry(state, command);
     case "end_turn":
       return applyEndTurn(state, command);
     case "set_player_presence":

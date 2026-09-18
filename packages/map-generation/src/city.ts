@@ -4,7 +4,10 @@ import {
   positionKey,
   RNG_STREAM,
   searchFrom,
+  tileAt,
+  type BarrierSpawn,
   type ContainerSpawn,
+  type GameMap,
   type MapLayout,
   type Position,
   type Rng,
@@ -56,7 +59,9 @@ const MAX_ATTEMPTS = 12;
  *   4. the extraction zone is a 2x2 walkable area far from the spawn;
  *   5. zombies spawn on reachable tiles well away from the survivors;
  *   6. every building's `c` cells become searchable containers of the template's category,
- *      and a few loose items land on reachable open ground;
+ *      its doors and windows become barriers, and a few loose items land on reachable
+ *      open ground; zombies and the extraction zone stay outdoors (reachable without
+ *      passing any door or window) so nothing important starts sealed in a building;
  *   7. the layout is validated; on failure the next attempt uses a derived seed.
  * Throws only if every attempt fails, which indicates a generator bug, not bad luck.
  */
@@ -102,9 +107,14 @@ function buildCity(rng: Rng, options: CityOptions): MapLayout | undefined {
   for (const y of roadYs) grid.fillRect(1, y, options.width - 2, ROAD_WIDTH, "road");
 
   const containers: ContainerSpawn[] = [];
+  const barriers: BarrierSpawn[] = [];
   for (const block of blocksBetween(roadXs, roadYs, options)) {
     for (const lot of splitIntoLots(block)) {
-      if (rng.next() < BUILDING_CHANCE) containers.push(...placeBuilding(grid, rng, lot));
+      if (rng.next() < BUILDING_CHANCE) {
+        const placed = placeBuilding(grid, rng, lot);
+        containers.push(...placed.containers);
+        barriers.push(...placed.barriers);
+      }
     }
   }
 
@@ -113,20 +123,33 @@ function buildCity(rng: Rng, options: CityOptions): MapLayout | undefined {
   const map = grid.toGameMap();
   const anchor = spawnPositions[0];
   if (anchor === undefined) return undefined;
-  const reach = searchFrom(map, anchor, options.width * options.height, () => true);
+  const unlimited = options.width * options.height;
+  const reach = searchFrom(map, anchor, unlimited, () => true);
+  const outdoors = searchFrom(map, anchor, unlimited, (p) => !isOpening(map, p));
 
-  const extractionZone = placeExtraction(grid, reach, spawnPositions);
+  const extractionZone = placeExtraction(grid, outdoors, spawnPositions);
   if (extractionZone === undefined) return undefined;
   const taken = new Set(
-    [...spawnPositions, ...extractionZone, ...containers.map((c) => c.position)].map(positionKey),
+    [
+      ...spawnPositions,
+      ...extractionZone,
+      ...containers.map((c) => c.position),
+      ...barriers.map((b) => b.position),
+    ].map(positionKey),
   );
-  const zombieSpawns = placeZombies(grid, rng, reach, taken, options.zombieSpawns);
+  const zombieSpawns = placeZombies(grid, rng, outdoors, taken, options.zombieSpawns);
   if (zombieSpawns === undefined) return undefined;
   for (const p of zombieSpawns) taken.add(positionKey(p));
   const lootSpawns = placeLoot(grid, rng, reach, taken, options.lootSpawns);
   if (lootSpawns === undefined) return undefined;
 
-  return { map, spawnPositions, extractionZone, zombieSpawns, lootSpawns, containers };
+  return { map, spawnPositions, extractionZone, zombieSpawns, lootSpawns, containers, barriers };
+}
+
+/** A door or window tile: passable in principle, but a barrier stands in it. */
+function isOpening(map: GameMap, p: Position): boolean {
+  const type = tileAt(map, p)?.type;
+  return type === "door" || type === "window";
 }
 
 /**
@@ -193,7 +216,12 @@ function splitIntoLots(block: Block): Block[] {
  * ground; the right and bottom edges keep a one-tile strip free so neighbouring buildings
  * never seal each other's doors and nothing faces the outer wall.
  */
-function placeBuilding(grid: Grid, rng: Rng, block: Block): ContainerSpawn[] {
+interface PlacedBuilding {
+  readonly containers: ContainerSpawn[];
+  readonly barriers: BarrierSpawn[];
+}
+
+function placeBuilding(grid: Grid, rng: Rng, block: Block): PlacedBuilding {
   const usableW = block.w - 1;
   const usableH = block.h - 1;
   const candidates: { stamp: Stamp; template: BuildingTemplate }[] = [];
@@ -205,20 +233,28 @@ function placeBuilding(grid: Grid, rng: Rng, block: Block): ContainerSpawn[] {
     }
   }
   const chosen = candidates.length === 0 ? undefined : rng.pick(candidates);
-  if (chosen === undefined) return [];
+  if (chosen === undefined) return { containers: [], barriers: [] };
   const { stamp, template } = chosen;
   const x = block.x + rng.int(0, usableW - stamp.width);
   const y = block.y + rng.int(0, usableH - stamp.height);
   const containers: ContainerSpawn[] = [];
+  const barriers: BarrierSpawn[] = [];
   stamp.cells.forEach((row, dy) => {
     row.forEach((type, dx) => {
-      if (type !== undefined) grid.set({ x: x + dx, y: y + dy }, type);
+      const position = { x: x + dx, y: y + dy };
+      if (type !== undefined) grid.set(position, type);
       if (stamp.containers[dy]?.[dx] === true) {
-        containers.push({ position: { x: x + dx, y: y + dy }, category: template.category });
+        containers.push({ position, category: template.category });
+      }
+      if (type === "door") {
+        const locked = stamp.locked[dy]?.[dx] === true;
+        barriers.push({ position, kind: "door", state: locked ? "locked" : "closed" });
+      } else if (type === "window") {
+        barriers.push({ position, kind: "window", state: "closed" });
       }
     });
   });
-  return containers;
+  return { containers, barriers };
 }
 
 /** A vertical run of tiles on the westernmost road, at a random height. */

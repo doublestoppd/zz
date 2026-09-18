@@ -1,6 +1,7 @@
-import type { ContainerId, ItemId, NoiseId, PlayerId, ZombieId } from "../ids.js";
+import type { BarrierId, ContainerId, ItemId, NoiseId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
 import type {
+  BarrierKind,
   ContainerCategory,
   GamePhase,
   ItemType,
@@ -22,6 +23,9 @@ export type GameEvent =
   | ItemPickedUpEvent
   | ItemUsedEvent
   | ContainerSearchedEvent
+  | DoorOpenedEvent
+  | DoorClosedEvent
+  | BarrierForcedEvent
   | NoiseMadeEvent
   | ZombieInvestigatingEvent
   | PlayerHealedEvent
@@ -85,6 +89,34 @@ export interface ContainerSearchedEvent {
   readonly found: readonly ItemType[];
   readonly carried: readonly ItemType[];
   readonly dropped: readonly ItemType[];
+  readonly actionPointsSpent: number;
+}
+
+export interface DoorOpenedEvent {
+  readonly type: "door_opened";
+  readonly playerId: PlayerId;
+  readonly barrierId: BarrierId;
+  readonly position: Position;
+  /** True when the door was locked and a key was spent. */
+  readonly usedKey: boolean;
+  readonly actionPointsSpent: number;
+}
+
+export interface DoorClosedEvent {
+  readonly type: "door_closed";
+  readonly playerId: PlayerId;
+  readonly barrierId: BarrierId;
+  readonly position: Position;
+  readonly actionPointsSpent: number;
+}
+
+/** A locked door or a window was broken open; a `noise_made` event follows. */
+export interface BarrierForcedEvent {
+  readonly type: "barrier_forced";
+  readonly playerId: PlayerId;
+  readonly barrierId: BarrierId;
+  readonly kind: BarrierKind;
+  readonly position: Position;
   readonly actionPointsSpent: number;
 }
 

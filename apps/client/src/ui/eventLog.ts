@@ -1,4 +1,11 @@
-import type { GameEvent, GameState, PlayerId, ZombieId } from "@zombie/game-core";
+import type { GameEvent, GameState, NoiseSourceType, PlayerId, ZombieId } from "@zombie/game-core";
+
+/** What each noise source sounds like in the log; the compiler demands every source. */
+const NOISE_LABELS: Readonly<Record<NoiseSourceType, string>> = {
+  gunfire: "Gunfire",
+  search: "Rummaging",
+  forced_entry: "Splintering",
+};
 
 function nameOf(state: GameState, id: PlayerId | ZombieId): string {
   return state.players.find((p) => p.id === id)?.name ?? `Zombie ${id}`;
@@ -50,7 +57,13 @@ export function describeEvent(event: GameEvent, state: GameState): string {
     case "zombie_attacked":
       return `Zombie ${event.zombieId} attacks ${nameOf(state, event.targetId)} for ${event.damage}`;
     case "noise_made":
-      return `${event.sourceType === "gunfire" ? "Gunfire" : "Rummaging"} at (${event.position.x}, ${event.position.y}) carries ${event.intensity} tiles`;
+      return `${NOISE_LABELS[event.sourceType]} at (${event.position.x}, ${event.position.y}) carries ${event.intensity} tiles`;
+    case "door_opened":
+      return `${nameOf(state, event.playerId)} ${event.usedKey ? "unlocks and opens" : "opens"} the door at (${event.position.x}, ${event.position.y})`;
+    case "door_closed":
+      return `${nameOf(state, event.playerId)} closes the door at (${event.position.x}, ${event.position.y})`;
+    case "barrier_forced":
+      return `${nameOf(state, event.playerId)} breaks the ${event.kind} at (${event.position.x}, ${event.position.y})`;
     case "zombie_investigating":
       return `Zombie ${event.zombieId} heads for the noise at (${event.position.x}, ${event.position.y})`;
     case "entity_damaged":

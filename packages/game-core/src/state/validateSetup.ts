@@ -1,5 +1,6 @@
 import { isInBounds, positionKey, tileAt } from "../map/position.js";
 import type { GameMap, Position } from "../map/types.js";
+import type { BarrierSpawn } from "../map/asciiMap.js";
 import type { MatchSetup } from "./createInitialState.js";
 
 /**
@@ -36,6 +37,7 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
     "container",
     layout.containers.map((c) => c.position),
   );
+  checkBarriers(issues, map, layout.barriers);
   const occupied = [...layout.spawnPositions.slice(0, players.length), ...layout.zombieSpawns];
   if (new Set(occupied.map(positionKey)).size !== occupied.length) {
     issues.push("survivor and zombie spawns overlap");
@@ -46,6 +48,10 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   positiveInteger(issues, "rules.searchActionPointCost", rules.searchActionPointCost, 0);
   positiveInteger(issues, "rules.searchNoise", rules.searchNoise, 0);
   positiveInteger(issues, "rules.noiseDurationRounds", rules.noiseDurationRounds, 1);
+  positiveInteger(issues, "rules.openDoorActionPointCost", rules.openDoorActionPointCost, 0);
+  positiveInteger(issues, "rules.closeDoorActionPointCost", rules.closeDoorActionPointCost, 0);
+  positiveInteger(issues, "rules.forceEntryActionPointCost", rules.forceEntryActionPointCost, 0);
+  positiveInteger(issues, "rules.forceEntryNoise", rules.forceEntryNoise, 0);
   for (const [category, table] of Object.entries(rules.searchLootTables)) {
     positiveInteger(issues, `search table ${category}.minRolls`, table.minRolls, 0);
     positiveInteger(issues, `search table ${category}.maxRolls`, table.maxRolls, table.minRolls);
@@ -78,8 +84,13 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   }
   for (const [type, item] of Object.entries(rules.itemDefinitions)) {
     positiveInteger(issues, `item ${type}.useActionPointCost`, item.useActionPointCost, 0);
-    const amount = item.effect.kind === "heal" ? item.effect.amount : item.effect.rounds;
-    positiveInteger(issues, `item ${type} effect amount`, amount, 1);
+    const amount =
+      item.effect.kind === "heal"
+        ? item.effect.amount
+        : item.effect.kind === "ammo"
+          ? item.effect.rounds
+          : undefined;
+    if (amount !== undefined) positiveInteger(issues, `item ${type} effect amount`, amount, 1);
   }
   positiveInteger(issues, "survivor.maxHealth", survivor.maxHealth, 1);
   positiveInteger(issues, "survivor.maxActionPoints", survivor.maxActionPoints, 1);
@@ -129,6 +140,34 @@ function checkPositions(
     if (seen.has(key)) issues.push(`${label} (${p.x}, ${p.y}) is listed twice`);
     seen.add(key);
   }
+}
+
+/**
+ * Every door/window tile carries exactly one barrier of the matching kind, and a window is
+ * only ever intact or broken. Otherwise an opening would be passable by accident.
+ */
+function checkBarriers(issues: string[], map: GameMap, barriers: readonly BarrierSpawn[]): void {
+  const seen = new Set<string>();
+  for (const b of barriers) {
+    const tile = tileAt(map, b.position);
+    const expected = b.kind === "door" ? "door" : "window";
+    if (tile?.type !== expected) {
+      issues.push(`${b.kind} at (${b.position.x}, ${b.position.y}) is not on a ${expected} tile`);
+    }
+    if (b.kind === "window" && b.state !== "closed" && b.state !== "broken") {
+      issues.push(`window at (${b.position.x}, ${b.position.y}) cannot be ${b.state}`);
+    }
+    const key = positionKey(b.position);
+    if (seen.has(key)) issues.push(`two barriers at (${b.position.x}, ${b.position.y})`);
+    seen.add(key);
+  }
+  map.tiles.forEach((row, y) => {
+    row.forEach((tile, x) => {
+      if ((tile.type === "door" || tile.type === "window") && !seen.has(positionKey({ x, y }))) {
+        issues.push(`${tile.type} tile (${x}, ${y}) has no barrier`);
+      }
+    });
+  });
 }
 
 function positiveInteger(issues: string[], name: string, value: number, min: number): void {

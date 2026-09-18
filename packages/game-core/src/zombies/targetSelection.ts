@@ -40,7 +40,7 @@ export function canSee(state: GameState, zombie: ZombieState, player: PlayerStat
   const range = state.rules.zombieDefinitions[zombie.type].sightRange;
   return (
     chebyshevDistance(zombie.position, player.position) <= range &&
-    hasLineOfSight(state.map, zombie.position, player.position)
+    hasLineOfSight(state, zombie.position, player.position)
   );
 }
 
