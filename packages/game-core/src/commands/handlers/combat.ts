@@ -64,7 +64,7 @@ export function applyReload(state: GameState, command: ReloadCommand): CommandRe
   const reserve = check.player.reserveAmmo[ammoType] - reload.roundsLoaded;
   const reloaded = replacePlayer(state, {
     ...check.player,
-    actionPoints: check.player.actionPoints - reload.weapon.reloadActionPointCost,
+    actionPoints: check.player.actionPoints - reload.cost,
     weapon: { ...check.player.weapon, loadedAmmo },
     reserveAmmo: { ...check.player.reserveAmmo, [ammoType]: reserve },
   });
@@ -77,7 +77,7 @@ export function applyReload(state: GameState, command: ReloadCommand): CommandRe
         loadedAmmo,
         ammoType,
         reserveAmmo: reserve,
-        actionPointsSpent: reload.weapon.reloadActionPointCost,
+        actionPointsSpent: reload.cost,
       },
     ],
   });

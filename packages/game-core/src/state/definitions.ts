@@ -14,6 +14,35 @@ export interface SearchLootTable {
   readonly entries: readonly WeightedEntry<SearchLoot>[];
 }
 
+/**
+ * Everything a specialty may change, as plain integers with 0 meaning "no change". Each
+ * field is read at exactly one extension point in the rules (see `rules/specialties.ts`),
+ * so a new modifier is a field here plus one read, never a scattered `if`.
+ */
+export interface SpecialtyModifiers {
+  /** Added to `maxActionPoints` at match start (athlete). */
+  readonly extraActionPoints: number;
+  /** Added to every healing item's amount (paramedic). */
+  readonly healBonus: number;
+  /** Taken off a reload's action point cost, never below zero (officer). */
+  readonly reloadActionPointDiscount: number;
+  /** Taken off forced entry's action point cost, never below zero (mechanic). */
+  readonly forceEntryActionPointDiscount: number;
+  /** Taken off forced entry's noise intensity, never below zero (mechanic). */
+  readonly forceEntryNoiseReduction: number;
+  /** Taken off a search's action point cost, never below zero (scavenger). */
+  readonly searchActionPointDiscount: number;
+  /** Extra loot draws on every search (scavenger). */
+  readonly searchExtraRolls: number;
+}
+
+/** A selectable specialty: a name, a one-line explanation for the UI, and its modifiers. */
+export interface SpecialtyDefinition {
+  readonly name: string;
+  readonly description: string;
+  readonly modifiers: SpecialtyModifiers;
+}
+
 /** Starting statistics for a survivor. Values come from game-data. */
 export interface SurvivorDefinition {
   readonly maxHealth: number;

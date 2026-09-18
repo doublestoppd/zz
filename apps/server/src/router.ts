@@ -20,7 +20,7 @@ export function handleClientMessage(
         return;
       }
       const match = registry.create();
-      const error = match.join(session, message.playerName);
+      const error = match.join(session, message.playerName, message.specialty);
       registry.noteMembershipChanged(match);
       if (error !== undefined) sendError(session, error);
       return;
@@ -31,7 +31,7 @@ export function handleClientMessage(
         sendError(session, "MATCH_NOT_FOUND");
         return;
       }
-      const error = match.join(session, message.playerName);
+      const error = match.join(session, message.playerName, message.specialty);
       registry.noteMembershipChanged(match);
       if (error !== undefined) sendError(session, error);
       return;
@@ -44,6 +44,16 @@ export function handleClientMessage(
       }
       const error = match.rejoin(session, message.rejoinToken);
       registry.noteMembershipChanged(match);
+      if (error !== undefined) sendError(session, error);
+      return;
+    }
+    case "set_specialty": {
+      const match = currentMatch(registry, session);
+      if (match === undefined) {
+        sendError(session, "NOT_IN_MATCH");
+        return;
+      }
+      const error = match.setSpecialty(session, message.specialty);
       if (error !== undefined) sendError(session, error);
       return;
     }

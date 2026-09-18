@@ -1,13 +1,15 @@
 import { matchId, playerId, type PlayerId } from "../ids.js";
 import { parseAsciiMap, type MapLayout } from "../map/asciiMap.js";
 import { createInitialState } from "../state/createInitialState.js";
+import { NO_MODIFIERS } from "../rules/specialties.js";
 import type {
   FirearmDefinition,
   ItemDefinition,
+  SpecialtyDefinition,
   WeaponDefinition,
   ZombieSpawnTableEntry,
 } from "../state/definitions.js";
-import type { ItemType, WeaponType } from "../state/types.js";
+import type { ItemType, SpecialtyType, WeaponType } from "../state/types.js";
 import type { GameState } from "../state/types.js";
 
 /**
@@ -56,6 +58,8 @@ export interface TestStateOptions {
   readonly forceEntryNoise?: number;
   /** Which types the `Z` markers roll; every marker is a walker by default. */
   readonly zombieSpawnTable?: readonly ZombieSpawnTableEntry[];
+  /** Specialty for every player (all the same); `survivor` by default. */
+  readonly specialty?: SpecialtyType;
 }
 
 const DEFAULT_PISTOL: FirearmDefinition = {
@@ -95,6 +99,35 @@ export const TEST_WEAPONS: Readonly<Record<WeaponType, WeaponDefinition>> = {
   },
   knife: { kind: "melee", damage: 1, range: 1, attackActionPointCost: 1, noise: 0 },
   bat: { kind: "melee", damage: 2, range: 1, attackActionPointCost: 2, noise: 1, knockback: true },
+};
+
+export const TEST_SPECIALTIES: Readonly<Record<SpecialtyType, SpecialtyDefinition>> = {
+  survivor: { name: "Survivor", description: "No bonus.", modifiers: NO_MODIFIERS },
+  paramedic: {
+    name: "Paramedic",
+    description: "Healing items restore 2 more.",
+    modifiers: { ...NO_MODIFIERS, healBonus: 2 },
+  },
+  officer: {
+    name: "Police officer",
+    description: "Reloading is free.",
+    modifiers: { ...NO_MODIFIERS, reloadActionPointDiscount: 1 },
+  },
+  mechanic: {
+    name: "Mechanic",
+    description: "Forced entry costs 1 less and is 3 quieter.",
+    modifiers: { ...NO_MODIFIERS, forceEntryActionPointDiscount: 1, forceEntryNoiseReduction: 3 },
+  },
+  athlete: {
+    name: "Athlete",
+    description: "One extra action point a turn.",
+    modifiers: { ...NO_MODIFIERS, extraActionPoints: 1 },
+  },
+  scavenger: {
+    name: "Scavenger",
+    description: "Searching costs 1 less and draws once more.",
+    modifiers: { ...NO_MODIFIERS, searchActionPointDiscount: 1, searchExtraRolls: 1 },
+  },
 };
 
 export const TEST_ITEMS: Readonly<Record<ItemType, ItemDefinition>> = {
@@ -160,6 +193,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
         options.weapons ?? {},
       ),
       itemDefinitions: TEST_ITEMS,
+      specialtyDefinitions: TEST_SPECIALTIES,
       pickUpActionPointCost: 1,
       searchActionPointCost: options.searchActionPointCost ?? 2,
       searchNoise: options.searchNoise ?? 2,
@@ -220,6 +254,6 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
     zombieSpawnTable: options.zombieSpawnTable ?? [{ type: "walker", weight: 1 }],
     objective: { kind: "extraction", holdoutRounds: options.holdoutRounds ?? 0 },
     layout: options.layout ?? TEST_LAYOUT,
-    players: players.map((id) => ({ id, name: id })),
+    players: players.map((id) => ({ id, name: id, specialty: options.specialty ?? "survivor" })),
   });
 }

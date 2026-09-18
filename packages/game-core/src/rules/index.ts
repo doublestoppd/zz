@@ -54,6 +54,7 @@ export {
   type SearchValidation,
 } from "./search.js";
 export { canHear, decayNoises, makeNoise, noiseScore, type NoiseOutcome } from "./noise.js";
+export { discounted, modifiersOf, NO_MODIFIERS } from "./specialties.js";
 export {
   BARRIER_REACH,
   barrierAt,
@@ -61,6 +62,7 @@ export {
   barrierBlocksVision,
   barrierOptions,
   carriesKey,
+  forceEntryNoiseFor,
   isBlockedByBarrier,
   isForceable,
   validateCloseDoor,

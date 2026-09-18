@@ -1,6 +1,7 @@
 import type { GameEvent } from "../../events/types.js";
 import { itemId } from "../../ids.js";
 import { removeFromInventory, validatePickUp, validateUseItem } from "../../rules/items.js";
+import { modifiersOf } from "../../rules/specialties.js";
 import { replacePlayer } from "../../state/players.js";
 import type { GameState, GroundItem, PlayerState, WeaponType } from "../../state/types.js";
 import { requireActivePlayer } from "../turnChecks.js";
@@ -116,7 +117,8 @@ export function applyUseItem(state: GameState, command: UseItemCommand): Command
   };
   switch (effect.kind) {
     case "heal": {
-      const health = Math.min(base.maxHealth, base.health + effect.amount);
+      const amount = effect.amount + modifiersOf(state, check.player).healBonus;
+      const health = Math.min(base.maxHealth, base.health + amount);
       return ok({
         state: replacePlayer(state, { ...base, health }),
         events: [

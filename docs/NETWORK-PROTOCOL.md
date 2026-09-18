@@ -19,22 +19,33 @@ Principles:
 ### `create_match`
 
 ```json
-{ "t": "create_match", "playerName": "Ann" }
+{ "t": "create_match", "playerName": "Ann", "specialty": "paramedic" }
 ```
 
 Creates a lobby; the sender becomes host. Validation: name 1–20 printable characters,
-sender not already in a match. Response: `joined`, then `lobby` to everyone (the sender).
+`specialty` (optional, default `survivor`) one of the known specialties, sender not
+already in a match. Response: `joined`, then `lobby` to everyone (the sender).
 Errors: `INVALID_PLAYER_NAME`, `ALREADY_IN_MATCH`.
 
 ### `join_match`
 
 ```json
-{ "t": "join_match", "matchCode": "QMCN", "playerName": "Bob" }
+{ "t": "join_match", "matchCode": "QMCN", "playerName": "Bob", "specialty": "athlete" }
 ```
 
-Validation: code exists, lobby not started, fewer than 4 members, valid name, sender not in a
-match. Response: `joined` to the sender, `lobby` to everyone.
+Validation: code exists, lobby not started, fewer than 4 members, valid name, known
+specialty (optional, default `survivor`), sender not in a match. Response: `joined` to the sender, `lobby` to everyone.
 Errors: `MATCH_NOT_FOUND`, `MATCH_ALREADY_STARTED`, `MATCH_FULL`, `INVALID_PLAYER_NAME`, `ALREADY_IN_MATCH`.
+
+### `set_specialty`
+
+```json
+{ "t": "set_specialty", "specialty": "mechanic" }
+```
+
+Changes the sender's specialty while the lobby has not started. Response: `lobby` to
+everyone (each `LobbyPlayer` carries its `specialty`). Errors: `NOT_IN_MATCH`,
+`MATCH_ALREADY_STARTED`.
 
 ### `rejoin_match`
 

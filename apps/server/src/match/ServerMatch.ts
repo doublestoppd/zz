@@ -5,6 +5,7 @@ import {
   type GameEvent,
   type MapLayout,
   type PlayerId,
+  type SpecialtyType,
 } from "@zombie/game-core";
 import {
   DEFAULT_OBJECTIVE,
@@ -37,6 +38,7 @@ export interface MatchDependencies {
 interface Member {
   readonly playerId: PlayerId;
   readonly name: string;
+  specialty: SpecialtyType;
   readonly rejoinToken: string;
   /** Undefined while the player is disconnected. */
   session: ClientSession | undefined;
@@ -76,7 +78,11 @@ export class ServerMatch {
     return this.members.length;
   }
 
-  join(session: ClientSession, rawName: string): ErrorCode | undefined {
+  join(
+    session: ClientSession,
+    rawName: string,
+    specialty: SpecialtyType = "survivor",
+  ): ErrorCode | undefined {
     if (session.matchCode !== undefined) return "ALREADY_IN_MATCH";
     if (this.isStarted()) return "MATCH_ALREADY_STARTED";
     if (this.members.length >= MAX_PLAYERS) return "MATCH_FULL";
@@ -85,6 +91,7 @@ export class ServerMatch {
     const member: Member = {
       playerId: playerId(`${this.code}-p${this.nextPlayerNumber}`),
       name: rawName.trim(),
+      specialty,
       rejoinToken: this.deps.createRejoinToken(),
       session,
       lastSeq: 0,
@@ -123,6 +130,16 @@ export class ServerMatch {
       session.send(this.updateMessage(presence.ok ? presence.events : []));
       if (presence.ok && presence.events.length > 0) this.broadcastUpdate(presence.events, session);
     }
+    return undefined;
+  }
+
+  /** Specialties are fixed once the match starts; the lobby list tells everyone the choice. */
+  setSpecialty(session: ClientSession, specialty: SpecialtyType): ErrorCode | undefined {
+    const member = this.members.find((m) => m.session === session);
+    if (member === undefined) return "NOT_IN_MATCH";
+    if (this.isStarted()) return "MATCH_ALREADY_STARTED";
+    member.specialty = specialty;
+    this.broadcastLobby();
     return undefined;
   }
 
@@ -165,7 +182,7 @@ export class ServerMatch {
       lootTable: LOOT_TABLE,
       zombieSpawnTable: ZOMBIE_SPAWN_TABLE,
       layout: this.deps.createLayout(seed, this.members.length),
-      players: this.members.map((m) => ({ id: m.playerId, name: m.name })),
+      players: this.members.map((m) => ({ id: m.playerId, name: m.name, specialty: m.specialty })),
     });
     this.runtime = new MatchRuntime(initial);
     this.broadcastLobby();
@@ -247,6 +264,7 @@ export class ServerMatch {
       players: this.members.map((m) => ({
         id: m.playerId,
         name: m.name,
+        specialty: m.specialty,
         present: m.session !== undefined,
       })),
     };

@@ -5,6 +5,7 @@ import type {
   PlayerCommand,
   PlayerId,
   RejectionReason,
+  SpecialtyType,
 } from "@zombie/game-core";
 
 /** Bumped on any incompatible change. The server sends it in `joined`; clients compare. */
@@ -33,6 +34,7 @@ export type ClientMessage =
   | CreateMatchMessage
   | JoinMatchMessage
   | RejoinMatchMessage
+  | SetSpecialtyMessage
   | StartMatchMessage
   | CommandMessage
   | LeaveMatchMessage;
@@ -41,6 +43,8 @@ export type ClientMessage =
 export interface CreateMatchMessage {
   readonly t: "create_match";
   readonly playerName: string;
+  /** Defaults to `survivor`. */
+  readonly specialty?: SpecialtyType;
 }
 
 /** Join an existing lobby by code. Response: `joined` then `lobby` to everyone. */
@@ -48,6 +52,14 @@ export interface JoinMatchMessage {
   readonly t: "join_match";
   readonly matchCode: string;
   readonly playerName: string;
+  /** Defaults to `survivor`. */
+  readonly specialty?: SpecialtyType;
+}
+
+/** Change specialty while still in the lobby. Response: `lobby` to everyone. */
+export interface SetSpecialtyMessage {
+  readonly t: "set_specialty";
+  readonly specialty: SpecialtyType;
 }
 
 /** Reattach to a player slot after a disconnect. Response: `joined`, `lobby`, and `update` if started. */
@@ -102,6 +114,7 @@ export interface JoinedMessage {
 export interface LobbyPlayer {
   readonly id: PlayerId;
   readonly name: string;
+  readonly specialty: SpecialtyType;
   readonly present: boolean;
 }
 

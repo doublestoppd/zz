@@ -167,6 +167,7 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 | Where are noises made, heard, and decayed?                       | `packages/game-core/src/rules/noise.ts`; intensities in `packages/game-data/src/{weapons,rules}.ts`        |
 | Where do doors and windows block movement or sight?              | `packages/game-core/src/state/barriers.ts`, read by `rules/occupancy.ts` and `rules/lineOfSight.ts`        |
 | Where are open, close, and force entry validated?                | `packages/game-core/src/rules/barriers.ts`; applied in `commands/handlers/barriers.ts`                     |
+| Where do specialties change costs and amounts?                   | `packages/game-core/src/rules/specialties.ts` (`modifiersOf`), read in search, barriers, combat, items     |
 | Where are pick-up and use-item validated?                        | `packages/game-core/src/rules/items.ts`                                                                    |
 | Where is searching validated and loot rolled?                    | `packages/game-core/src/rules/search.ts`; tables in `packages/game-data/src/containers.ts`                 |
 | Where do containers get placed in buildings?                     | `packages/map-generation/src/templates/buildings.ts` (`c` cells and categories), collected in `city.ts`    |
@@ -204,6 +205,7 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 | Gameplay C Doors       | done   | door and window barriers with open/closed/locked/broken state, keys, forced entry through the noise system     |
 | Gameplay D Weapons     | done   | shotgun falloff, rifle reach, knife and bat melee with knockback, ammunition kinds, weapon swapping by pick-up |
 | Gameplay E Archetypes  | done   | runner (fast, sharp-eyed) and brute (tough, slow, unshakable) as data plus two behaviour flags                 |
+| Gameplay F Specialties | done   | five lobby-selectable specialties as integer modifiers read at single extension points                         |
 
 Deliberately not generalised yet: no quest engine, no entity-component system, no action
 registry, no transport abstraction, no delta sync, no persistence or accounts, no plugin

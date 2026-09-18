@@ -38,6 +38,25 @@ that file is named so the rule can be changed in one place.
 - The match seed is chosen by the server. Gameplay randomness (none consumed yet) comes
   from an Rng whose cursor is stored in `GameState.rngState`.
 
+## Specialties (`rules/specialties.ts`)
+
+Each player picks a specialty in the lobby (default `survivor`, no bonus). A specialty is
+a set of whole-number modifiers in `packages/game-data/src/specialties.ts`, each read at
+one extension point; every survivor can still do everything, and no specialty is needed
+to finish the extraction scenario.
+
+| Specialty | Effect                                                               | Read in                     |
+| --------- | -------------------------------------------------------------------- | --------------------------- |
+| paramedic | bandages and medkits heal 2 more                                     | `use_item` heal             |
+| officer   | reloading costs 0 AP instead of 1                                    | `validateReload`            |
+| mechanic  | forced entry costs 1 AP instead of 2 and its noise is 3 instead of 6 | `validateForceEntry`        |
+| athlete   | 5 action points a turn instead of 4                                  | match creation              |
+| scavenger | searching costs 1 AP instead of 2 and draws one extra item           | `validateSearch`, loot roll |
+
+The scavenger's extra draw comes after the container's fixed sequence, so a scavenger
+finds everything anyone else would have found in that cabinet, plus one more roll.
+Discounts never take a cost below zero.
+
 ## Turn sequence
 
 ```

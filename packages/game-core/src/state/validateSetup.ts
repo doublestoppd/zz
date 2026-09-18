@@ -2,7 +2,7 @@ import { isInBounds, positionKey, tileAt } from "../map/position.js";
 import type { GameMap, Position } from "../map/types.js";
 import type { BarrierSpawn } from "../map/asciiMap.js";
 import type { MatchSetup } from "./createInitialState.js";
-import type { WeaponDefinition } from "./definitions.js";
+import type { SpecialtyModifiers, WeaponDefinition } from "./definitions.js";
 import { AMMO_TYPES } from "./types.js";
 
 /**
@@ -28,6 +28,17 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   }
   if (new Set(players.map((p) => p.id)).size !== players.length)
     issues.push("duplicate player ids");
+  for (const player of players) {
+    const specialty = player.specialty ?? "survivor";
+    if (!(specialty in rules.specialtyDefinitions)) {
+      issues.push(`player ${player.id} specialty "${specialty}" has no definition`);
+    }
+  }
+  for (const [type, specialty] of Object.entries(rules.specialtyDefinitions)) {
+    for (const name of Object.keys(specialty.modifiers) as (keyof SpecialtyModifiers)[]) {
+      positiveInteger(issues, `specialty ${type}.${name}`, specialty.modifiers[name], 0);
+    }
+  }
 
   checkPositions(issues, map, "survivor spawn", layout.spawnPositions.slice(0, players.length));
   checkPositions(issues, map, "zombie spawn", layout.zombieSpawns);

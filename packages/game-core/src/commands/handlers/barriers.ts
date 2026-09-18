@@ -77,7 +77,7 @@ export function applyForceEntry(state: GameState, command: ForceEntryCommand): C
   const noise = makeNoise(
     setBarrierState(paid, force.barrier.id, "broken"),
     force.barrier.position,
-    state.rules.forceEntryNoise,
+    force.noise,
     "forced_entry",
   );
   return ok({

@@ -4,6 +4,7 @@ import { hashString } from "../random/hash.js";
 import { createRng, deriveSeed, RNG_STREAM } from "../random/rng.js";
 import { pickWeighted } from "../random/weighted.js";
 import type { GameState, ItemType, PlayerState, SearchableContainer } from "../state/types.js";
+import { discounted, modifiersOf } from "./specialties.js";
 
 /** A survivor may search a container on their own tile or an orthogonally/diagonally adjacent one. */
 export const SEARCH_REACH = 1;
@@ -30,7 +31,10 @@ export function validateSearch(
     return { ok: false, reason: "CONTAINER_OUT_OF_REACH" };
   }
   if (container.searched) return { ok: false, reason: "CONTAINER_ALREADY_SEARCHED" };
-  const cost = state.rules.searchActionPointCost;
+  const cost = discounted(
+    state.rules.searchActionPointCost,
+    modifiersOf(state, player).searchActionPointDiscount,
+  );
   if (player.actionPoints < cost) return { ok: false, reason: "INSUFFICIENT_ACTION_POINTS" };
   return { ok: true, container, cost };
 }
@@ -48,15 +52,20 @@ export function searchableContainersInReach(
 /**
  * What a container holds. Rolled from the match seed and the container's id, so the same
  * seed always puts the same loot in the same place no matter who searches or in what
- * order. Draws come from the table for the container's category; "nothing" draws yield
- * no item.
+ * order; a searcher's `searchExtraRolls` adds draws at the end of that fixed sequence, so
+ * a scavenger finds everything anyone else would plus more. Draws come from the table for
+ * the container's category; "nothing" draws yield no item.
  */
-export function rollSearchLoot(state: GameState, container: SearchableContainer): ItemType[] {
+export function rollSearchLoot(
+  state: GameState,
+  container: SearchableContainer,
+  extraRolls = 0,
+): ItemType[] {
   const table = state.rules.searchLootTables[container.category];
   const rng = createRng(
     deriveSeed(deriveSeed(state.seed, RNG_STREAM.search), hashString(container.id)),
   );
-  const rolls = rng.int(table.minRolls, table.maxRolls);
+  const rolls = rng.int(table.minRolls, table.maxRolls) + extraRolls;
   const found: ItemType[] = [];
   for (let i = 0; i < rolls; i += 1) {
     const drawn = pickWeighted(table.entries, rng);

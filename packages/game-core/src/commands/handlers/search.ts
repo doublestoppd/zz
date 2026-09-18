@@ -1,6 +1,7 @@
 import { itemId } from "../../ids.js";
 import { makeNoise } from "../../rules/noise.js";
 import { rollSearchLoot, validateSearch } from "../../rules/search.js";
+import { modifiersOf } from "../../rules/specialties.js";
 import { replacePlayer } from "../../state/players.js";
 import type { GameState, GroundItem, ItemType } from "../../state/types.js";
 import { requireActivePlayer } from "../turnChecks.js";
@@ -19,7 +20,11 @@ export function applySearch(state: GameState, command: SearchCommand): CommandRe
   const search = validateSearch(state, check.player, command.containerId);
   if (!search.ok) return search;
 
-  const found = rollSearchLoot(state, search.container);
+  const found = rollSearchLoot(
+    state,
+    search.container,
+    modifiersOf(state, check.player).searchExtraRolls,
+  );
   const room = Math.max(0, check.player.inventoryCapacity - check.player.inventory.length);
   const carried: ItemType[] = found.slice(0, room);
   const dropped: ItemType[] = found.slice(room);

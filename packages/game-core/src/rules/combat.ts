@@ -5,6 +5,7 @@ import type { FirearmDefinition, MeleeWeaponDefinition } from "../state/definiti
 import type { GameState, PlayerState, ZombieState } from "../state/types.js";
 import { hasLineOfSight } from "./lineOfSight.js";
 import { canStandOn } from "./occupancy.js";
+import { discounted, modifiersOf } from "./specialties.js";
 
 export type FireRejectionReason =
   | "TARGET_NOT_FOUND"
@@ -27,7 +28,13 @@ export type ReloadRejectionReason =
   "MAGAZINE_FULL" | "NO_RESERVE_AMMO" | "INSUFFICIENT_ACTION_POINTS";
 
 export type ReloadValidation =
-  | { readonly ok: true; readonly roundsLoaded: number; readonly weapon: FirearmDefinition }
+  | {
+      readonly ok: true;
+      readonly roundsLoaded: number;
+      readonly weapon: FirearmDefinition;
+      /** Action points the reload costs this survivor (specialty discount applied). */
+      readonly cost: number;
+    }
   | { readonly ok: false; readonly reason: ReloadRejectionReason };
 
 export type MeleeRejectionReason =
@@ -98,10 +105,12 @@ export function validateReload(state: GameState, player: PlayerState): ReloadVal
   if (space <= 0) return { ok: false, reason: "MAGAZINE_FULL" };
   const reserve = player.reserveAmmo[weapon.ammoType];
   if (reserve <= 0) return { ok: false, reason: "NO_RESERVE_AMMO" };
-  if (player.actionPoints < weapon.reloadActionPointCost) {
-    return { ok: false, reason: "INSUFFICIENT_ACTION_POINTS" };
-  }
-  return { ok: true, roundsLoaded: Math.min(space, reserve), weapon };
+  const cost = discounted(
+    weapon.reloadActionPointCost,
+    modifiersOf(state, player).reloadActionPointDiscount,
+  );
+  if (player.actionPoints < cost) return { ok: false, reason: "INSUFFICIENT_ACTION_POINTS" };
+  return { ok: true, roundsLoaded: Math.min(space, reserve), weapon, cost };
 }
 
 /**

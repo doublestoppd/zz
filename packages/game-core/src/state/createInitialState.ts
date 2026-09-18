@@ -17,6 +17,7 @@ import type {
   GroundItem,
   PlayerState,
   SearchableContainer,
+  SpecialtyType,
   WeaponType,
   ZombieState,
 } from "./types.js";
@@ -34,7 +35,12 @@ export interface MatchSetup {
   readonly zombieSpawnTable: readonly ZombieSpawnTableEntry[];
   readonly layout: MapLayout;
   /** In turn order. Between 1 and the number of spawn positions in the layout. */
-  readonly players: readonly { readonly id: PlayerId; readonly name: string }[];
+  readonly players: readonly {
+    readonly id: PlayerId;
+    readonly name: string;
+    /** Defaults to the plain `survivor`. */
+    readonly specialty?: SpecialtyType;
+  }[];
 }
 
 /** Validation guarantees the starting weapon is a firearm; this narrows it for the loaded count. */
@@ -57,15 +63,20 @@ export function createInitialState(setup: MatchSetup): GameState {
   const playerStates: PlayerState[] = players.map((p, index) => {
     const spawn = layout.spawnPositions[index];
     if (spawn === undefined) throw new Error(`createInitialState: no spawn for player ${index}`);
+    const specialty = p.specialty ?? "survivor";
+    const maxActionPoints =
+      setup.survivor.maxActionPoints +
+      setup.rules.specialtyDefinitions[specialty].modifiers.extraActionPoints;
     return {
       id: p.id,
       name: p.name,
       position: spawn,
       health: setup.survivor.maxHealth,
       maxHealth: setup.survivor.maxHealth,
-      actionPoints: setup.survivor.maxActionPoints,
-      maxActionPoints: setup.survivor.maxActionPoints,
+      actionPoints: maxActionPoints,
+      maxActionPoints,
       status: "active",
+      specialty,
       weapon: {
         type: setup.survivor.startingWeapon,
         loadedAmmo: magazineSizeOf(setup.rules, setup.survivor.startingWeapon),

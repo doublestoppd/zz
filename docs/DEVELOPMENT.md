@@ -198,6 +198,18 @@ intended shape until a third mode proves otherwise.
 5. Tests: `rules/barriers.test.ts` covers movement, sight, pathfinding, locked-state
    rejections, and action point costs with one-row corridors.
 
+## Add a specialty or a new specialty effect
+
+1. A new specialty that only combines existing modifiers is data: add the name to
+   `SPECIALTY_TYPES` in `packages/game-core/src/state/types.ts` and the compiler demands
+   an entry in `packages/game-data/src/specialties.ts` (name, one-line description shown
+   in the lobby, modifiers). The lobby select, decoder, and HUD derive from the list.
+2. A new kind of effect is a field on `SpecialtyModifiers` (`state/definitions.ts`, integer,
+   0 means no change) plus exactly one read through `modifiersOf` at the rule it changes
+   (`discounted` for costs). Never branch on the specialty name in a rule.
+3. Tests in `rules/specialties.test.ts`: the effect, and that every specialty can still
+   perform every baseline action.
+
 ## Add a noise source or change what zombies notice
 
 1. A new loud action calls `makeNoise(state, position, intensity, sourceType)` from

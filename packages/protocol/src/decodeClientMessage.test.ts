@@ -4,10 +4,13 @@ import { decodeServerMessage } from "./decodeServerMessage.js";
 
 describe("decodeClientMessage", () => {
   it.each([
-    ['{"t":"create_match","playerName":"Ann"}', { t: "create_match", playerName: "Ann" }],
+    [
+      '{"t":"create_match","playerName":"Ann"}',
+      { t: "create_match", playerName: "Ann", specialty: "survivor" },
+    ],
     [
       '{"t":"join_match","matchCode":"ABCD","playerName":"Bo"}',
-      { t: "join_match", matchCode: "ABCD", playerName: "Bo" },
+      { t: "join_match", matchCode: "ABCD", playerName: "Bo", specialty: "survivor" },
     ],
     [
       '{"t":"rejoin_match","matchCode":"ABCD","rejoinToken":"tok"}',
@@ -41,6 +44,11 @@ describe("decodeClientMessage", () => {
         command: { type: "melee_attack", targetId: "z2" },
       },
     ],
+    [
+      '{"t":"create_match","playerName":"Ann","specialty":"paramedic"}',
+      { t: "create_match", playerName: "Ann", specialty: "paramedic" },
+    ],
+    ['{"t":"set_specialty","specialty":"athlete"}', { t: "set_specialty", specialty: "athlete" }],
     [
       '{"t":"command","seq":6,"expectedVersion":7,"command":{"type":"reload"}}',
       { t: "command", seq: 6, expectedVersion: 7, command: { type: "reload" } },
@@ -99,6 +107,8 @@ describe("decodeClientMessage", () => {
     "42",
     '{"t":"teleport"}',
     '{"t":"create_match"}',
+    '{"t":"create_match","playerName":"Ann","specialty":"wizard"}',
+    '{"t":"set_specialty"}',
     '{"t":"join_match","matchCode":5,"playerName":"x"}',
     '{"t":"command","seq":"1","command":{"type":"end_turn"}}',
     '{"t":"command","seq":1}',

@@ -3,8 +3,10 @@ import {
   containerId,
   ITEM_TYPES,
   itemId,
+  SPECIALTY_TYPES,
   zombieId,
   type ItemType,
+  type SpecialtyType,
 } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
@@ -50,17 +52,38 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
   if (!isRecord(parsed)) return fail("message must be an object");
 
   switch (parsed.t) {
-    case "create_match":
+    case "create_match": {
       if (!isString(parsed.playerName)) return fail("create_match.playerName must be a string");
-      return { ok: true, value: { t: "create_match", playerName: parsed.playerName } };
-
-    case "join_match":
-      if (!isString(parsed.matchCode)) return fail("join_match.matchCode must be a string");
-      if (!isString(parsed.playerName)) return fail("join_match.playerName must be a string");
+      const specialty = decodeSpecialty(parsed.specialty);
+      if (!specialty.ok) return fail(specialty.error);
       return {
         ok: true,
-        value: { t: "join_match", matchCode: parsed.matchCode, playerName: parsed.playerName },
+        value: { t: "create_match", playerName: parsed.playerName, specialty: specialty.value },
       };
+    }
+
+    case "join_match": {
+      if (!isString(parsed.matchCode)) return fail("join_match.matchCode must be a string");
+      if (!isString(parsed.playerName)) return fail("join_match.playerName must be a string");
+      const specialty = decodeSpecialty(parsed.specialty);
+      if (!specialty.ok) return fail(specialty.error);
+      return {
+        ok: true,
+        value: {
+          t: "join_match",
+          matchCode: parsed.matchCode,
+          playerName: parsed.playerName,
+          specialty: specialty.value,
+        },
+      };
+    }
+
+    case "set_specialty": {
+      if (parsed.specialty === undefined) return fail("set_specialty.specialty is required");
+      const specialty = decodeSpecialty(parsed.specialty);
+      if (!specialty.ok) return fail(specialty.error);
+      return { ok: true, value: { t: "set_specialty", specialty: specialty.value } };
+    }
 
     case "rejoin_match":
       if (!isString(parsed.matchCode)) return fail("rejoin_match.matchCode must be a string");
@@ -97,6 +120,15 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
     default:
       return fail("unknown message type");
   }
+}
+
+/** An absent specialty means the plain survivor; anything present must be a known one. */
+function decodeSpecialty(value: unknown): DecodeResult<SpecialtyType> {
+  if (value === undefined) return { ok: true, value: "survivor" };
+  if (isString(value) && (SPECIALTY_TYPES as readonly string[]).includes(value)) {
+    return { ok: true, value: value as SpecialtyType };
+  }
+  return fail("specialty must be one of " + SPECIALTY_TYPES.join(", "));
 }
 
 function isItemType(value: unknown): value is ItemType {

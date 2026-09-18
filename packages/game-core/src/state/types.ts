@@ -11,6 +11,7 @@ import type { GameMap, Position } from "../map/types.js";
 import type {
   ItemDefinition,
   SearchLootTable,
+  SpecialtyDefinition,
   WeaponDefinition,
   ZombieDefinition,
 } from "./definitions.js";
@@ -89,6 +90,8 @@ export interface GameRules {
   readonly forceEntryNoise: number;
   /** What each kind of location yields when searched. */
   readonly searchLootTables: Readonly<Record<ContainerCategory, SearchLootTable>>;
+  /** What each specialty changes. Adding a `SpecialtyType` without an entry fails to compile. */
+  readonly specialtyDefinitions: Readonly<Record<SpecialtyType, SpecialtyDefinition>>;
 }
 
 /** Runtime list of location kinds; loot tables and templates are keyed by it. */
@@ -169,6 +172,8 @@ export interface PlayerState {
   readonly actionPoints: number;
   readonly maxActionPoints: number;
   readonly status: PlayerStatus;
+  /** Chosen in the lobby; its modifiers are read at the rules' extension points. */
+  readonly specialty: SpecialtyType;
   /** The firearm slot: always a weapon whose definition has `kind: "firearm"`. */
   readonly weapon: EquippedWeapon;
   /** The melee slot: always a weapon whose definition has `kind: "melee"`. Never needs ammo. */
@@ -184,6 +189,17 @@ export interface PlayerState {
    */
   readonly present: boolean;
 }
+
+/** Runtime list of survivor specialties; the lobby offers them and decoders check them. */
+export const SPECIALTY_TYPES = [
+  "survivor",
+  "paramedic",
+  "officer",
+  "mechanic",
+  "athlete",
+  "scavenger",
+] as const;
+export type SpecialtyType = (typeof SPECIALTY_TYPES)[number];
 
 /** Runtime list of zombie types; `ZOMBIE_TYPES` lets spawn tables and UIs iterate. */
 export const ZOMBIE_TYPES = ["walker", "runner", "brute"] as const;

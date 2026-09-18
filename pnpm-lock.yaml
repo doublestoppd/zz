@@ -38,6 +38,9 @@ importers:
       '@zombie/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
+      '@zombie/game-data':
+        specifier: workspace:*
+        version: link:../../packages/game-data
       '@zombie/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

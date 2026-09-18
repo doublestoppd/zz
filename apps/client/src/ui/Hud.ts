@@ -235,7 +235,7 @@ export class Hud {
             p.id === active ? "active" : "",
             p.present && p.status === "active" ? "" : "absent",
           ].join(" "),
-          textContent: `${p.name}${p.id === me ? " (you)" : ""}: ${p.actionPoints}/${p.maxActionPoints} AP, ${p.health}/${p.maxHealth} HP${p.status === "down" ? " (down)" : ""}`,
+          textContent: `${p.name}${p.id === me ? " (you)" : ""} (${game.rules.specialtyDefinitions[p.specialty].name.toLowerCase()}): ${p.actionPoints}/${p.maxActionPoints} AP, ${p.health}/${p.maxHealth} HP${p.status === "down" ? " (down)" : ""}`,
         }),
       ),
     );

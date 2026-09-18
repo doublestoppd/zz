@@ -1,6 +1,7 @@
 import type { BarrierId } from "../ids.js";
 import type { Barrier, GameState, PlayerState } from "../state/types.js";
 import { isOccupied } from "./occupancy.js";
+import { discounted, modifiersOf } from "./specialties.js";
 
 /** A survivor may work a door or window from their own tile or an orthogonally adjacent one. */
 export const BARRIER_REACH = 1;
@@ -32,7 +33,13 @@ export type CloseDoorValidation =
   | { readonly ok: false; readonly reason: BarrierRejectionReason };
 
 export type ForceEntryValidation =
-  | { readonly ok: true; readonly barrier: Barrier; readonly cost: number }
+  | {
+      readonly ok: true;
+      readonly barrier: Barrier;
+      readonly cost: number;
+      /** Intensity of the noise the forcing will make. */
+      readonly noise: number;
+    }
   | { readonly ok: false; readonly reason: BarrierRejectionReason };
 
 export {
@@ -128,9 +135,20 @@ export function validateForceEntry(
   if (!found.ok) return found;
   const { barrier } = found;
   if (!isForceable(barrier)) return { ok: false, reason: "BARRIER_NOT_FORCEABLE" };
-  const cost = state.rules.forceEntryActionPointCost;
+  const cost = discounted(
+    state.rules.forceEntryActionPointCost,
+    modifiersOf(state, player).forceEntryActionPointDiscount,
+  );
   if (player.actionPoints < cost) return { ok: false, reason: "INSUFFICIENT_ACTION_POINTS" };
-  return { ok: true, barrier, cost };
+  return { ok: true, barrier, cost, noise: forceEntryNoiseFor(state, player) };
+}
+
+/** How loud this survivor's forced entry is: the rule number less their specialty's reduction. */
+export function forceEntryNoiseFor(state: GameState, player: PlayerState): number {
+  return discounted(
+    state.rules.forceEntryNoise,
+    modifiersOf(state, player).forceEntryNoiseReduction,
+  );
 }
 
 /** What the survivor could do to nearby barriers right now. Used by the client for buttons and highlights. */

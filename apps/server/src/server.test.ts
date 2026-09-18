@@ -252,6 +252,25 @@ describe("lobby", () => {
     expect(hostUpdate.state.phase).toEqual({ kind: "player_turn", activePlayerId: hostId });
   });
 
+  it("carries a chosen specialty into the lobby list and the match state", async () => {
+    const host = await connect();
+    host.send({ t: "create_match", playerName: "Host", specialty: "athlete" });
+    const joined = await host.next("joined");
+    const lobby = await host.next("lobby");
+    expect(lobby.players[0]?.specialty).toBe("athlete");
+    host.send({ t: "set_specialty", specialty: "paramedic" });
+    expect((await host.next("lobby")).players[0]?.specialty).toBe("paramedic");
+    const guest = await connect();
+    guest.send({ t: "join_match", matchCode: joined.matchCode, playerName: "Guest" });
+    await guest.next("joined");
+    await host.next("lobby", (m) => m.players.length === 2);
+    host.send({ t: "start_match" });
+    const update = await host.next("update");
+    expect(update.state.players.map((p) => p.specialty)).toEqual(["paramedic", "survivor"]);
+    host.send({ t: "set_specialty", specialty: "officer" });
+    expect((await host.next("error")).code).toBe("MATCH_ALREADY_STARTED");
+  });
+
   it("refuses start from a non-host and reports unknown codes", async () => {
     const { guest } = await twoPlayerLobby();
     guest.send({ t: "start_match" });

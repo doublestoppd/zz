@@ -1,6 +1,7 @@
 import {
   createInitialState,
   matchId,
+  NO_MODIFIERS,
   parseAsciiMap,
   playerId,
   type GameState,
@@ -51,6 +52,34 @@ export function makeClientTestState(
         rifle: { effect: { kind: "weapon", weaponType: "rifle" }, useActionPointCost: 0 },
         knife: { effect: { kind: "weapon", weaponType: "knife" }, useActionPointCost: 0 },
         bat: { effect: { kind: "weapon", weaponType: "bat" }, useActionPointCost: 0 },
+      },
+      specialtyDefinitions: {
+        survivor: { name: "Survivor", description: "", modifiers: NO_MODIFIERS },
+        paramedic: {
+          name: "Paramedic",
+          description: "",
+          modifiers: { ...NO_MODIFIERS, healBonus: 2 },
+        },
+        officer: {
+          name: "Officer",
+          description: "",
+          modifiers: { ...NO_MODIFIERS, reloadActionPointDiscount: 1 },
+        },
+        mechanic: {
+          name: "Mechanic",
+          description: "",
+          modifiers: { ...NO_MODIFIERS, forceEntryActionPointDiscount: 1 },
+        },
+        athlete: {
+          name: "Athlete",
+          description: "",
+          modifiers: { ...NO_MODIFIERS, extraActionPoints: 1 },
+        },
+        scavenger: {
+          name: "Scavenger",
+          description: "",
+          modifiers: { ...NO_MODIFIERS, searchExtraRolls: 1 },
+        },
       },
       pickUpActionPointCost: 1,
       searchActionPointCost: 2,
