@@ -388,7 +388,8 @@ export class BoardRenderer implements AnimationStage {
       row.forEach((known, x) => {
         if (visible[y]?.[x] === true) return;
         const { x: px, y: py } = tileToPixel({ x, y });
-        g.fillStyle(COLOURS.fog, known ? 0.55 : 0.96);
+        // Unexplored is fully opaque: even a 4 % bleed of an item label would hint at loot.
+        g.fillStyle(COLOURS.fog, known ? 0.55 : 1);
         g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
       });
     });
