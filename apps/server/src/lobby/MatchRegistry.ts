@@ -44,7 +44,8 @@ export interface RegistryOptions {
 /** Completed matches are kept this long for players to reread and for bug reports, then swept. */
 export const COMPLETED_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-const DEFAULT_DEPS: MatchDependencies = {
+/** Production sources: random seeds and tokens, generated cities, journals to `JOURNAL_DIR`. */
+export const DEFAULT_MATCH_DEPENDENCIES: MatchDependencies = {
   createSeed: () => randomInt(0, 2 ** 32),
   createRejoinToken: () => randomUUID(),
   // One spawn per player, so the player cap (protocol MAX_PLAYERS) is the only limit.
@@ -107,7 +108,7 @@ export class MatchRegistry {
 
   constructor(options: RegistryOptions = {}) {
     this.store = options.store ?? new MemoryMatchStore();
-    this.deps = { ...(options.deps ?? DEFAULT_DEPS), store: this.store };
+    this.deps = { ...(options.deps ?? DEFAULT_MATCH_DEPENDENCIES), store: this.store };
     this.abandonedMatchTtlMs = options.abandonedMatchTtlMs ?? ABANDONED_MATCH_TTL_MS;
     this.completedRetentionMs = options.completedRetentionMs ?? COMPLETED_RETENTION_MS;
     this.scheduler = options.scheduler ?? REAL_SCHEDULER;

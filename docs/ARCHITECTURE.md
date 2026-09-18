@@ -62,6 +62,8 @@ so nothing downstream knows which it is playing on. The server injects the layou
 | `match/ServerMatch.ts`     | Membership, host, rejoin tokens, presence, start, command handling, broadcasting.                                                                         |
 | `match/MatchRuntime.ts`    | The single mutable reference to a `GameState` plus its revision counter.                                                                                  |
 | `router.ts`                | Maps each `ClientMessage` to the registry or match method that owns it.                                                                                   |
+| `testing/`                 | `ProtocolClient` (a real socket speaking the protocol) and `createServerHarness` for integration tests. Test-only.                                        |
+| `soak/`                    | Greedy bot policy, the soak runner (bots over real sockets with invariant checks and failure persistence), and its CLI.                                   |
 
 ### `apps/client`
 

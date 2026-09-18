@@ -1,227 +1,13 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { WebSocket } from "ws";
 import { SMALL_TEST_MAP, zombieId } from "@zombie/game-core";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  decodeServerMessage,
-  encodeMessage,
-  type ClientCommand,
-  type ClientMessage,
-  type ServerMessage,
-} from "@zombie/protocol";
-import { MatchRegistry } from "./lobby/MatchRegistry.js";
-import { startSocketServer, type SocketServerHandle } from "./net/socketServer.js";
-import { handleClientMessage, handleDisconnect } from "./router.js";
+import { encodeMessage } from "@zombie/protocol";
+import { describe, expect, it } from "vitest";
+import { createServerHarness } from "./testing/harness.js";
 
-/** A test client that queues every server message so tests can await specific ones. */
-class TestClient {
-  private readonly received: ServerMessage[] = [];
-  private readonly waiters: {
-    predicate: (m: ServerMessage) => boolean;
-    resolve: (m: ServerMessage) => void;
-  }[] = [];
-
-  private constructor(private readonly socket: WebSocket) {
-    this.closed = new Promise((resolve) => {
-      socket.once("close", (code) => {
-        resolve(code);
-      });
-    });
-    socket.on("ping", () => {
-      this.pings += 1;
-    });
-  }
-
-  static connect(port: number): Promise<TestClient> {
-    return new Promise((resolve, reject) => {
-      const socket = new WebSocket(`ws://127.0.0.1:${port}`);
-      const client = new TestClient(socket);
-      socket.on("message", (data) => {
-        const text = Array.isArray(data)
-          ? Buffer.concat(data).toString()
-          : Buffer.from(data as Buffer).toString();
-        const decoded = decodeServerMessage(text);
-        if (!decoded.ok) throw new Error(decoded.error);
-        client.deliver(decoded.value);
-      });
-      socket.once("open", () => {
-        resolve(client);
-      });
-      socket.once("error", reject);
-    });
-  }
-
-  /** Revision of the latest `update` seen, whether or not a test has consumed it yet. */
-  revision = 0;
-  pings = 0;
-  /** Resolves with the close code once the server closes the socket. */
-  readonly closed: Promise<number>;
-  private static nextCommandNumber = 0;
-
-  send(message: ClientMessage): void {
-    this.socket.send(encodeMessage(message));
-  }
-
-  /** Sends a gameplay command with a fresh id and the latest known revision. */
-  command(
-    command: ClientCommand,
-    overrides: { commandId?: string; baseRevision?: number } = {},
-  ): string {
-    // Ids are unique per player across sockets, so the counter is shared by every test client.
-    TestClient.nextCommandNumber += 1;
-    const commandId = overrides.commandId ?? `cmd-${TestClient.nextCommandNumber}`;
-    this.send({
-      t: "command",
-      commandId,
-      baseRevision: overrides.baseRevision ?? this.revision,
-      command,
-    });
-    return commandId;
-  }
-
-  sendRaw(text: string): void {
-    this.socket.send(text);
-  }
-
-  close(): Promise<void> {
-    if (this.socket.readyState === WebSocket.CLOSED) return Promise.resolve();
-    return new Promise((resolve) => {
-      this.socket.once("close", () => {
-        resolve();
-      });
-      this.socket.close();
-    });
-  }
-
-  /** Resolves with the first queued (or next arriving) message matching `predicate`. */
-  next<T extends ServerMessage["t"]>(
-    type: T,
-    extra?: (m: Extract<ServerMessage, { t: T }>) => boolean,
-  ) {
-    const predicate = (m: ServerMessage): boolean =>
-      m.t === type && (extra === undefined || extra(m as Extract<ServerMessage, { t: T }>));
-    return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
-      const index = this.received.findIndex(predicate);
-      if (index !== -1) {
-        const [found] = this.received.splice(index, 1);
-        resolve(found as Extract<ServerMessage, { t: T }>);
-        return;
-      }
-      const timer = setTimeout(() => {
-        reject(new Error(`timed out waiting for ${type}`));
-      }, 2000);
-      this.waiters.push({
-        predicate,
-        resolve: (m) => {
-          clearTimeout(timer);
-          resolve(m as Extract<ServerMessage, { t: T }>);
-        },
-      });
-    });
-  }
-
-  /**
-   * Asserts nothing of `type` was sent to this client before now. Sends a probe the server
-   * must answer (a second `start_match` is always an error) and, because a socket delivers
-   * in order, anything sent earlier has arrived once the probe's answer has.
-   */
-  async expectNone(type: ServerMessage["t"]): Promise<void> {
-    this.send({ t: "start_match" });
-    await this.next("error", (m) => m.code !== "RATE_LIMITED");
-    expect(this.received.filter((m) => m.t === type)).toEqual([]);
-  }
-
-  private deliver(message: ServerMessage): void {
-    if (message.t === "update") this.revision = message.revision;
-    const index = this.waiters.findIndex((w) => w.predicate(message));
-    if (index !== -1) {
-      const [waiter] = this.waiters.splice(index, 1);
-      waiter?.resolve(message);
-      return;
-    }
-    this.received.push(message);
-  }
-}
-
-let handle: SocketServerHandle;
-let registry: MatchRegistry;
-const clients: TestClient[] = [];
-/** Callbacks scheduled by the registry, fired by tests instead of by the clock. */
-const scheduled: (() => void)[] = [];
-const manualScheduler = {
-  schedule(callback: () => void) {
-    scheduled.push(callback);
-    return {
-      cancel: () => {
-        const i = scheduled.indexOf(callback);
-        if (i !== -1) scheduled.splice(i, 1);
-      },
-    };
-  },
-};
-/** Resolves after the server has processed the next socket close. */
-let disconnectWaiters: (() => void)[] = [];
-function nextDisconnect(): Promise<void> {
-  return new Promise((resolve) => disconnectWaiters.push(resolve));
-}
-
-/** Restarts the server with different socket limits for one test. */
-async function restartWith(
-  options: Partial<Parameters<typeof startSocketServer>[0]>,
-): Promise<void> {
-  await handle.close();
-  handle = await startSocketServer({
-    port: 0,
-    onMessage: (session, message) => {
-      handleClientMessage(registry, session, message);
-    },
-    onDisconnect: (session) => {
-      handleDisconnect(registry, session);
-      for (const resolve of disconnectWaiters.splice(0)) resolve();
-    },
-    ...options,
-  });
-}
-
-beforeEach(async () => {
-  registry = new MatchRegistry({
-    deps: {
-      createSeed: () => 1234,
-      createRejoinToken: () => `token-${String(Math.random())}`,
-      createLayout: () => ({
-        layout: SMALL_TEST_MAP,
-        source: { kind: "fixture", name: "SMALL_TEST_MAP" },
-      }),
-    },
-    abandonedMatchTtlMs: 50,
-    scheduler: manualScheduler,
-  });
-  scheduled.length = 0;
-  disconnectWaiters = [];
-  handle = await startSocketServer({
-    port: 0,
-    onMessage: (session, message) => {
-      handleClientMessage(registry, session, message);
-    },
-    onDisconnect: (session) => {
-      handleDisconnect(registry, session);
-      for (const resolve of disconnectWaiters.splice(0)) resolve();
-    },
-  });
-});
-
-afterEach(async () => {
-  await Promise.all(clients.splice(0).map((c) => c.close()));
-  await handle.close();
-});
-
-async function connect(): Promise<TestClient> {
-  const client = await TestClient.connect(handle.port);
-  clients.push(client);
-  return client;
-}
+const harness = createServerHarness();
+const { connect, restartWith, nextDisconnect, scheduled } = harness;
 
 /** Creates a two-player lobby with `host` as host and returns both clients plus the code. */
 async function twoPlayerLobby() {
@@ -242,7 +28,6 @@ async function twoPlayerLobby() {
     guestId: guestJoined.playerId,
   };
 }
-
 describe("lobby", () => {
   it("creates a match, joins by code, and starts on the host's request", async () => {
     const { host, guest, hostId } = await twoPlayerLobby();
@@ -458,7 +243,7 @@ describe("http side", () => {
     writeFileSync(join(dir, "index.html"), "<h1>ok</h1>");
     writeFileSync(join(dir, "app.js"), "console.log(1)");
     await restartWith({ staticDir: dir });
-    const base = `http://127.0.0.1:${handle.port}`;
+    const base = `http://127.0.0.1:${harness.handle.port}`;
     const health = await fetch(`${base}/healthz`);
     expect(health.status).toBe(200);
     expect(await health.json()).toEqual({ ok: true });
@@ -471,10 +256,10 @@ describe("http side", () => {
   });
 
   it("exposes metrics and, behind the admin token, match diagnostics without tokens", async () => {
-    const diagnostics = registry.diagnostics();
+    const diagnostics = harness.registry.diagnostics();
     await restartWith({
       http: {
-        metricsText: () => registry.metricsText(),
+        metricsText: () => harness.registry.metricsText(),
         adminToken: "s3cret",
         diagnostics,
         isReady: diagnostics.isReady,
@@ -487,7 +272,7 @@ describe("http side", () => {
     await Promise.all([host.next("update"), guest.next("update")]);
     guest.command({ type: "end_turn" });
     await guest.next("rejected");
-    const base = `http://127.0.0.1:${handle.port}`;
+    const base = `http://127.0.0.1:${harness.handle.port}`;
     const text = await (await fetch(`${base}/metrics`)).text();
     expect(text).toContain('zombie_commands_total{outcome="accepted"}');
     expect(text).toContain('zombie_commands_total{outcome="rejected",reason="INVALID_PHASE"}');
@@ -519,7 +304,7 @@ describe("http side", () => {
   });
 
   it("serves only the health check when no static directory is configured", async () => {
-    const base = `http://127.0.0.1:${handle.port}`;
+    const base = `http://127.0.0.1:${harness.handle.port}`;
     expect((await fetch(`${base}/healthz`)).status).toBe(200);
     expect((await fetch(`${base}/`)).status).toBe(404);
   });
@@ -797,11 +582,11 @@ describe("presence", () => {
     const lonely = await connect();
     lonely.send({ t: "create_match", playerName: "Solo" });
     await lonely.next("joined");
-    expect(registry.size()).toBe(1);
+    expect(harness.registry.size()).toBe(1);
     const gone = nextDisconnect();
     await lonely.close();
     await gone;
-    expect(registry.size()).toBe(0);
+    expect(harness.registry.size()).toBe(0);
 
     const player = await connect();
     player.send({ t: "create_match", playerName: "Solo" });
@@ -811,11 +596,11 @@ describe("presence", () => {
     const left = nextDisconnect();
     await player.close();
     await left;
-    expect(registry.size()).toBe(1);
+    expect(harness.registry.size()).toBe(1);
     expect(scheduled).toHaveLength(1);
     scheduled.splice(0).forEach((fire) => {
       fire();
     });
-    expect(registry.size()).toBe(0);
+    expect(harness.registry.size()).toBe(0);
   });
 });

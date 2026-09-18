@@ -149,8 +149,38 @@ Run `pnpm dev` and open `http://localhost:5173` in two or more tabs (or browsers
 in one, join with the code in the others. A refresh of any tab rejoins the same slot
 through the token in `sessionStorage`; opening the same match in a second tab of the same
 browser profile takes the slot over (`SESSION_REPLACED` in the first). For scripted
-clients, `apps/server/src/server.test.ts` shows the pattern: a `ws` socket, the protocol
-encoder, and `next(type)` to await the answer.
+clients use `ProtocolClient` (`apps/server/src/testing/protocolClient.ts`): a `ws` socket,
+the protocol encoder, `command(...)` with automatic ids and revisions, and `next(type)` to
+await an answer.
+
+## Integration tests and the soak
+
+The server's integration tests start the real listener on an ephemeral port and drive it
+with `ProtocolClient`s (`createServerHarness` in `apps/server/src/testing/harness.ts`:
+fresh registry per test, fixture map, fixed seed, manual abandonment timer, `lobbyOf(n)`
+and `matchOf(n)` helpers). `server.test.ts` covers single-client protocol behaviour;
+`multiplayer.test.ts` covers party sizes 1-4, the fifth player, simultaneous input,
+ordering, whole-party disconnects, and terminal matches. Anything that crosses the socket
+belongs in one of these, not in a unit test with fakes.
+
+The soak (`apps/server/src/soak/`) plays whole matches with greedy bots over real sockets
+against generated cities:
+
+```
+pnpm --filter @zombie/server soak -- --matches 200 --seed 1 --chaos
+pnpm --filter @zombie/server soak -- --seed 32 --matches 1 --players 4 --chaos
+```
+
+Each match is deterministic from its seed (city, simulation, and the chaos schedule:
+socket drops with rejoin, duplicate and stale-revision probes, a terminal rejoin). Every
+snapshot every bot receives is checked (`baseInvariants` in `runSoak.ts`, plus whatever
+`invariants` a caller passes; game-core's own checks plug in here), and all bots must see
+the same view at the same revision. A failing seed is written to `soak-failures/` (or
+`--failures DIR`) as `<seed>-<players>p.journal.json`, which the replay CLI accepts, and
+`<seed>-<players>p.failure.json` with the reason and the exact rerun command. Bot rule
+rejections are expected (bots plan from a fog-of-war view) and are answered by ending the
+turn; every other rejection of a bot's own command fails the match. `soak.test.ts` runs
+eight chaos matches in the normal suite; the CI nightly job runs hundreds.
 
 ## Replay a match
 
@@ -338,6 +368,9 @@ function that owns the call must write `rng.getState()` back into `state.rngStat
 from the same state and `expect(a).toEqual(b)`.
 
 ## Reproduce a bug from a match
+
+A soak failure gives you the seed: rerun it with the command in its `.failure.json`, or
+replay its journal (`pnpm --filter @zombie/server replay soak-failures/<seed>-<n>p.journal.json`).
 
 An `update` message contains the full `GameState`, including `rngState`. Paste it into a
 test as the starting state, apply the commands that followed, and assert. That state and
