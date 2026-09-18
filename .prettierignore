@@ -1,3 +1,4 @@
 node_modules/
 dist/
 pnpm-lock.yaml
+apps/server/fixtures/golden/

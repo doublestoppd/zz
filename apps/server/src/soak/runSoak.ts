@@ -44,6 +44,8 @@ export interface SoakOptions {
   readonly maxRounds: number;
   /** Where failing seeds and their journals are written; nothing is written when unset. */
   readonly failuresDir?: string;
+  /** Where every finished match's journal is written as `<seed>-<players>p.journal.json` (golden fixtures). */
+  readonly journalsDir?: string;
   /** Extra checks run on every snapshot every bot receives; each returned string fails the match. */
   readonly invariants?: (state: GameState) => readonly string[];
   /** Per-message wait before a match counts as stalled. */
@@ -130,11 +132,24 @@ export async function runSoak(options: SoakOptions): Promise<SoakReport> {
   const log = options.log ?? (() => undefined);
   let currentSeed = options.seedStart;
   const { onJournal: _onJournal, ...production } = DEFAULT_MATCH_DEPENDENCIES;
+  let currentPlayers = 0;
+  const journalsDir = options.journalsDir;
   const registry = new MatchRegistry({
     deps: {
       ...production,
       createSeed: () => currentSeed,
       createRejoinToken: () => randomBytes(16).toString("hex"),
+      ...(journalsDir === undefined
+        ? {}
+        : {
+            onJournal: (journal: MatchJournal) => {
+              mkdirSync(journalsDir, { recursive: true });
+              writeFileSync(
+                join(journalsDir, `${journal.metadata.seed}-${currentPlayers}p.journal.json`),
+                JSON.stringify(journal),
+              );
+            },
+          }),
     },
   });
   const handle: SocketServerHandle = await startSocketServer({
@@ -153,6 +168,7 @@ export async function runSoak(options: SoakOptions): Promise<SoakReport> {
     for (let i = 0; i < options.matches; i += 1) {
       currentSeed = options.seedStart + i;
       const players = options.players ?? (i % 4) + 1;
+      currentPlayers = players;
       const result = await playMatch(handle.port, registry, currentSeed, players, options);
       results.push(result);
       log(

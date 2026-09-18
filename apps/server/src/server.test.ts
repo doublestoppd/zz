@@ -608,6 +608,29 @@ describe("presence", () => {
   });
 });
 
+describe("build identity", () => {
+  it("serves the build identity at /version when configured", async () => {
+    await restartWith({
+      http: {
+        version: () => ({
+          gameVersion: GAME_VERSION,
+          protocolVersion: PROTOCOL_VERSION,
+          simulationVersion: SIMULATION_VERSION,
+          sourceRevision: "abc123",
+        }),
+      },
+    });
+    const answer = await fetch(`http://127.0.0.1:${harness.handle.port}/version`);
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toEqual({
+      gameVersion: GAME_VERSION,
+      protocolVersion: PROTOCOL_VERSION,
+      simulationVersion: SIMULATION_VERSION,
+      sourceRevision: "abc123",
+    });
+  });
+});
+
 describe("version handshake", () => {
   it("welcomes a client with the same protocol version and reports the server's versions", async () => {
     const raw = await ProtocolClient.connect(harness.handle.port, { handshake: false });

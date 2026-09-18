@@ -1,0 +1,93 @@
+# Fast quality gates for every push and pull request. Each mandatory check is its own step
+# so a failure names itself; nothing here ignores an exit code. Longer jobs (the soak, the
+# benchmarks) run nightly in nightly.yml.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The build identity every artifact carries (docs/OPERATIONS.md, "Build identity").
+  GAME_VERSION: 0.1.0+${{ github.sha }}
+  SOURCE_REVISION: ${{ github.sha }}
+
+jobs:
+  checks:
+    name: Typecheck, lint, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Format check
+        run: pnpm format:check
+      - name: Unit tests (game-core, game-data, protocol)
+        run: pnpm exec vitest run --project @zombie/game-core --project @zombie/game-data --project @zombie/protocol
+      - name: Map generation tests (deterministic, property)
+        run: pnpm exec vitest run --project @zombie/map-generation
+      - name: Client tests
+        run: pnpm exec vitest run --project @zombie/client
+      - name: Server tests (integration over real sockets, soak sample, budgets)
+        run: pnpm exec vitest run --project @zombie/server
+      - name: Replay verification (golden journals)
+        run: |
+          for journal in apps/server/fixtures/golden/*.journal.json; do
+            pnpm --filter @zombie/server replay "$GITHUB_WORKSPACE/$journal"
+          done
+      - name: Build client and server
+        run: pnpm build
+      - name: Show build identity
+        run: |
+          cat apps/server/dist/build-info.json
+          cat apps/client/dist/build-info.json
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: |
+            apps/server/dist/
+            apps/client/dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  container:
+    name: Container image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: |
+          docker build \
+            --build-arg GAME_VERSION="$GAME_VERSION" \
+            --build-arg SOURCE_REVISION="$SOURCE_REVISION" \
+            -t zombie:${{ github.sha }} .
+      - name: Image answers /version and /healthz
+        run: |
+          docker run -d --name zz -p 8080:8080 zombie:${{ github.sha }}
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/healthz; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/version
+          docker logs zz | head -5
+          docker rm -f zz

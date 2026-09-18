@@ -1,0 +1,72 @@
+# The long jobs: a large chaos soak over real sockets and the performance benchmarks.
+# Failing seeds are uploaded as replayable journals (docs/DEVELOPMENT.md, "Integration
+# tests and the soak"); the benchmark table is uploaded for comparison with
+# docs/PERFORMANCE.md. Runs every night and on demand.
+name: Nightly soak and benchmarks
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      matches:
+        description: Number of soak matches
+        default: "300"
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    name: Chaos soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Soak (bots over real sockets, chaos on, full invariants)
+        run: |
+          pnpm --filter @zombie/server soak -- \
+            --matches ${{ github.event.inputs.matches || '300' }} \
+            --seed ${{ github.run_number }} \
+            --chaos --failures soak-failures | tee soak.log
+      - name: Upload soak log and failing seeds
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-${{ github.run_number }}
+          path: |
+            soak.log
+            apps/server/soak-failures/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  bench:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Server benchmarks
+        run: pnpm --filter @zombie/server bench -- --json bench.json | tee bench.md
+      - name: Client benchmarks (pure work)
+        run: pnpm --filter @zombie/client bench | tee -a bench.md
+      - name: Upload benchmark tables
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ github.run_number }}
+          path: |
+            bench.md
+            apps/server/bench.json
+          retention-days: 90

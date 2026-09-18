@@ -1,8 +1,9 @@
-import type { InvariantLevel } from "@zombie/game-core";
+import { SIMULATION_VERSION, type InvariantLevel } from "@zombie/game-core";
 import { DEFAULT_MATCH_DEPENDENCIES, MatchRegistry } from "./lobby/MatchRegistry.js";
 import { FileMatchStore } from "./persistence/matchStore.js";
 import { metrics } from "./observability/metrics.js";
-import { GAME_VERSION } from "./version.js";
+import { PROTOCOL_VERSION } from "@zombie/protocol";
+import { GAME_VERSION, SOURCE_REVISION } from "./version.js";
 import { log } from "./log.js";
 import { startSocketServer } from "./net/socketServer.js";
 import { handleClientMessage, handleDisconnect } from "./router.js";
@@ -57,6 +58,13 @@ function parsePort(raw: string | undefined): number {
   return value;
 }
 
+/** What this process is, for the startup log, `/version`, and bug reports. */
+const BUILD_IDENTITY = {
+  gameVersion: GAME_VERSION,
+  protocolVersion: PROTOCOL_VERSION,
+  simulationVersion: SIMULATION_VERSION,
+  sourceRevision: SOURCE_REVISION,
+} as const;
 const adminToken = process.env.ADMIN_TOKEN;
 const allowedOrigins = parseList(process.env.ALLOWED_ORIGINS);
 const maxConnections = parseCount("MAX_CONNECTIONS", process.env.MAX_CONNECTIONS);
@@ -93,6 +101,7 @@ const handle = await startSocketServer({
   ...(maxConnectionsPerAddress === undefined ? {} : { maxConnectionsPerAddress }),
   trustProxy,
   http: {
+    version: () => BUILD_IDENTITY,
     metricsText: () => registry.metricsText(),
     ...(adminToken === undefined || adminToken === "" ? {} : { adminToken }),
     diagnostics,
@@ -122,7 +131,7 @@ log("info", "server listening", {
   },
   staticDir: staticDir ?? null,
   stateDir: stateDir ?? null,
-  gameVersion: GAME_VERSION,
+  ...BUILD_IDENTITY,
   ...recovered,
 });
 

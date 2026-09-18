@@ -8,7 +8,14 @@ import { requireElement } from "./ui/dom.js";
 import { Hud } from "./ui/Hud.js";
 import { clearIdentity, loadIdentity, saveIdentity } from "./ui/identityStorage.js";
 import { LobbyPanel } from "./ui/LobbyPanel.js";
-import { GAME_VERSION } from "./version.js";
+import { GAME_VERSION, SOURCE_REVISION } from "./version.js";
+import { PROTOCOL_VERSION } from "@zombie/protocol";
+import { SIMULATION_VERSION } from "@zombie/game-core";
+
+// One line a bug report can quote: what this page is running.
+console.info(
+  `zombie client ${GAME_VERSION} (protocol ${PROTOCOL_VERSION}, simulation ${SIMULATION_VERSION}, ${SOURCE_REVISION.slice(0, 12)})`,
+);
 
 /**
  * Where the game server is. Explicit VITE_SERVER_URL wins; the Vite dev server talks to the

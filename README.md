@@ -38,8 +38,8 @@ One Node process serves everything: `pnpm build`, then
 PORT=8080 STATIC_DIR=apps/client/dist node apps/server/dist/server.js
 ```
 
-serves the client at `/`, a health check at `/healthz`, and the game over WebSocket on the
-same port; a built client connects to its own origin (`wss://` behind TLS). Set
+serves the client at `/`, a health check at `/healthz`, the build identity at `/version`,
+and the game over WebSocket on the same port; a built client connects to its own origin (`wss://` behind TLS). Set
 `VITE_SERVER_URL` at build time to point the client elsewhere. The `Dockerfile` does the
 same in a container (`docker build -t zombie . && docker run -p 8080:8080 zombie`).
 Logs are JSON lines on stdout (errors on stderr). Terminate TLS in a reverse proxy; the

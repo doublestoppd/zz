@@ -5,3 +5,5 @@
  */
 export const GAME_VERSION: string =
   (import.meta.env.VITE_GAME_VERSION as string | undefined) ?? "dev";
+export const SOURCE_REVISION: string =
+  (import.meta.env.VITE_SOURCE_REVISION as string | undefined) ?? "unknown";

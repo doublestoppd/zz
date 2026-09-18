@@ -16,6 +16,32 @@ pnpm check           # all checks; run before committing
 Tests sit next to the code as `*.test.ts`. Game-core tests build states with
 `packages/game-core/src/testing/makeTestState.ts` and assert on `applyCommand` results.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request, one step per mandatory
+check so a failure names itself: typecheck, lint, format check, unit tests (game-core,
+game-data, protocol), map-generation tests, client tests, server tests (integration over
+real sockets, the soak sample, the performance budgets), replay verification of the
+golden journals, the client and server builds, and a container build that starts the
+image and reads `/version`. No step ignores an exit code; `pnpm check` runs the same
+checks locally minus the builds. `.github/workflows/nightly.yml` runs the long jobs on a
+schedule and on demand: a 300-match chaos soak (failing seeds uploaded as replayable
+journals) and the benchmarks (tables uploaded for comparison with `docs/PERFORMANCE.md`).
+
+The golden journals in `apps/server/fixtures/golden/` were recorded by the real server
+with bots (`pnpm --filter @zombie/server record-golden`). `replay/golden.test.ts` and the
+CI replay step re-simulate them on every build: a divergence means the rules changed
+without a `SIMULATION_VERSION` bump (find it) or with one (re-record and commit the new
+journals in the same change).
+
+Every build writes `dist/build-info.json` next to its artifact with `gameVersion`,
+`protocolVersion`, `simulationVersion`, `sourceRevision`, and `builtAt`; CI sets
+`GAME_VERSION` to `<package version>+<commit>` and `SOURCE_REVISION` to the commit, a
+local build reports `0.1.0-dev` and the working tree's commit. The server logs the same
+four facts at startup and serves them at `GET /version`; the client prints them to the
+console on load and announces its build in `hello`. Configuration is by environment
+variable only (docs/OPERATIONS.md); there is no dev/prod branch in any package.
+
 ## Add a player command
 
 1. `packages/game-core/src/commands/types.ts`: add an interface and add it to `PlayerCommand`.

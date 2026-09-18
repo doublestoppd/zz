@@ -19,6 +19,8 @@ export interface HttpOptions {
   };
   /** Set to false while shutting down so readiness probes stop sending traffic. */
   readonly isReady?: () => boolean;
+  /** Public build identification for `GET /version` (no secrets: the same facts the client sees in `welcome`). */
+  readonly version?: () => unknown;
 }
 
 /**
@@ -61,6 +63,10 @@ export function createHttpServer(options: HttpOptions): Server {
     const url = new URL(request.url ?? "/", "http://localhost");
     if (url.pathname === "/healthz") {
       respond(response, 200, "application/json; charset=utf-8", JSON.stringify({ ok: true }));
+      return;
+    }
+    if (url.pathname === "/version" && options.version !== undefined) {
+      respond(response, 200, "application/json; charset=utf-8", JSON.stringify(options.version()));
       return;
     }
     if (url.pathname === "/readyz") {

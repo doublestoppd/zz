@@ -177,6 +177,10 @@ scenario, layout source, and players, never a credential. `packages/game-core/sr
 owns the types, the canonical fingerprint, and `replayJournal`; `apps/server/src/replay/`
 rebuilds the initial state and verifies ([ADR 0008](adr/0008-match-journal-and-replay.md)).
 
+Golden journals recorded by the real server live in `apps/server/fixtures/golden/`; the
+test suite and CI replay them on every build so a rule change cannot go unnoticed
+([DEVELOPMENT.md](DEVELOPMENT.md), "Continuous integration").
+
 ## State synchronisation
 
 Full snapshot per update ([ADR 0002](adr/0002-plain-data-state-and-snapshot-sync.md)). The

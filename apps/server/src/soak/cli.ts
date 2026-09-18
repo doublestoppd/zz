@@ -3,7 +3,7 @@ import { setLogLevel } from "../log.js";
 
 /**
  * `pnpm --filter @zombie/server soak -- [--matches N] [--seed S] [--players P] [--chaos]
- * [--max-rounds R] [--failures DIR]`: plays N seeded matches with bots over real sockets and
+ * [--max-rounds R] [--failures DIR] [--journals DIR]`: plays N seeded matches with bots over real sockets and
  * exits 1 when any fails. Failing seeds are written to DIR (default `soak-failures/`) as a
  * replayable journal plus a `.failure.json` naming the invariant and the rerun command.
  */
@@ -24,6 +24,7 @@ function numberFlag(name: string, fallback: number): number {
 
 if (process.env.LOG_LEVEL === undefined) setLogLevel("warn");
 const playersFlag = flag("players");
+const journalsFlag = flag("journals");
 const report = await runSoak({
   matches: numberFlag("matches", 50),
   seedStart: numberFlag("seed", 1),
@@ -31,6 +32,7 @@ const report = await runSoak({
   chaos: process.argv.includes("--chaos"),
   maxRounds: numberFlag("max-rounds", 150),
   failuresDir: flag("failures") ?? process.env.SOAK_FAILURES_DIR ?? "soak-failures",
+  ...(journalsFlag === undefined ? {} : { journalsDir: journalsFlag }),
   log: (line) => {
     process.stdout.write(`${line}\n`);
   },

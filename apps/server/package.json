@@ -9,10 +9,11 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --external:bufferutil --external:utf-8-validate --outfile=dist/server.js",
+    "build": "node build.mjs",
     "replay": "tsx src/replay/cli.ts",
     "soak": "tsx src/soak/cli.ts",
-    "bench": "tsx src/bench/cli.ts"
+    "bench": "tsx src/bench/cli.ts",
+    "record-golden": "tsx src/soak/cli.ts --matches 2 --seed 1 --journals fixtures/golden --failures soak-failures"
   },
   "dependencies": {
     "@zombie/game-core": "workspace:*",

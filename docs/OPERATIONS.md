@@ -14,7 +14,8 @@ tree and no secret is committed.
 | `STATIC_DIR`                  | unset          | Serve the built client from this directory on the same port.                                                                                               |
 | `STATE_DIR`                   | unset (memory) | Match records for restart recovery; one JSON file per match. Private: holds tokens.                                                                        |
 | `JOURNAL_DIR`                 | unset          | Finished-match journals for bug reports and replay verification.                                                                                           |
-| `GAME_VERSION`                | `0.1.0-dev`    | Human-facing build label, logged at startup and recorded in journals.                                                                                      |
+| `GAME_VERSION`                | baked at build | Human-facing build label; baked into the bundle by the build (`0.1.0-dev` locally), overridable at start.                                                  |
+| `SOURCE_REVISION`             | baked at build | The commit the artifact was built from; same rules as `GAME_VERSION`.                                                                                      |
 | `LOG_LEVEL`                   | `info`         | Lowest level written: `debug`, `info`, `warn`, or `error`.                                                                                                 |
 | `ADMIN_TOKEN`                 | unset          | Enables the `/admin/...` diagnostics endpoints (bearer token). Unset: they are 404.                                                                        |
 | `INVARIANT_CHECKS`            | `critical`     | State checks after every accepted command: `critical` (cheap) or `full` (staging).                                                                         |
@@ -73,6 +74,16 @@ Lines to alert on:
 | `state not saved`          | error | A checkpoint write failed; the match keeps running in memory only.                                                                            |
 | `state invariant violated` | error | A command produced a state that breaks a rule; it was discarded and the sender told `INTERNAL_ERROR`. A bug: report the seed and the command. |
 | `version mismatch`         | info  | A client announced another protocol version (or none) and was told to refresh; expected right after a deploy.                                 |
+
+## Build identity
+
+Every artifact says what it is. `apps/server/dist/build-info.json` and
+`apps/client/dist/build-info.json` (copied into the container image) carry `gameVersion`,
+`protocolVersion`, `simulationVersion`, `sourceRevision`, and `builtAt`. The server logs
+the same at startup (`server listening`) and serves them at `GET /version` (public, no
+secrets). Clients announce their `gameVersion` in the handshake and see the server's in
+`welcome`; a journal records all three versions, so a replay is always traceable to the
+code that can re-simulate it (`docs/DEVELOPMENT.md`, "Version bump rules").
 
 ## Health and readiness
 
