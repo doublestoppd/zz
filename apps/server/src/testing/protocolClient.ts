@@ -41,11 +41,12 @@ export class ProtocolClient {
   }
 
   /**
-   * Opens a socket and, unless `handshake` is false, sends `hello` with this build's
-   * versions (or `protocolVersion` when given) and waits for the `welcome`.
+   * Opens a socket to a port on the loopback or to a full `ws://` / `wss://` URL and,
+   * unless `handshake` is false, sends `hello` with this build's versions (or
+   * `protocolVersion` when given) and waits for the `welcome`.
    */
   static connect(
-    port: number,
+    target: number | string,
     options: {
       timeoutMs?: number;
       headers?: Record<string, string>;
@@ -54,7 +55,8 @@ export class ProtocolClient {
     } = {},
   ): Promise<ProtocolClient> {
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(`ws://127.0.0.1:${port}`, { headers: options.headers ?? {} });
+      const url = typeof target === "number" ? `ws://127.0.0.1:${target}` : target;
+      const socket = new WebSocket(url, { headers: options.headers ?? {} });
       const client = new ProtocolClient(socket, options.timeoutMs ?? 2000);
       socket.on("message", (data) => {
         const text = Array.isArray(data)
@@ -87,6 +89,8 @@ export class ProtocolClient {
 
   /** Revision of the latest `update` seen, whether or not a caller has consumed it yet. */
   revision = 0;
+  /** What the last `joined` said this client is; kept whether or not a caller consumed the message. */
+  identity: { matchCode: string; playerId: string; rejoinToken: string } | undefined;
   pings = 0;
   /** Resolves with the close code once the server closes the socket. */
   readonly closed: Promise<number>;
@@ -230,6 +234,13 @@ export class ProtocolClient {
 
   private deliver(message: ServerMessage): void {
     if (message.t === "update") this.revision = message.revision;
+    if (message.t === "joined") {
+      this.identity = {
+        matchCode: message.matchCode,
+        playerId: message.playerId,
+        rejoinToken: message.rejoinToken,
+      };
+    }
     const index = this.waiters.findIndex((w) => w.predicate(message));
     if (index !== -1) {
       const [waiter] = this.waiters.splice(index, 1);

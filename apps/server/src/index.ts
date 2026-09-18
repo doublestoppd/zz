@@ -135,17 +135,27 @@ log("info", "server listening", {
   ...recovered,
 });
 
+const shutdownTimeoutMs =
+  parseCount("SHUTDOWN_TIMEOUT_MS", process.env.SHUTDOWN_TIMEOUT_MS) ?? 10_000;
 let stopping = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     if (stopping) return;
     stopping = true;
-    log("info", "shutting down", { signal });
+    log("info", "shutting down", { category: "server", signal, timeoutMs: shutdownTimeoutMs });
     // Every active match is already checkpointed after its last mutation; drain, tell the
     // players, then close the listener so the process exits with nothing ambiguous behind.
+    // A listener that will not close (a stuck socket) must not keep a dead process alive:
+    // the orchestrator's own kill would come anyway, this one leaves a log line first.
     const drained = registry.shutdown();
+    const deadline = setTimeout(() => {
+      log("error", "shutdown timed out; exiting", { category: "server", ...drained });
+      process.exit(1);
+    }, shutdownTimeoutMs);
+    deadline.unref();
     void handle.close().then(() => {
-      log("info", "shutdown complete", drained);
+      clearTimeout(deadline);
+      log("info", "shutdown complete", { category: "server", ...drained });
       process.exit(0);
     });
   });

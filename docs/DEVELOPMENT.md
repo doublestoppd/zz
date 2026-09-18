@@ -427,6 +427,15 @@ change only what the profile names; afterwards the determinism, replay, and inva
 tests must pass unchanged, and the playtest matrix in `docs/BALANCE.md` must reproduce,
 or the change is a simulation change and bumps `SIMULATION_VERSION`.
 
+## Smoke-test a deployment
+
+`pnpm --filter @zombie/server smoke -- --url ws://host:port` runs two real clients through
+the handshake, a lobby, a match start, one accepted command, and a reconnect with a
+token, printing one line per step and exiting non-zero on the first failure
+(`apps/server/src/smoke/`). It creates one two-player match and leaves nothing behind
+(the lobby is abandoned and swept). `smoke.test.ts` runs it against the test harness so
+the script itself cannot rot.
+
 ## Add an invariant
 
 When a rule introduces a new assumption ("a survivor never carries two keys", "a barrier

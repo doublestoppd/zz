@@ -13,7 +13,8 @@
     "replay": "tsx src/replay/cli.ts",
     "soak": "tsx src/soak/cli.ts",
     "bench": "tsx src/bench/cli.ts",
-    "record-golden": "tsx src/soak/cli.ts --matches 2 --seed 1 --journals fixtures/golden --failures soak-failures"
+    "record-golden": "tsx src/soak/cli.ts --matches 2 --seed 1 --journals fixtures/golden --failures soak-failures",
+    "smoke": "tsx src/smoke/cli.ts"
   },
   "dependencies": {
     "@zombie/game-core": "workspace:*",

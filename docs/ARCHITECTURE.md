@@ -65,6 +65,7 @@ so nothing downstream knows which it is playing on. The server injects the layou
 | `testing/`                 | `ProtocolClient` (a real socket speaking the protocol) and `createServerHarness` for integration tests. Test-only.                                        |
 | `soak/`                    | Greedy bot policy, the soak runner (bots over real sockets with invariant checks and failure persistence), and its CLI.                                   |
 | `bench/`                   | Deterministic fixtures, the timing harness, the benchmark cases and CLI, and the budget tripwire test (`docs/PERFORMANCE.md`).                            |
+| `smoke/`                   | The deployment smoke test: two protocol clients against a live URL (`docs/OPERATIONS.md`, "Deployment").                                                  |
 
 ### `apps/client`
 

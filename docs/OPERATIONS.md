@@ -1,7 +1,7 @@
 # Operations
 
-How to run, configure, stop, and recover the game server. Deployment and rollback are in
-their own section at the end (filled in by the deployment milestone).
+How to run, configure, stop, and recover the game server, how to deploy and roll back,
+and what a public playtest needs to have in place.
 
 ## Configuration
 
@@ -19,6 +19,7 @@ tree and no secret is committed.
 | `LOG_LEVEL`                   | `info`         | Lowest level written: `debug`, `info`, `warn`, or `error`.                                                                                                 |
 | `ADMIN_TOKEN`                 | unset          | Enables the `/admin/...` diagnostics endpoints (bearer token). Unset: they are 404.                                                                        |
 | `INVARIANT_CHECKS`            | `critical`     | State checks after every accepted command: `critical` (cheap) or `full` (staging).                                                                         |
+| `SHUTDOWN_TIMEOUT_MS`         | `10000`        | How long a graceful shutdown may take before the process exits 1 anyway (with a log line).                                                                 |
 | `ALLOWED_ORIGINS`             | unset (any)    | Comma-separated browser origins allowed to open a socket, e.g. `https://play.example`. Set it in production.                                               |
 | `MAX_CONNECTIONS`             | `200`          | Concurrent sockets; more are refused at the upgrade (503).                                                                                                 |
 | `MAX_CONNECTIONS_PER_ADDRESS` | `16`           | Sockets one client address may hold (429 beyond).                                                                                                          |
@@ -48,11 +49,15 @@ exactly where they were; the turn they held has passed to the next present playe
 
 ## Graceful shutdown
 
-SIGINT or SIGTERM: the registry stops accepting new lobbies and joins (`SHUTTING_DOWN`),
-tells every connected player and closes their sockets with code 1001 ("going away"), then
-the listener closes and the process exits 0 (`shutdown complete` in the log). Nothing needs
-flushing: every active match was checkpointed after its last mutation. Restart the process
-and the players' clients rejoin on their own.
+SIGINT or SIGTERM: `/readyz` turns 503 so a load balancer stops routing new players, the
+registry stops accepting new lobbies and joins (`SHUTTING_DOWN`), tells every connected
+player and closes their sockets with code 1001 ("going away"), then the listener closes
+and the process exits 0 (`shutdown complete` in the log). Nothing needs flushing: every
+active match was checkpointed after its last mutation and finished matches' journals were
+written when they ended. If the listener has not closed within `SHUTDOWN_TIMEOUT_MS` the
+process logs `shutdown timed out` and exits 1 rather than linger. Restart the process and
+the players' clients rejoin on their own. The container's `stop_grace_period` (compose)
+and the orchestrator's termination grace must exceed the timeout.
 
 ## Logs
 
@@ -172,3 +177,115 @@ became authoritative), so it can go on; capture its journal for the bug report.
 - Completed records are swept 24 hours after their last save, on the next startup.
 - Journals in `JOURNAL_DIR` are never deleted by the server; rotate them with the host's
   tools.
+
+## Deployment
+
+The unit of deployment is the container image (`Dockerfile`): one Node process serving
+the client bundle, the HTTP endpoints, and the WebSocket on `PORT`, running as `node`,
+with `/app/state` and `/app/journals` as volumes. TLS terminates at a reverse proxy in
+front of it (set `TRUST_PROXY=1` there and nowhere else). `docker-compose.yml` runs it on
+a single host; `.env.example` lists the runtime configuration. Secrets (`ADMIN_TOKEN`)
+and the origin allowlist come from the environment or the host's secret store at run
+time; the image contains none of them and the source tree contains no `.env`.
+
+Build and tag by the commit, so the tag, `/version`, and the startup log agree:
+
+```sh
+GAME_VERSION=0.1.0+$(git rev-parse --short HEAD) SOURCE_REVISION=$(git rev-parse HEAD)
+docker build --build-arg GAME_VERSION --build-arg SOURCE_REVISION -t zombie:$GAME_VERSION .
+```
+
+CI builds the same image on every commit and starts it to read `/version`, so a tag that
+reached the registry has already booted once.
+
+Deploy, in this order, to staging first and then to production:
+
+1. Start the new image beside the old one or replace it (a single host: `docker compose
+up -d`; the old container gets SIGTERM, drains, and exits; players reconnect to the new
+   one within seconds and rejoin their matches from the shared state volume).
+2. `GET /version` must show the new `gameVersion` and `sourceRevision`; `GET /readyz`
+   must be 200.
+3. Run the smoke test against the deployment:
+   `pnpm --filter @zombie/server smoke -- --url wss://host` (handshake, lobby, match
+   start, one accepted command, reconnect with a token; exit 0 or the failing step).
+4. Watch the signals below for fifteen minutes before calling it done.
+
+A deployment that changes `PROTOCOL_VERSION` disconnects every loaded client once; they
+show "The game has been updated. Refresh to continue." and a refresh rejoins their match.
+A deployment that changes `SIMULATION_VERSION` cannot restore the previous build's active
+matches (`match not restorable` at startup, records discarded): announce it, or deploy
+when no match is running.
+
+## Rollback
+
+Rolling back is deploying the previous image tag the same way. What carries over:
+
+- **Active matches** in the state volume are restored by the older build as long as the
+  simulation version matches; across a simulation bump they are discarded (as above).
+- **Players** rejoin with their stored tokens; across a protocol bump they refresh once.
+- **Journals** already written are kept; the older build refuses to replay newer ones.
+
+Roll back, or disable the release behind the proxy, when any of these holds after a
+deploy and did not before:
+
+| Signal                                                            | Threshold                                     |
+| ----------------------------------------------------------------- | --------------------------------------------- |
+| process restarts (`uncaught exception` / container exits)         | more than one in ten minutes                  |
+| `zombie_handler_exceptions_total`                                 | any increase                                  |
+| `zombie_invariant_violations_total`                               | any increase                                  |
+| `match not restorable` at startup                                 | any, without a simulation bump in the release |
+| `zombie_reconnect_failures_total{reason="INVALID_REJOIN_TOKEN"}`  | a rate visibly above the pre-deploy baseline  |
+| `zombie_command_duration_ms{kind="with_zombie_phase"}` p99        | above 50 ms sustained (docs/PERFORMANCE.md)   |
+| `/readyz` not 200 after the start-up period                       | at all                                        |
+| players reporting they cannot join or their turn does not advance | two independent reports                       |
+
+The rollback procedure was rehearsed with two bundles built from the same commit
+(`GAME_VERSION` `0.1.0+a` and `0.1.0+b`) run as processes on one shared `STATE_DIR`:
+`/version`, `/healthz`, and `/readyz` answered; the smoke test passed all six steps
+against `b`; SIGTERM drained two active matches and exited 0 in under ten milliseconds
+with `shutdown complete` in the log; `a` restored both matches from the directory at
+their revisions and a player rejoined with the stored token and received the current
+snapshot; a client from before the handshake was refused with the refresh text and close
+code 1008. The container build is verified by the CI container job on every commit;
+repeat the same rehearsal with the image on the staging host before the first invited
+playtest.
+
+## Logs in production
+
+Logs are JSON lines on stdout and stderr; ship them with the platform's collector (the
+compose file uses the json-file driver with rotation; a `docker logs`, `journalctl`, or
+any log shipper that reads container output works). Keep at least `error` lines and
+every `match ended`, `match restored`, and `version mismatch` line for a week: together
+with the match code they locate any reported problem, and the journal in `JOURNAL_DIR`
+(or the record in `STATE_DIR`) replays it. Crashes are the `uncaught exception` line
+(stack included) followed by the container's restart; there is no third-party crash
+reporter, and one is not needed while the log stream is collected.
+
+## Staged playtests
+
+1. **Internal** (the team, one host, `INVARIANT_CHECKS=full`, `LOG_LEVEL=debug`): every
+   scenario and party size at least once; a refresh mid-turn, a closed laptop for ten
+   minutes, a deliberate `docker stop` mid-match; the soak running against the same host
+   at the same time. Exit criterion: nothing in the rollback table fires for a day.
+2. **Invited group** (tens of players, production configuration, `ALLOWED_ORIGINS` set):
+   share the code by hand; watch `zombie_active_matches`, reconnect failures, and the
+   admin match list for stuck rounds (`/admin/matches` with a revision that stops moving
+   while players are connected). Collect journals of any match players call unfair.
+   Exit criterion: no rollback trigger, and every reported problem reproduces from its
+   journal.
+3. **Wider population**: raise `MAX_MATCHES` and `MAX_CONNECTIONS` to the measured host
+   capacity (docs/PERFORMANCE.md), keep `INVARIANT_CHECKS=critical`, and keep the
+   nightly soak green.
+
+## Public playtest readiness checklist
+
+| Ready when                                                           | Verified by                                                                                                                            |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| players refresh or reconnect without losing identity within policy   | `server.test.ts` "presence", `multiplayer.test.ts`, the soak's rejoins, ADR 0007                                                       |
+| old loaded clients are cleanly rejected after an incompatible deploy | `server.test.ts` "version handshake"; the rollback rehearsal's old-client probe                                                        |
+| a failed match can be located from logs and its journal              | every command line carries `matchCode` and `commandId`; journals named `<matchId>-<seed>.json`; `docs/DEVELOPMENT.md` "Replay a match" |
+| critical invariants and multiplayer tests pass                       | `pnpm check` (game-core invariants, `multiplayer.test.ts`, `soak.test.ts`) and CI on every commit                                      |
+| abandoned rooms expire                                               | `multiplayer.test.ts` "whole-party disconnect", `lifecycle.test.ts`; 10-minute grace in production                                     |
+| server shutdown is tested                                            | `lifecycle.test.ts` "graceful shutdown"; the `docker stop` in the rollback rehearsal                                                   |
+| basic abuse controls are active                                      | `security.test.ts`; `ALLOWED_ORIGINS` set and the limits logged at startup                                                             |
+| rollback procedure has been tested at least once                     | the rehearsal above; repeat it on the staging host before the first invited playtest                                                   |

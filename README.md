@@ -41,7 +41,9 @@ PORT=8080 STATIC_DIR=apps/client/dist node apps/server/dist/server.js
 serves the client at `/`, a health check at `/healthz`, the build identity at `/version`,
 and the game over WebSocket on the same port; a built client connects to its own origin (`wss://` behind TLS). Set
 `VITE_SERVER_URL` at build time to point the client elsewhere. The `Dockerfile` does the
-same in a container (`docker build -t zombie . && docker run -p 8080:8080 zombie`).
+same in a container (`docker build -t zombie . && docker run -p 8080:8080 zombie`, or
+`docker compose up -d` with a `.env` from `.env.example`); deployment, rollback, and the
+playtest checklist are in `docs/OPERATIONS.md`.
 Logs are JSON lines on stdout (errors on stderr). Terminate TLS in a reverse proxy; the
 server itself speaks plain HTTP and WS. Matches live in memory, so a restart ends them.
 
