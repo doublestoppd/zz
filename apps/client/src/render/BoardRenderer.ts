@@ -280,6 +280,13 @@ export class BoardRenderer implements AnimationStage {
       .setDepth(DEPTH.tiles);
     this.tileLayer = rt;
     const outdoors = outdoorGrid(map);
+    const roadBeside = (x: number, y: number): boolean =>
+      [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].some(([dx, dy]) => map.tiles[y + (dy ?? 0)]?.[x + (dx ?? 0)]?.type === "road");
     const keyFor = (type: TileType, x: number, y: number): string => {
       switch (type) {
         case "road":
@@ -289,9 +296,11 @@ export class BoardRenderer implements AnimationStage {
           return variant(TILE_KEYS.brick, x, y);
         case "floor":
         case "door":
-          return outdoors[y]?.[x] === true
-            ? variant(TILE_KEYS.grass, x, y)
-            : variant(TILE_KEYS.wood, x, y);
+          // Open ground beside a road is pavement; the rest of a lot is grass.
+          if (outdoors[y]?.[x] !== true) return variant(TILE_KEYS.wood, x, y);
+          return roadBeside(x, y)
+            ? variant(TILE_KEYS.concrete, x, y)
+            : variant(TILE_KEYS.grass, x, y);
       }
     };
     map.tiles.forEach((row, y) => {

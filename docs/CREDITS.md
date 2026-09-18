@@ -32,5 +32,16 @@ reach kenney.nl directly; the licence text is the pack's own.
 
 ## Sound
 
-Sounds are synthesised in the client (`apps/client/src/audio/SoundPlayer.ts`); no
-recorded audio is used.
+Recorded samples are Kenney's, CC0, from `apps/client/public/assets/kenney/audio/`
+(`apps/client/src/audio/samples.ts` maps sounds to files). A sound without a sample keeps
+the client's synthesised tone (`SoundPlayer.ts`): gunshots and the zombie growl.
+
+| Sound                 | Pack             | Original file(s)                                                             |
+| --------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| step                  | Impact Sounds    | `footstep_concrete_000.ogg`, `footstep_concrete_001.ogg`                     |
+| hit                   | Impact Sounds    | `impactPunch_heavy_000.ogg`                                                  |
+| crash (forced entry)  | Impact Sounds    | `impactGlass_heavy_000.ogg`, `impactPlank_medium_000.ogg`                    |
+| door                  | RPG Audio        | `doorOpen_1.ogg`, `doorOpen_2.ogg`                                           |
+| pickup, reload, swing | RPG Audio        | `handleCoins.ogg`, `metalLatch.ogg`, `knifeSlice.ogg`                        |
+| heal, your turn       | Interface Sounds | `confirmation_001.ogg`, `bong_001.ogg`                                       |
+| victory, defeat       | Music Jingles    | `Pizzicato jingles/jingles_PIZZI00.ogg`, `Steel jingles/jingles_STEEL01.ogg` |

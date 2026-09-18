@@ -1,4 +1,5 @@
 import type { SoundName } from "../render/animationPlan.js";
+import { SAMPLE_GAIN, SAMPLES, sampleUrl } from "./samples.js";
 
 const MUTE_KEY = "zombie.muted";
 
@@ -10,7 +11,7 @@ interface Tone {
   readonly gain: number;
 }
 
-/** Every sound is a short synthesized tone, so the client ships no audio files. */
+/** The synthesised fallback for every sound: what plays until its samples have loaded, or always when it has none. */
 const TONES: Readonly<Record<SoundName, readonly Tone[]>> = {
   step: [{ frequency: 180, duration: 0.05, type: "triangle", gain: 0.15 }],
   shot: [{ frequency: 900, endFrequency: 120, duration: 0.12, type: "sawtooth", gain: 0.25 }],
@@ -44,13 +45,17 @@ const TONES: Readonly<Record<SoundName, readonly Tone[]>> = {
 };
 
 /**
- * Plays named sounds through the Web Audio API. The context is created on first use
- * (browsers require a user gesture first), and the mute preference persists per browser.
+ * Plays named sounds through the Web Audio API: a recorded sample when one is loaded,
+ * otherwise a short synthesised tone. The context is created on first use (browsers
+ * require a user gesture first), samples are fetched and decoded right after that, and the
+ * mute preference persists per browser.
  */
 export class SoundPlayer {
   private context: AudioContext | undefined;
   private muted: boolean;
   private readonly listeners = new Set<(muted: boolean) => void>();
+  private readonly buffers = new Map<string, AudioBuffer>();
+  private loading = false;
 
   constructor() {
     this.muted = localStorage.getItem(MUTE_KEY) === "true";
@@ -74,6 +79,18 @@ export class SoundPlayer {
     if (this.muted) return;
     const context = this.ensureContext();
     if (context === undefined) return;
+    const files = SAMPLES[name];
+    const file = files[Math.floor(Math.random() * files.length)];
+    const buffer = file === undefined ? undefined : this.buffers.get(file);
+    if (buffer !== undefined) {
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      gain.gain.value = SAMPLE_GAIN[name];
+      source.connect(gain).connect(context.destination);
+      source.start();
+      return;
+    }
     let start = context.currentTime;
     for (const tone of TONES[name]) {
       const oscillator = context.createOscillator();
@@ -101,6 +118,27 @@ export class SoundPlayer {
       }
     }
     if (this.context.state === "suspended") void this.context.resume();
+    if (!this.loading) {
+      this.loading = true;
+      void this.loadSamples(this.context);
+    }
     return this.context;
+  }
+
+  /** Fetches every sample once; a file that fails to load leaves its tone in place. */
+  private async loadSamples(context: AudioContext): Promise<void> {
+    const files = new Set(Object.values(SAMPLES).flat());
+    await Promise.all(
+      [...files].map(async (file) => {
+        try {
+          const response = await fetch(sampleUrl(file));
+          if (!response.ok) return;
+          const decoded = await context.decodeAudioData(await response.arrayBuffer());
+          this.buffers.set(file, decoded);
+        } catch {
+          // Keep the synthesised tone for this sound.
+        }
+      }),
+    );
   }
 }

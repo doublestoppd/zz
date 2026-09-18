@@ -1,8 +1,13 @@
 :root {
   color-scheme: dark;
   font-family: system-ui, sans-serif;
-  background: #15171a;
+  background: #101214;
   color: #e6e6e6;
+  --panel: #1a1d21;
+  --panel-border: #2c3138;
+  --accent: #4caf50;
+  --accent-text: #0b1a0d;
+  --muted: #9aa0a6;
 }
 body {
   margin: 0;
@@ -17,8 +22,11 @@ body {
 }
 #status {
   font-size: 0.85rem;
-  color: #9aa0a6;
+  color: var(--muted);
   min-height: 1.2em;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-border);
+  margin-bottom: 12px;
 }
 #lobby,
 #hud {
@@ -27,7 +35,11 @@ body {
   gap: 8px;
 }
 #lobby {
-  max-width: 420px;
+  max-width: 440px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 16px;
 }
 #match {
   display: flex;
@@ -41,18 +53,47 @@ body {
 }
 #board canvas {
   display: block;
-  border: 1px solid #333;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  image-rendering: auto;
 }
 #hud {
-  min-width: 240px;
+  min-width: 260px;
+  max-width: 360px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 14px 16px;
 }
 input,
+select,
 button {
   font: inherit;
-  padding: 6px 10px;
+  padding: 7px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: #24282e;
+  color: inherit;
+}
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+button {
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: #2f353c;
 }
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
+  cursor: default;
+}
+#lobby button,
+#hud button {
+  margin-right: 4px;
 }
 .error {
   color: #ff8a80;
