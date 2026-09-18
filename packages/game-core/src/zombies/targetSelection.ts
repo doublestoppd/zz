@@ -85,11 +85,16 @@ export function decideZombieAction(state: GameState, zombie: ZombieState): Zombi
   if (adjacent !== undefined) return { kind: "attack", target: adjacent };
 
   const mover: Mover = { kind: "zombie", id: zombie.id };
+  // The full-board search is the expensive part of a zombie's turn (docs/PERFORMANCE.md);
+  // most zombies on a crowded board see nobody and hear nothing, so it runs only once a
+  // destination exists. The decision is the same either way: the search is pure.
   const unlimited = state.map.width * state.map.height;
-  const reach = searchFrom(state.map, zombie.position, unlimited, passabilityFor(state, mover));
+  const reachFrom = () =>
+    searchFrom(state.map, zombie.position, unlimited, passabilityFor(state, mover));
 
   const visible = targets.filter((p) => canSee(state, zombie, p));
   if (visible.length > 0) {
+    const reach = reachFrom();
     const goal = nearestAdjacentGoal(state, zombie, reach, visible);
     const step = goal === undefined ? undefined : firstFreeStep(state, mover, reach, goal);
     return step === undefined
@@ -102,6 +107,7 @@ export function decideZombieAction(state: GameState, zombie: ZombieState): Zombi
   if (spot === undefined) return { kind: "wait", investigating: undefined };
   if (chebyshevDistance(zombie.position, spot) <= 1)
     return { kind: "wait", investigating: undefined };
+  const reach = reachFrom();
   const goal = investigationGoal(state, reach, spot);
   if (goal === undefined) return { kind: "wait", investigating: undefined };
   const step = firstFreeStep(state, mover, reach, goal);

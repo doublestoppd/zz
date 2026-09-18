@@ -111,8 +111,8 @@ Lines to alert on:
 
 Histograms use fixed buckets `1 5 10 25 50 100 250 500 1000 5000` and also expose `_min`
 and `_max`. Suggested alerts: `zombie_handler_exceptions_total` increasing at all;
-`zombie_command_duration_ms` p99 above the budget in `docs/PERFORMANCE.md` once that
-milestone lands; `zombie_messages_malformed_total` rising from one address (an abusive or
+`zombie_command_duration_ms{kind="with_zombie_phase"}` p99 above 50 ms or
+`{kind="player_only"}` above 10 ms (the budgets in `docs/PERFORMANCE.md`); `zombie_messages_malformed_total` rising from one address (an abusive or
 outdated client).
 
 ## Diagnostics

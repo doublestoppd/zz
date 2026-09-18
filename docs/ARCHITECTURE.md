@@ -64,6 +64,7 @@ so nothing downstream knows which it is playing on. The server injects the layou
 | `router.ts`                | Maps each `ClientMessage` to the registry or match method that owns it.                                                                                   |
 | `testing/`                 | `ProtocolClient` (a real socket speaking the protocol) and `createServerHarness` for integration tests. Test-only.                                        |
 | `soak/`                    | Greedy bot policy, the soak runner (bots over real sockets with invariant checks and failure persistence), and its CLI.                                   |
+| `bench/`                   | Deterministic fixtures, the timing harness, the benchmark cases and CLI, and the budget tripwire test (`docs/PERFORMANCE.md`).                            |
 
 ### `apps/client`
 
@@ -76,6 +77,7 @@ so nothing downstream knows which it is playing on. The server injects the layou
 | `input/`  | Pure intent functions: `decideClickIntent`, `decideMoveIntent`, `keyToCommand`.                                                      |
 | `audio/`  | `SoundPlayer`: synthesized Web Audio tones per sound name, mute preference.                                                          |
 | `scenes/` | The single Phaser scene: wires pointer and keyboard events to the intent functions. `main.ts` also imports Phaser to build the game. |
+| `bench/`  | The client's pure per-update costs in Node; `apps/client/bench/renderBench.mts` drives the real page in headless Chromium.           |
 
 ## Dependency rules
 

@@ -376,6 +376,19 @@ An `update` message contains the full `GameState`, including `rngState`. Paste i
 test as the starting state, apply the commands that followed, and assert. That state and
 command list is a complete, deterministic reproduction.
 
+## Run the benchmarks
+
+`pnpm --filter @zombie/server bench` prints the simulation, generation, and serialization
+table on deterministic fixtures; `pnpm --filter @zombie/client bench` the client's pure
+per-update work; `CHROMIUM_PATH=/path/to/chromium pnpm --filter @zombie/client bench:render`
+the real page in headless Chromium. `docs/PERFORMANCE.md` holds the last tables, the
+profile that justified each optimisation, and the budgets that `apps/server/src/bench/budgets.test.ts`
+enforces in the normal suite. Before optimising anything, profile
+(`NODE_OPTIONS="--cpu-prof --cpu-prof-dir=out" pnpm --filter @zombie/server bench`) and
+change only what the profile names; afterwards the determinism, replay, and invariant
+tests must pass unchanged, and the playtest matrix in `docs/BALANCE.md` must reproduce,
+or the change is a simulation change and bumps `SIMULATION_VERSION`.
+
 ## Add an invariant
 
 When a rule introduces a new assumption ("a survivor never carries two keys", "a barrier
