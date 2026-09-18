@@ -1,9 +1,18 @@
 import {
   createInitialState,
+  fingerprint,
+  journalEntry,
   matchId,
   playerId,
+  SIMULATION_VERSION,
+  type Command,
+  type CommandResult,
   type GameEvent,
+  type JournalEntry,
+  type JournalMetadata,
+  type LayoutSource,
   type MapLayout,
+  type MatchJournal,
   type PlayerId,
   type RejectionReason,
   type ScenarioType,
@@ -28,6 +37,7 @@ import {
 } from "@zombie/protocol";
 import { sendError } from "../errors.js";
 import { log } from "../log.js";
+import { GAME_VERSION } from "../version.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import { MatchRuntime } from "./MatchRuntime.js";
 import { redactEvents, redactState } from "./redact.js";
@@ -70,8 +80,15 @@ class MatchStats {
 export interface MatchDependencies {
   readonly createSeed: () => number;
   readonly createRejoinToken: () => string;
-  /** Builds the board for a match. Production generates a city from the seed. */
-  readonly createLayout: (seed: number, playerCount: number) => MapLayout;
+  /** Builds the board for a match and says how, so a journal can rebuild it. Production generates a city from the seed. */
+  readonly createLayout: (seed: number, playerCount: number) => CreatedLayout;
+  /** Receives every finished match's journal; production writes it to disk when configured. */
+  readonly onJournal?: (journal: MatchJournal) => void;
+}
+
+export interface CreatedLayout {
+  readonly layout: MapLayout;
+  readonly source: LayoutSource;
 }
 
 interface Member {
@@ -134,6 +151,9 @@ export class ServerMatch {
   private nextPlayerNumber = 1;
   private readonly stats = new MatchStats();
   private endLogged = false;
+  private journalMetadata: JournalMetadata | undefined;
+  private journalEntries: JournalEntry[] = [];
+  private initialCheckpoint = "";
 
   constructor(
     code: string,
@@ -203,7 +223,7 @@ export class ServerMatch {
       started: this.isStarted(),
     });
     if (this.runtime !== undefined) {
-      const presence = this.runtime.apply({
+      const presence = this.mutate({
         type: "set_player_presence",
         playerId: member.playerId,
         present: true,
@@ -213,6 +233,31 @@ export class ServerMatch {
       if (presence.ok && presence.events.length > 0) this.broadcastUpdate(presence.events, session);
     }
     return undefined;
+  }
+
+  /**
+   * The match so far, reproducibly: metadata plus every accepted mutation in order with its
+   * checkpoint. Commands are the source of truth; events are derived. No credential is
+   * included. Undefined until the match has started.
+   */
+  journal(): MatchJournal | undefined {
+    if (this.journalMetadata === undefined) return undefined;
+    return {
+      journalVersion: 1,
+      metadata: this.journalMetadata,
+      initialCheckpoint: this.initialCheckpoint,
+      entries: [...this.journalEntries],
+    };
+  }
+
+  /** Applies a mutation through the runtime and, when accepted, appends it to the journal. */
+  private mutate(command: Command): CommandResult {
+    if (this.runtime === undefined) throw new Error("mutate: match not started");
+    const result = this.runtime.apply(command);
+    if (result.ok) {
+      this.journalEntries.push(journalEntry(this.runtime.getRevision(), command, result.state));
+    }
+    return result;
   }
 
   /** Specialties are fixed once the match starts; the lobby list tells everyone the choice. */
@@ -240,7 +285,7 @@ export class ServerMatch {
     }
     // Running match: the slot stays so the player can rejoin; the turn order skips them.
     this.broadcastLobby();
-    const presence = this.runtime.apply({
+    const presence = this.mutate({
       type: "set_player_presence",
       playerId: member.playerId,
       present: false,
@@ -255,6 +300,7 @@ export class ServerMatch {
     if (member.playerId !== this.hostId) return "NOT_HOST";
 
     const seed = this.deps.createSeed();
+    const created = this.deps.createLayout(seed, this.members.length);
     const initial = createInitialState({
       matchId: matchId(this.code),
       seed,
@@ -263,10 +309,22 @@ export class ServerMatch {
       scenario: SCENARIOS[scenario],
       lootTable: LOOT_TABLE,
       zombieSpawnTable: ZOMBIE_SPAWN_TABLE,
-      layout: this.deps.createLayout(seed, this.members.length),
+      layout: created.layout,
       players: this.members.map((m) => ({ id: m.playerId, name: m.name, specialty: m.specialty })),
     });
     this.runtime = new MatchRuntime(initial);
+    this.journalMetadata = {
+      matchId: matchId(this.code),
+      seed,
+      gameVersion: GAME_VERSION,
+      protocolVersion: PROTOCOL_VERSION,
+      simulationVersion: SIMULATION_VERSION,
+      scenario,
+      layout: created.source,
+      players: this.members.map((m) => ({ id: m.playerId, name: m.name, specialty: m.specialty })),
+    };
+    this.journalEntries = [];
+    this.initialCheckpoint = fingerprint(initial);
     log("info", "match started", {
       matchCode: this.code,
       seed,
@@ -318,7 +376,7 @@ export class ServerMatch {
     if (baseRevision !== this.runtime.getRevision()) return reject("STALE_REVISION");
 
     // The player id comes from the session, never from the payload.
-    const result = this.runtime.apply({ ...command, playerId: member.playerId });
+    const result = this.mutate({ ...command, playerId: member.playerId });
     member.recentCommands.add(commandId);
     if (!result.ok) return reject(categorize(result.reason), result.reason);
     log("info", "command accepted", {
@@ -436,6 +494,8 @@ export class ServerMatch {
     this.stats.record(events, state.round);
     if (state.phase.kind !== "finished" || this.endLogged) return;
     this.endLogged = true;
+    const journal = this.journal();
+    if (journal !== undefined) this.deps.onJournal?.(journal);
     log("info", "match ended", {
       matchCode: this.code,
       seed: state.seed,

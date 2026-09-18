@@ -152,6 +152,35 @@ browser profile takes the slot over (`SESSION_REPLACED` in the first). For scrip
 clients, `apps/server/src/server.test.ts` shows the pattern: a `ws` socket, the protocol
 encoder, and `next(type)` to await the answer.
 
+## Replay a match
+
+Every finished match's journal (`MatchJournal` from game-core: metadata, initial
+checkpoint, and every accepted mutation with its revision and checkpoint) is written to
+`JOURNAL_DIR/<matchId>-<seed>.json` when `JOURNAL_DIR` is set; `ServerMatch.journal()`
+returns it in process. Verify one with:
+
+```
+pnpm --filter @zombie/server replay path/to/QMCN-2878312633.json
+```
+
+The verdict is one JSON line: `ok` with the final checkpoint, or the first divergence
+(`INITIAL_STATE_MISMATCH`, `COMMAND_REJECTED`, `CHECKPOINT_MISMATCH` with the revision), or
+`UNSUPPORTED_SIMULATION_VERSION`. Commands are the source of truth; events are derived
+([ADR 0008](adr/0008-match-journal-and-replay.md)). `apps/server/src/replay/verifier.ts`
+rebuilds the initial state from the journal's metadata and this build's rule tables.
+
+## Version bump rules
+
+- `SIMULATION_VERSION` (`packages/game-core/src/version.ts`): bump when a change alters
+  what a recorded command sequence does: a rule, RNG consumption, phase order, tie-break,
+  generation, or setup. Not for presentation, logging, or protocol changes. Journals from
+  other versions are refused, never replayed.
+- `PROTOCOL_VERSION` (`packages/protocol/src/messages.ts`): bump on any change to a
+  message contract an already-loaded client could get wrong. A protocol bump does not
+  imply a simulation bump, nor the reverse.
+- `GAME_VERSION` (`apps/server/src/version.ts`, from the `GAME_VERSION` environment
+  variable at build or start): the human-facing release label; recorded in journals.
+
 ## Diagnose a stale-state or duplicate rejection
 
 Every command answer is logged by the server as one JSON line (`command accepted` or

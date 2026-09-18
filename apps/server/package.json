@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --external:bufferutil --external:utf-8-validate --outfile=dist/server.js"
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --external:bufferutil --external:utf-8-validate --outfile=dist/server.js",
+    "replay": "tsx src/replay/cli.ts"
   },
   "dependencies": {
     "@zombie/game-core": "workspace:*",

@@ -1,4 +1,8 @@
 import { randomInt, randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { MatchJournal } from "@zombie/game-core";
+import { log } from "../log.js";
 import { DEFAULT_CITY_OPTIONS, generateCity } from "@zombie/map-generation";
 import { ServerMatch, type MatchDependencies } from "../match/ServerMatch.js";
 
@@ -37,15 +41,42 @@ const DEFAULT_DEPS: MatchDependencies = {
   createRejoinToken: () => randomUUID(),
   // One spawn per player, so the player cap (protocol MAX_PLAYERS) is the only limit.
   // Opposition and loot scale with the party (docs/BALANCE.md): 4 to 7 zombies, 3 to 6 items.
-  createLayout: (seed, playerCount) =>
-    generateCity({
+  createLayout: (seed, playerCount) => {
+    const options = {
       ...DEFAULT_CITY_OPTIONS,
-      seed,
       survivorSpawns: playerCount,
       zombieSpawns: 3 + playerCount,
       lootSpawns: 2 + playerCount,
-    }),
+    };
+    return {
+      layout: generateCity({ ...options, seed }),
+      source: { kind: "city", options },
+    };
+  },
+  onJournal: writeJournalIfConfigured,
 };
+
+/**
+ * Writes a finished match's journal to `JOURNAL_DIR` as `<matchId>-<seed>.json` when that
+ * directory is configured. The file holds no credential (docs/DEVELOPMENT.md, "Replay a
+ * match"). A write failure is logged, never thrown into the match.
+ */
+export function writeJournalIfConfigured(journal: MatchJournal): void {
+  const dir = process.env.JOURNAL_DIR;
+  if (dir === undefined || dir === "") return;
+  const file = join(dir, `${journal.metadata.matchId}-${journal.metadata.seed}.json`);
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(file, JSON.stringify(journal));
+    log("info", "journal written", { matchId: journal.metadata.matchId, file });
+  } catch (error) {
+    log("error", "journal write failed", {
+      matchId: journal.metadata.matchId,
+      file,
+      error: String(error),
+    });
+  }
+}
 
 /** Every live lobby and match, keyed by join code. Removes matches nobody can return to. */
 export class MatchRegistry {

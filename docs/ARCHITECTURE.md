@@ -145,6 +145,15 @@ disconnecting passes the turn at once; an absent player is skipped until they re
 match nobody is connected to is kept ten minutes. Every policy decision is recorded in
 [ADR 0007](adr/0007-session-identity-and-reconnect-policy.md).
 
+## Match journal and replay
+
+`ServerMatch.mutate` is the one path every authoritative mutation takes; it appends a
+journal entry (revision, command, round, phase, state fingerprint) on success. Commands are
+the source of truth and events are derived. The journal carries the seed, versions,
+scenario, layout source, and players, never a credential. `packages/game-core/src/replay/`
+owns the types, the canonical fingerprint, and `replayJournal`; `apps/server/src/replay/`
+rebuilds the initial state and verifies ([ADR 0008](adr/0008-match-journal-and-replay.md)).
+
 ## State synchronisation
 
 Full snapshot per update ([ADR 0002](adr/0002-plain-data-state-and-snapshot-sync.md)). The

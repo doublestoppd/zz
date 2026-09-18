@@ -15,3 +15,5 @@ export * from "./zombies/index.js";
 export * from "./objectives/index.js";
 export * from "./commands/index.js";
 export * from "./events/index.js";
+export * from "./replay/index.js";
+export { SIMULATION_VERSION } from "./version.js";

@@ -190,7 +190,10 @@ beforeEach(async () => {
     deps: {
       createSeed: () => 1234,
       createRejoinToken: () => `token-${String(Math.random())}`,
-      createLayout: () => SMALL_TEST_MAP,
+      createLayout: () => ({
+        layout: SMALL_TEST_MAP,
+        source: { kind: "fixture", name: "SMALL_TEST_MAP" },
+      }),
     },
     abandonedMatchTtlMs: 50,
     scheduler: manualScheduler,
