@@ -6,6 +6,7 @@ import {
   legalMoveDestinations,
   objectiveZoneTiles,
   searchableContainersInReach,
+  visibilityGrid,
   type Barrier,
   type BarrierId,
   type GameEvent,
@@ -57,6 +58,7 @@ const COLOURS = {
   doorLock: 0xffd54f,
   windowGlass: 0x9fd3e6,
   barrierAction: 0x80cbc4,
+  fog: 0x05070a,
   barrierForce: 0xff8a65,
   activeRing: 0xffffff,
   absent: 0x777777,
@@ -144,9 +146,11 @@ const DEPTH = {
   tiles: 0,
   furniture: 1, // containers, doors, windows
   highlights: 2,
-  hover: 3,
-  items: 4,
+  items: 3,
+  fog: 4, // hides furniture and items out of sight; survivors and sound stay on top
   entities: 5,
+  noises: 6,
+  hover: 7,
   effects: 10,
 } as const;
 
@@ -162,6 +166,7 @@ export class BoardRenderer implements AnimationStage {
   private readonly effectLayer: Phaser.GameObjects.Graphics;
   private readonly hoverLayer: Phaser.GameObjects.Graphics;
   private readonly noiseLayer: Phaser.GameObjects.Graphics;
+  private readonly fogLayer: Phaser.GameObjects.Graphics;
   private readonly players = new Map<PlayerId, EntitySprite>();
   private readonly zombies = new Map<ZombieId, EntitySprite>();
   private readonly items = new Map<ItemId, ItemSprite>();
@@ -178,7 +183,8 @@ export class BoardRenderer implements AnimationStage {
   ) {
     this.tileLayer = scene.add.graphics().setDepth(DEPTH.tiles);
     this.highlightLayer = scene.add.graphics().setDepth(DEPTH.highlights);
-    this.noiseLayer = scene.add.graphics().setDepth(DEPTH.highlights);
+    this.noiseLayer = scene.add.graphics().setDepth(DEPTH.noises);
+    this.fogLayer = scene.add.graphics().setDepth(DEPTH.fog);
     this.hoverLayer = scene.add.graphics().setDepth(DEPTH.hover);
     this.effectLayer = scene.add.graphics().setDepth(DEPTH.effects);
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -197,6 +203,7 @@ export class BoardRenderer implements AnimationStage {
       this.shownState = state;
       this.drawHighlights(state, me);
       this.drawNoises(state);
+      this.drawFog(state);
       this.reconcileContainers(state);
       this.reconcileBarriers(state);
       this.reconcileItems(state);
@@ -365,6 +372,25 @@ export class BoardRenderer implements AnimationStage {
         TILE_SIZE + 2 * reach,
       );
     }
+  }
+
+  /**
+   * Fog of war: tiles the team has never seen are blacked out, tiles seen before but not
+   * now are dimmed (what lies there may be stale), tiles in view are clear. The rules that
+   * decide the view live in game-core; this only paints their answer.
+   */
+  private drawFog(state: GameState): void {
+    const g = this.fogLayer;
+    g.clear();
+    const visible = visibilityGrid(state);
+    state.explored.forEach((row, y) => {
+      row.forEach((known, x) => {
+        if (visible[y]?.[x] === true) return;
+        const { x: px, y: py } = tileToPixel({ x, y });
+        g.fillStyle(COLOURS.fog, known ? 0.55 : 0.96);
+        g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      });
+    });
   }
 
   private reconcileContainers(state: GameState): void {

@@ -138,7 +138,11 @@ export interface MapMessage {
   readonly map: GameMap;
 }
 
-/** Everything in `GameState` except the map, which travels once in `MapMessage`. */
+/**
+ * Everything in `GameState` except the map, which travels once in `MapMessage`, and
+ * except zombies outside the team's current view, which the server leaves out so their
+ * positions never reach a client (fog of war, docs/GAME-RULES.md).
+ */
 export type WireGameState = Omit<GameState, "map">;
 
 /** Full authoritative snapshot (minus the map) plus the events that produced it. */

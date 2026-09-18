@@ -57,6 +57,13 @@ export { canHear, decayNoises, makeNoise, noiseScore, type NoiseOutcome } from "
 export { discounted, modifiersOf, NO_MODIFIERS } from "./specialties.js";
 export { applyThreat, computeThreat, type ThreatOutcome } from "./threat.js";
 export {
+  emptyGrid,
+  isVisible,
+  revealExplored,
+  visibilityGrid,
+  visibleTiles,
+} from "./visibility.js";
+export {
   BARRIER_REACH,
   barrierAt,
   barrierBlocksMovement,

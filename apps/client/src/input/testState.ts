@@ -97,6 +97,7 @@ export function makeClientTestState(
         ],
         spawnMinDistance: 3,
       },
+      visionRange: 8,
       pickUpActionPointCost: 1,
       searchActionPointCost: 2,
       searchNoise: 2,

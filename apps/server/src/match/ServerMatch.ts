@@ -27,6 +27,7 @@ import {
 import { sendError } from "../errors.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import { MatchRuntime } from "./MatchRuntime.js";
+import { redactEvents, redactState } from "./redact.js";
 
 /** Sources of non-determinism and the map source, injected so tests can pin them. */
 export interface MatchDependencies {
@@ -276,11 +277,19 @@ export class ServerMatch {
     return { t: "map", map: this.runtime.getState().map };
   }
 
-  /** The snapshot without its map, which every socket received once in `mapMessage`. */
+  /**
+   * The snapshot without its map (every socket received it once in `mapMessage`) and
+   * without anything the team cannot currently see (`redact.ts`).
+   */
   private updateMessage(events: readonly GameEvent[]): ServerMessage {
     if (this.runtime === undefined) throw new Error("updateMessage: match not started");
-    const { map: _map, ...state } = this.runtime.getState();
-    return { t: "update", version: this.runtime.getVersion(), state, events };
+    const state = this.runtime.getState();
+    return {
+      t: "update",
+      version: this.runtime.getVersion(),
+      state: redactState(state),
+      events: redactEvents(events, state),
+    };
   }
 
   private broadcast(message: ServerMessage, except?: ClientSession): void {

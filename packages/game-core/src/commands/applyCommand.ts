@@ -1,3 +1,4 @@
+import { revealExplored } from "../rules/visibility.js";
 import type { GameState } from "../state/types.js";
 import { advanceUntilPlayerInput } from "../turn/phases.js";
 import { applyCloseDoor, applyForceEntry, applyOpenDoor } from "./handlers/barriers.js";
@@ -24,7 +25,12 @@ export function applyCommand(state: GameState, command: Command): CommandResult 
   const applied = applyOne(state, command);
   if (!applied.ok) return applied;
   const settled = advanceUntilPlayerInput(applied.state);
-  return { ok: true, state: settled.state, events: [...applied.events, ...settled.events] };
+  // Whatever moved or opened, the team has now seen what it can see from where it stands.
+  return {
+    ok: true,
+    state: revealExplored(settled.state),
+    events: [...applied.events, ...settled.events],
+  };
 }
 
 function applyOne(state: GameState, command: Command): CommandResult {

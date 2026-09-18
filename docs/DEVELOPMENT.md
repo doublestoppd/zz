@@ -202,6 +202,16 @@ own layout in `testing/makeTestState.ts`.
 5. Tests: `rules/barriers.test.ts` covers movement, sight, pathfinding, locked-state
    rejections, and action point costs with one-row corridors.
 
+## Change what the team can see
+
+The view is `visibleTiles` in `packages/game-core/src/rules/visibility.ts` (range from
+`GameRules.visionRange`, sight from `hasLineOfSight`, so doors and windows already count).
+`revealExplored` folds it into `state.explored` at the end of `applyCommand`. What leaves
+the server is decided in `apps/server/src/match/redact.ts`: add a case there for any new
+event that carries a zombie position, or the position leaks. The client paints the answer
+in `BoardRenderer.drawFog` and must never decide visibility itself. Tests:
+`rules/visibility.test.ts` and the redaction test in `apps/server/src/server.test.ts`.
+
 ## Change how pressure escalates
 
 Everything is in `packages/game-data/src/threat.ts`: rounds and heat per level, the wave

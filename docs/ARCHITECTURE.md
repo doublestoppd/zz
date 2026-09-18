@@ -169,6 +169,7 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 | Where are open, close, and force entry validated?                | `packages/game-core/src/rules/barriers.ts`; applied in `commands/handlers/barriers.ts`                                |
 | Where do specialties change costs and amounts?                   | `packages/game-core/src/rules/specialties.ts` (`modifiersOf`), read in search, barriers, combat, items                |
 | Where does pressure rise and where do waves spawn?               | `packages/game-core/src/rules/threat.ts`, called from `turn/phases.ts`; numbers in `packages/game-data/src/threat.ts` |
+| Where is the team's view computed and what does the server hide? | `packages/game-core/src/rules/visibility.ts`; `apps/server/src/match/redact.ts`                                       |
 | Where are pick-up and use-item validated?                        | `packages/game-core/src/rules/items.ts`                                                                               |
 | Where is searching validated and loot rolled?                    | `packages/game-core/src/rules/search.ts`; tables in `packages/game-data/src/containers.ts`                            |
 | Where do containers get placed in buildings?                     | `packages/map-generation/src/templates/buildings.ts` (`c` cells and categories), collected in `city.ts`               |
@@ -190,26 +191,27 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 
 ## Roadmap
 
-| Milestone              | Status | Scope                                                                                                            |
-| ---------------------- | ------ | ---------------------------------------------------------------------------------------------------------------- |
-| 0 Architecture         | done   | this document and the ADRs                                                                                       |
-| 1 Multiplayer movement | done   | lobby, sessions, turns, AP, move, end turn, sync, tests                                                          |
-| 2 Zombie phase         | done   | zombie spawns, nearest-survivor targeting, step or attack, `down` status, defeat                                 |
-| 3 Basic combat         | done   | pistol, ammo and reload, Chebyshev range, symmetric Bresenham line of sight, zombie death                        |
-| 4 Extraction objective | done   | end-of-round evaluation, holdout rounds, victory, match-over screen                                              |
-| 5 Procedural city      | done   | road grid, lots with authored building templates, marker placement, validation, deterministic retry              |
-| 6 Inventory and loot   | done   | ground items rolled from a loot table, small inventory, pick up, medkit and ammo box                             |
-| 7 Presentation polish  | done   | event-driven tweens, synthesized sounds with mute, keyboard controls, health bars, auto-reconnect, a11y          |
-| Audit follow-up        | done   | see [CODEBASE-AUDIT.md](CODEBASE-AUDIT.md) and its resolution log                                                |
-| Gameplay A Scavenging  | done   | searchable containers by building category, `search` command, deterministic per-container loot                   |
-| Gameplay B Noise       | done   | gunfire and search noises, zombie sight range and line of sight, noise investigation with memory                 |
-| Gameplay C Doors       | done   | door and window barriers with open/closed/locked/broken state, keys, forced entry through the noise system       |
-| Gameplay D Weapons     | done   | shotgun falloff, rifle reach, knife and bat melee with knockback, ammunition kinds, weapon swapping by pick-up   |
-| Gameplay E Archetypes  | done   | runner (fast, sharp-eyed) and brute (tough, slow, unshakable) as data plus two behaviour flags                   |
-| Gameplay F Specialties | done   | five lobby-selectable specialties as integer modifiers read at single extension points                           |
-| Gameplay G Scenarios   | done   | objective primitives (reach, acquire, survive) sequenced into scenarios; retrieval scenario; host picks in lobby |
-| Gameplay H Threat      | done   | deterministic threat level from rounds, noise heat, and objective steps; scheduled reinforcement waves           |
+| Milestone              | Status | Scope                                                                                                                        |
+| ---------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 0 Architecture         | done   | this document and the ADRs                                                                                                   |
+| 1 Multiplayer movement | done   | lobby, sessions, turns, AP, move, end turn, sync, tests                                                                      |
+| 2 Zombie phase         | done   | zombie spawns, nearest-survivor targeting, step or attack, `down` status, defeat                                             |
+| 3 Basic combat         | done   | pistol, ammo and reload, Chebyshev range, symmetric Bresenham line of sight, zombie death                                    |
+| 4 Extraction objective | done   | end-of-round evaluation, holdout rounds, victory, match-over screen                                                          |
+| 5 Procedural city      | done   | road grid, lots with authored building templates, marker placement, validation, deterministic retry                          |
+| 6 Inventory and loot   | done   | ground items rolled from a loot table, small inventory, pick up, medkit and ammo box                                         |
+| 7 Presentation polish  | done   | event-driven tweens, synthesized sounds with mute, keyboard controls, health bars, auto-reconnect, a11y                      |
+| Audit follow-up        | done   | see [CODEBASE-AUDIT.md](CODEBASE-AUDIT.md) and its resolution log                                                            |
+| Gameplay A Scavenging  | done   | searchable containers by building category, `search` command, deterministic per-container loot                               |
+| Gameplay B Noise       | done   | gunfire and search noises, zombie sight range and line of sight, noise investigation with memory                             |
+| Gameplay C Doors       | done   | door and window barriers with open/closed/locked/broken state, keys, forced entry through the noise system                   |
+| Gameplay D Weapons     | done   | shotgun falloff, rifle reach, knife and bat melee with knockback, ammunition kinds, weapon swapping by pick-up               |
+| Gameplay E Archetypes  | done   | runner (fast, sharp-eyed) and brute (tough, slow, unshakable) as data plus two behaviour flags                               |
+| Gameplay F Specialties | done   | five lobby-selectable specialties as integer modifiers read at single extension points                                       |
+| Gameplay G Scenarios   | done   | objective primitives (reach, acquire, survive) sequenced into scenarios; retrieval scenario; host picks in lobby             |
+| Gameplay H Threat      | done   | deterministic threat level from rounds, noise heat, and objective steps; scheduled reinforcement waves                       |
+| Gameplay I Fog of war  | done   | shared team visibility and explored grid in the state; server redacts unseen zombies and their events; client paints the fog |
 
 Deliberately not generalised yet: no quest engine, no entity-component system, no action
 registry, no transport abstraction, no delta sync, no persistence or accounts, no plugin
-system for content, no i18n, no fog of war.
+system for content, no i18n.

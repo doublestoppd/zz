@@ -38,6 +38,29 @@ that file is named so the rule can be changed in one place.
 - The match seed is chosen by the server. Gameplay randomness (none consumed yet) comes
   from an Rng whose cursor is stored in `GameState.rngState`.
 
+## Fog of war (`rules/visibility.ts`)
+
+- **Visible**: every tile within `visionRange` (8, Chebyshev) of any survivor on the board
+  with a clear line of sight from that survivor, by the same rule shooting uses (walls and
+  shut doors block; windows, open doors, survivors, and zombies do not). Down and
+  disconnected survivors still see from where they lie.
+- **Explored**: every tile that has ever been visible, plus the tiles every scenario step
+  names (the briefing). Stored in the state as a grid, never forgotten, and **shared by the
+  whole team**: the design choice for this version is one team map rather than per-player
+  bookkeeping.
+- **Unexplored**: everything else, blacked out on the client. Explored-but-not-visible tiles
+  are dimmed: the terrain, doors, items, and cabinets drawn there are what the team last
+  knew; only the current view is live.
+- The server sends every client the same redacted snapshot: zombies outside the current
+  view are left out, and zombie events (`zombie_moved`, `zombie_knocked_back`,
+  `zombie_investigating`, `zombie_spawned`) whose position is out of view are dropped, so
+  a hidden zombie's position never reaches a client. Players, items, doors, noises, the
+  threat level, and the explored grid are always sent. The client recomputes the current
+  view from the snapshot with the same function; it owns no visibility rule.
+- Visibility updates after every command and phase (moving, opening or closing a door,
+  a zombie phase that moves survivors' surroundings), because the explored grid is
+  refreshed on the settled state after each accepted command.
+
 ## Threat and pacing (`rules/threat.ts`)
 
 Pressure rises on a schedule everyone can read. At the end of every round, after the

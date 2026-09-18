@@ -26,4 +26,6 @@ export const DEFAULT_GAME_RULES: GameRules = {
   searchLootTables: SEARCH_LOOT_TABLES,
   specialtyDefinitions: SPECIALTY_DEFINITIONS,
   threat: THREAT_RULES,
+  /** A survivor sees eight tiles, one more than the rifle reaches, so no target is ever a surprise. */
+  visionRange: 8,
 };

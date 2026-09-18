@@ -66,6 +66,7 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   positiveInteger(issues, "rules.closeDoorActionPointCost", rules.closeDoorActionPointCost, 0);
   positiveInteger(issues, "rules.forceEntryActionPointCost", rules.forceEntryActionPointCost, 0);
   positiveInteger(issues, "rules.forceEntryNoise", rules.forceEntryNoise, 0);
+  positiveInteger(issues, "rules.visionRange", rules.visionRange, 1);
   for (const [category, table] of Object.entries(rules.searchLootTables)) {
     positiveInteger(issues, `search table ${category}.minRolls`, table.minRolls, 0);
     positiveInteger(issues, `search table ${category}.maxRolls`, table.maxRolls, table.minRolls);

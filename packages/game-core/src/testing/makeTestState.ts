@@ -66,6 +66,7 @@ export interface TestStateOptions {
   readonly scenario?: ScenarioDefinition;
   /** Overrides for the slow default escalation. */
   readonly threat?: Partial<ThreatRules>;
+  readonly visionRange?: number;
 }
 
 const DEFAULT_PISTOL: FirearmDefinition = {
@@ -219,6 +220,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       itemDefinitions: TEST_ITEMS,
       specialtyDefinitions: TEST_SPECIALTIES,
       threat: { ...TEST_THREAT, ...options.threat },
+      visionRange: options.visionRange ?? 8,
       pickUpActionPointCost: 1,
       searchActionPointCost: options.searchActionPointCost ?? 2,
       searchNoise: options.searchNoise ?? 2,

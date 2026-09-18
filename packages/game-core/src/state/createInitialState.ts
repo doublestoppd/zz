@@ -4,6 +4,8 @@ import { createRng, deriveSeed, RNG_STREAM } from "../random/rng.js";
 import { pickWeighted } from "../random/weighted.js";
 import { firstEligiblePlayer } from "../turn/turnOrder.js";
 import { createObjective } from "../objectives/objective.js";
+import { stepZone } from "../objectives/steps.js";
+import { emptyGrid, revealExplored } from "../rules/visibility.js";
 import type {
   LootTableEntry,
   ScenarioDefinition,
@@ -42,6 +44,21 @@ export interface MatchSetup {
     /** Defaults to the plain `survivor`. */
     readonly specialty?: SpecialtyType;
   }[];
+}
+
+/**
+ * What the survivors know before looking: the tiles every scenario step names (they were
+ * briefed on where to go), so the objective is always on the map.
+ */
+function knownAtStart(state: GameState): boolean[][] {
+  const grid = emptyGrid(state.map.width, state.map.height);
+  for (const step of state.objective.steps) {
+    for (const p of stepZone(step)) {
+      const row = grid[p.y];
+      if (row !== undefined) row[p.x] = true;
+    }
+  }
+  return grid;
 }
 
 /** Validation guarantees the starting weapon is a firearm; this narrows it for the loaded count. */
@@ -153,6 +170,7 @@ export function createInitialState(setup: MatchSetup): GameState {
     threat: 0,
     heat: 0,
     reinforcementSpawns: layout.zombieSpawns,
+    explored: [],
     objective: createObjective(layout, setup.scenario),
   };
 
@@ -161,5 +179,9 @@ export function createInitialState(setup: MatchSetup): GameState {
   if (first === undefined) {
     throw new Error("createInitialState: no eligible first player");
   }
-  return { ...withoutPhase, phase: { kind: "player_turn", activePlayerId: first } };
+  const initial: GameState = {
+    ...withoutPhase,
+    phase: { kind: "player_turn", activePlayerId: first },
+  };
+  return revealExplored({ ...initial, explored: knownAtStart(initial) });
 }

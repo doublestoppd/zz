@@ -252,6 +252,24 @@ describe("lobby", () => {
     expect(hostUpdate.state.phase).toEqual({ kind: "player_turn", activePlayerId: hostId });
   });
 
+  it("hides zombies out of sight from the snapshot and their events", async () => {
+    const { host, guest } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    const [first] = await Promise.all([host.next("update"), guest.next("update")]);
+    // The fixture spawns three zombies; from the spawn column not all are in view.
+    expect(first.state.zombies.length).toBeLessThan(SMALL_TEST_MAP.zombieSpawns.length);
+    expect(first.state.explored.flat().some((known) => !known)).toBe(true);
+    host.command({ type: "end_turn" }, { seq: 1 });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    guest.command({ type: "end_turn" }, { seq: 1 });
+    const [after] = await Promise.all([host.next("update"), guest.next("update")]);
+    for (const e of after.events) {
+      if (e.type === "zombie_moved") {
+        expect(after.state.zombies.some((z) => z.id === e.zombieId)).toBe(true);
+      }
+    }
+  });
+
   it("carries a chosen specialty into the lobby list and the match state", async () => {
     const host = await connect();
     host.send({ t: "create_match", playerName: "Host", specialty: "athlete" });
@@ -350,7 +368,8 @@ describe("gameplay", () => {
     const { host, guest } = await twoPlayerLobby();
     host.send({ t: "start_match" });
     const [first] = await Promise.all([host.next("update"), guest.next("update")]);
-    expect(first.state.zombies.length).toBeGreaterThan(0);
+    // Zombies out of sight are redacted; the counter still says how many were spawned.
+    expect(first.state.zombieCounter).toBe(SMALL_TEST_MAP.zombieSpawns.length);
 
     host.command({ type: "end_turn" }, { seq: 1 });
     await Promise.all([host.next("update"), guest.next("update")]);

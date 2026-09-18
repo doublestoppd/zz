@@ -57,6 +57,11 @@ export interface GameState {
   readonly heat: number;
   /** Where reinforcement waves may appear (the layout's zombie spawns). */
   readonly reinforcementSpawns: readonly Position[];
+  /**
+   * Row-major grid of tiles the team has seen at any point (rules/visibility.ts). Shared
+   * by the whole team and never forgotten. The current view is derived, not stored.
+   */
+  readonly explored: readonly (readonly boolean[])[];
   readonly objective: ObjectiveState;
 }
 
@@ -104,6 +109,8 @@ export interface GameRules {
   readonly specialtyDefinitions: Readonly<Record<SpecialtyType, SpecialtyDefinition>>;
   /** How pressure escalates over the match. */
   readonly threat: ThreatRules;
+  /** Chebyshev distance a survivor sees, given line of sight. */
+  readonly visionRange: number;
 }
 
 /** Runtime list of location kinds; loot tables and templates are keyed by it. */

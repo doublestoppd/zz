@@ -14,6 +14,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
     seed: 1,
     rules: {
       moveCostPerTile: 1,
+      visionRange: 8,
       pickUpActionPointCost: 1,
       searchActionPointCost: 2,
       searchNoise: 2,

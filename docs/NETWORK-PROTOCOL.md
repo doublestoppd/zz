@@ -157,7 +157,9 @@ during a match; a client that receives an `update` before a `map` ignores the up
 `state` is the authoritative `GameState` from `packages/game-core` minus its `map`, which the
 client already holds from the `map` message; the client joins the two. `version`
 increases by one per accepted command; discard an update whose version is lower than the
-last one seen. `events` describe what produced this state (see `events/types.ts`); they
+last one seen. The snapshot is redacted for fog of war: `zombies` holds only the zombies
+inside the team's current view, and zombie events out of view are dropped (see
+`apps/server/src/match/redact.ts`). `events` describe what produced this state (see `events/types.ts`); they
 drive logs and animation and are never required to rebuild the board.
 
 ### `rejected`
