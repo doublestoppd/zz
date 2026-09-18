@@ -55,7 +55,8 @@ close it behind you or force a locked door or window (loud). Step into buildings
 the cabinets (**Q** or the Search button) for bandages, medkits, ammunition, and keys. Get
 everyone into the green zone and hold it to win.
 
-Balance values, the playtest checklist, and bot results are in `docs/BALANCE.md`.
+Balance values, the playtest checklist, and bot results are in `docs/BALANCE.md`. The board
+art is Kenney's CC0 work (`docs/CREDITS.md`).
 
 Keyboard: arrows or WASD move one tile, **F** fires at the nearest zombie in range, **R**
 reloads, **V** strikes an adjacent zombie with your knife or bat, **P** picks up (a weapon

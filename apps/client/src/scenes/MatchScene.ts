@@ -4,6 +4,7 @@ import type { SoundPlayer } from "../audio/SoundPlayer.js";
 import { decideClickIntent } from "../input/clickIntent.js";
 import { keyToCommand } from "../input/keyboard.js";
 import type { CommandSender } from "../net/CommandSender.js";
+import { assetManifest } from "../render/assets.js";
 import { BoardRenderer } from "../render/BoardRenderer.js";
 import { pixelToTile } from "../render/boardGeometry.js";
 import type { ClientStore } from "../state/ClientStore.js";
@@ -19,6 +20,10 @@ export class MatchScene extends Phaser.Scene {
     private readonly sounds: SoundPlayer,
   ) {
     super("match");
+  }
+
+  preload(): void {
+    for (const asset of assetManifest()) this.load.image(asset.key, asset.url);
   }
 
   create(): void {

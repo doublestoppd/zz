@@ -69,16 +69,16 @@ so nothing downstream knows which it is playing on. The server injects the layou
 
 ### `apps/client`
 
-| Directory | Owns                                                                                                                                 |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `net/`    | WebSocket wrapper with automatic reconnect; `CommandSender` (one pending command at a time). No Phaser.                              |
-| `state/`  | `ClientStore`: latest snapshot and revision, the events that produced it, identity, pending command id, log. No Phaser.              |
-| `ui/`     | DOM lobby and HUD (buttons, inventory, mute, keyboard help, live regions), objective and outcome wording, rejection and log text.    |
-| `render/` | Tile geometry; `planAnimations` (pure: events → steps); `BoardRenderer` playing steps as tweens, then reconciling Phaser objects.    |
-| `input/`  | Pure intent functions: `decideClickIntent`, `decideMoveIntent`, `keyToCommand`.                                                      |
-| `audio/`  | `SoundPlayer`: synthesized Web Audio tones per sound name, mute preference.                                                          |
-| `scenes/` | The single Phaser scene: wires pointer and keyboard events to the intent functions. `main.ts` also imports Phaser to build the game. |
-| `bench/`  | The client's pure per-update costs in Node; `apps/client/bench/renderBench.mts` drives the real page in headless Chromium.           |
+| Directory | Owns                                                                                                                                                                                                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `net/`    | WebSocket wrapper with automatic reconnect; `CommandSender` (one pending command at a time). No Phaser.                                                                                                                                                                     |
+| `state/`  | `ClientStore`: latest snapshot and revision, the events that produced it, identity, pending command id, log. No Phaser.                                                                                                                                                     |
+| `ui/`     | DOM lobby and HUD (buttons, inventory, mute, keyboard help, live regions), objective and outcome wording, rejection and log text.                                                                                                                                           |
+| `render/` | Tile geometry; `planAnimations` (pure: events → steps); `BoardRenderer` playing steps as tweens, then reconciling Phaser objects; `assets.ts` (the sprite manifest and role tables) and `outdoors.ts` (indoor/outdoor tile classification). Art is CC0 (`docs/CREDITS.md`). |
+| `input/`  | Pure intent functions: `decideClickIntent`, `decideMoveIntent`, `keyToCommand`.                                                                                                                                                                                             |
+| `audio/`  | `SoundPlayer`: synthesized Web Audio tones per sound name, mute preference.                                                                                                                                                                                                 |
+| `scenes/` | The single Phaser scene: wires pointer and keyboard events to the intent functions. `main.ts` also imports Phaser to build the game.                                                                                                                                        |
+| `bench/`  | The client's pure per-update costs in Node; `apps/client/bench/renderBench.mts` drives the real page in headless Chromium.                                                                                                                                                  |
 
 ## Dependency rules
 

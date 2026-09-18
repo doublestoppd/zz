@@ -1,0 +1,6 @@
+The images in this directory are from Kenney's "Topdown Shooter" and "Generic Items"
+asset packs (https://kenney.nl), released under Creative Commons Zero (CC0 1.0 Universal):
+http://creativecommons.org/publicdomain/zero/1.0/
+
+Free to use in personal, educational and commercial projects; no attribution required.
+Files were renamed for this game (docs/CREDITS.md maps them back to the pack originals).

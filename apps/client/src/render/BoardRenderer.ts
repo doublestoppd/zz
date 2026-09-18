@@ -23,7 +23,6 @@ import {
   type TileType,
   type ZombieId,
   type ZombieState,
-  type ZombieType,
 } from "@zombie/game-core";
 import type { SoundPlayer } from "../audio/SoundPlayer.js";
 import {
@@ -33,36 +32,40 @@ import {
   type TweenRequest,
 } from "./AnimationPlayer.js";
 import { planAnimations, type SoundName } from "./animationPlan.js";
+import {
+  characterKey,
+  CONTAINER_KEYS,
+  FURNITURE_KEYS,
+  ITEM_KEYS,
+  SOURCE_TILE,
+  SPECIALTY_CHARACTER,
+  TILE_KEYS,
+  variant,
+  WEAPON_POSE,
+  ZOMBIE_CHARACTER,
+  ZOMBIE_LOOK,
+} from "./assets.js";
 import { TILE_SIZE, tileCenter, tileToPixel, type Pixel } from "./boardGeometry.js";
+import { outdoorGrid } from "./outdoors.js";
 
 const COLOURS = {
-  floor: 0x2b2f36,
-  road: 0x3d434c,
-  door: 0x6b4f2a,
-  wall: 0x111318,
-  grid: 0x3a3f47,
   extraction: 0x2f6f3e,
   highlight: 0x4a6fa5,
   hover: 0xffffff,
   target: 0xff5252,
-  item: 0xe9c46a,
-  container: 0x8d6e63,
-  containerSearched: 0x4e4e4e,
   containerReachable: 0xffd54f,
   noiseGunfire: 0xffb74d,
   noiseMelee: 0xbcaaa4,
   noiseSearch: 0x90caf9,
   meleeTarget: 0xffa000,
   noiseForcedEntry: 0xff8a65,
-  doorWood: 0x8d5a2b,
   doorLock: 0xffd54f,
-  windowGlass: 0x9fd3e6,
   barrierAction: 0x80cbc4,
   fog: 0x05070a,
   barrierForce: 0xff8a65,
   activeRing: 0xffffff,
   absent: 0x777777,
-  down: 0x5a5a5a,
+  down: 0x6a6a6a,
   healthBack: 0x222222,
   healthFill: 0x4caf50,
   damageFlash: 0xff5252,
@@ -70,16 +73,6 @@ const COLOURS = {
   shot: 0xfff59d,
   players: [0xe63946, 0xf4a261, 0x2a9d8f, 0xa06cd5],
 } as const;
-
-/** One colour per tile type; the compiler demands an entry for every `TileType`. */
-const TILE_COLOURS: Readonly<Record<TileType, number>> = {
-  floor: COLOURS.floor,
-  road: COLOURS.road,
-  // Openings: the barrier sprite standing in the tile shows the door or window itself.
-  door: COLOURS.floor,
-  window: COLOURS.wall,
-  wall: COLOURS.wall,
-};
 
 /** What each noise source looks like on the board; the compiler demands every source. */
 const NOISE_COLOURS: Readonly<Record<NoiseSourceType, number>> = {
@@ -90,37 +83,22 @@ const NOISE_COLOURS: Readonly<Record<NoiseSourceType, number>> = {
   alarm: 0xff5252,
 };
 
-const ITEM_LABELS: Readonly<Record<ItemType, string>> = {
-  bandage: "b",
-  medkit: "+",
-  ammo_box: "A",
-  shell_box: "S",
-  rifle_clip: "R",
-  key: "k",
-  radio_parts: "!",
-  pistol: "p",
-  shotgun: "g",
-  rifle: "r",
-  knife: "n",
-  bat: "t",
-};
+/** Characters in the pack face right; the figure turns toward its last step. */
+const FACING_RIGHT = 0;
 
-/** How each zombie type looks; the compiler demands an entry for every `ZombieType`. */
-const ZOMBIE_STYLE: Readonly<
-  Record<ZombieType, { readonly label: string; readonly colour: number; readonly size: number }>
-> = {
-  walker: { label: "Z", colour: 0x6a8f3c, size: 0.6 },
-  runner: { label: "R", colour: 0xc9a227, size: 0.5 },
-  brute: { label: "B", colour: 0x8e3b3b, size: 0.8 },
-};
+/** Figures are drawn from 64 px sources onto `TILE_SIZE` tiles. */
+const FIGURE_SCALE = TILE_SIZE / SOURCE_TILE;
 
 interface EntitySprite {
   readonly container: Phaser.GameObjects.Container;
-  readonly body: Phaser.GameObjects.Shape;
+  readonly body: Phaser.GameObjects.Image;
   readonly healthFill: Phaser.GameObjects.Rectangle;
-  readonly colour: number;
-  /** Only players have the active-turn ring. */
+  /** The tint at rest: white for a figure drawn as is, something else for a variant. */
+  readonly tint: number;
+  /** Only players have the active-turn ring and a name. */
   readonly ring?: Phaser.GameObjects.Arc;
+  /** Where the figure last looked, in radians; kept across renders. */
+  facing: number;
 }
 
 interface ItemSprite {
@@ -129,8 +107,7 @@ interface ItemSprite {
 
 interface ContainerSprite {
   readonly container: Phaser.GameObjects.Container;
-  readonly body: Phaser.GameObjects.Rectangle;
-  readonly label: Phaser.GameObjects.Text;
+  readonly body: Phaser.GameObjects.Image;
 }
 
 /** Rebuilt whenever the barrier's state changes, so the shape always matches the state. */
@@ -145,6 +122,7 @@ interface BarrierSprite {
  */
 const DEPTH = {
   tiles: 0,
+  zone: 0.5, // the extraction zone overlay
   furniture: 1, // containers, doors, windows
   highlights: 2,
   items: 3,
@@ -162,7 +140,8 @@ const DEPTH = {
  * new snapshot cancels any animation in progress and snaps to the truth.
  */
 export class BoardRenderer implements AnimationStage {
-  private readonly tileLayer: Phaser.GameObjects.Graphics;
+  private tileLayer: Phaser.GameObjects.RenderTexture | undefined;
+  private readonly zoneLayer: Phaser.GameObjects.Graphics;
   private readonly highlightLayer: Phaser.GameObjects.Graphics;
   private readonly effectLayer: Phaser.GameObjects.Graphics;
   private readonly hoverLayer: Phaser.GameObjects.Graphics;
@@ -182,7 +161,7 @@ export class BoardRenderer implements AnimationStage {
     private readonly scene: Phaser.Scene,
     private readonly sounds: SoundPlayer,
   ) {
-    this.tileLayer = scene.add.graphics().setDepth(DEPTH.tiles);
+    this.zoneLayer = scene.add.graphics().setDepth(DEPTH.zone);
     this.highlightLayer = scene.add.graphics().setDepth(DEPTH.highlights);
     this.noiseLayer = scene.add.graphics().setDepth(DEPTH.noises);
     this.fogLayer = scene.add.graphics().setDepth(DEPTH.fog);
@@ -230,12 +209,12 @@ export class BoardRenderer implements AnimationStage {
       return {
         target: entity.container,
         setBodyColour: (colour) => {
-          entity.body.setFillStyle(
+          entity.body.setTint(
             colour === "damage"
               ? COLOURS.damageFlash
               : colour === "heal"
                 ? COLOURS.healFlash
-                : entity.colour,
+                : entity.tint,
           );
         },
       };
@@ -283,25 +262,51 @@ export class BoardRenderer implements AnimationStage {
 
   // ---- drawing and reconciliation ----
 
+  /**
+   * The static board, drawn once into a render texture at the pack's 64 px tile size and
+   * scaled to `TILE_SIZE`: grass outdoors, wooden floors inside buildings, asphalt roads,
+   * brick walls (windows sit in walls, doors on floor). Variants are picked per tile so the
+   * ground is not a repeating stamp, deterministically so every client draws the same board.
+   */
   private drawMap(state: GameState): void {
     const { map } = state;
     this.drawnMap = map;
     this.scene.scale.resize(map.width * TILE_SIZE, map.height * TILE_SIZE);
-    const g = this.tileLayer;
-    g.clear();
+    this.tileLayer?.destroy();
+    const rt = this.scene.add
+      .renderTexture(0, 0, map.width * SOURCE_TILE, map.height * SOURCE_TILE)
+      .setOrigin(0, 0)
+      .setScale(FIGURE_SCALE)
+      .setDepth(DEPTH.tiles);
+    this.tileLayer = rt;
+    const outdoors = outdoorGrid(map);
+    const keyFor = (type: TileType, x: number, y: number): string => {
+      switch (type) {
+        case "road":
+          return variant(TILE_KEYS.asphalt, x, y);
+        case "wall":
+        case "window":
+          return variant(TILE_KEYS.brick, x, y);
+        case "floor":
+        case "door":
+          return outdoors[y]?.[x] === true
+            ? variant(TILE_KEYS.grass, x, y)
+            : variant(TILE_KEYS.wood, x, y);
+      }
+    };
     map.tiles.forEach((row, y) => {
       row.forEach((tile, x) => {
-        const { x: px, y: py } = tileToPixel({ x, y });
-        g.fillStyle(TILE_COLOURS[tile.type]);
-        g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        g.lineStyle(1, COLOURS.grid);
-        g.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+        rt.drawFrame(keyFor(tile.type, x, y), undefined, x * SOURCE_TILE, y * SOURCE_TILE);
       });
     });
+    const zone = this.zoneLayer;
+    zone.clear();
     for (const p of objectiveZoneTiles(state.objective)) {
       const { x: px, y: py } = tileToPixel(p);
-      g.fillStyle(COLOURS.extraction);
-      g.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      zone.fillStyle(COLOURS.extraction, 0.55);
+      zone.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      zone.lineStyle(2, COLOURS.healFlash, 0.8);
+      zone.strokeRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     }
   }
 
@@ -402,8 +407,8 @@ export class BoardRenderer implements AnimationStage {
       const sprite = this.containers.get(container.id) ?? this.createContainerSprite(container);
       const { x, y } = tileCenter(container.position);
       sprite.container.setPosition(x, y);
-      sprite.body.setFillStyle(container.searched ? COLOURS.containerSearched : COLOURS.container);
-      sprite.label.setText(container.searched ? "-" : "?");
+      // A looted container stays on the board, faded, so the room still reads as furnished.
+      sprite.body.setAlpha(container.searched ? 0.45 : 1);
     }
     for (const [id, sprite] of this.containers) {
       if (!seen.has(id)) {
@@ -414,18 +419,11 @@ export class BoardRenderer implements AnimationStage {
   }
 
   private createContainerSprite(container: SearchableContainer): ContainerSprite {
-    const body = this.scene.add.rectangle(
-      0,
-      0,
-      TILE_SIZE * 0.7,
-      TILE_SIZE * 0.5,
-      COLOURS.container,
-    );
-    const label = this.scene.add
-      .text(0, 0, "?", { fontSize: "14px", color: "#ffffff" })
-      .setOrigin(0.5);
-    const group = this.scene.add.container(0, 0, [body, label]).setDepth(DEPTH.furniture);
-    const sprite: ContainerSprite = { container: group, body, label };
+    const body = this.scene.add
+      .image(0, 0, CONTAINER_KEYS[container.category])
+      .setScale(FIGURE_SCALE * 0.9);
+    const group = this.scene.add.container(0, 0, [body]).setDepth(DEPTH.furniture);
+    const sprite: ContainerSprite = { container: group, body };
     this.containers.set(container.id, sprite);
     return sprite;
   }
@@ -452,44 +450,37 @@ export class BoardRenderer implements AnimationStage {
   }
 
   /**
-   * A door fills its opening when closed or locked (with a lock mark), shrinks to a leaf
-   * along one edge when open, and lies splintered when broken; a window is a pane of glass
-   * across the opening, shattered when broken.
+   * A door fills its opening when closed or locked (with a lock mark), stands as a leaf
+   * along one edge when open, and lies as a splintered plank when broken; a window is a
+   * pane of glass across the opening, shards when broken.
    */
   private createBarrierSprite(barrier: Barrier): Phaser.GameObjects.Container {
     const parts: Phaser.GameObjects.GameObject[] = [];
+    const image = (key: string, x = 0, y = 0) =>
+      this.scene.add.image(x, y, key).setScale(FIGURE_SCALE);
     if (barrier.kind === "door") {
-      const shut = barrier.state === "closed" || barrier.state === "locked";
-      const body = shut
-        ? this.scene.add.rectangle(0, 0, TILE_SIZE * 0.9, TILE_SIZE * 0.9, COLOURS.doorWood)
-        : this.scene.add.rectangle(
-            -TILE_SIZE * 0.3,
-            0,
-            TILE_SIZE * 0.3,
-            TILE_SIZE * 0.9,
-            COLOURS.doorWood,
+      switch (barrier.state) {
+        case "closed":
+          parts.push(image(FURNITURE_KEYS.doorClosed));
+          break;
+        case "locked":
+          parts.push(
+            image(FURNITURE_KEYS.doorClosed),
+            this.scene.add.rectangle(0, 0, TILE_SIZE * 0.22, TILE_SIZE * 0.22, COLOURS.doorLock),
           );
-      if (barrier.state === "broken") body.setAlpha(0.35);
-      parts.push(body);
-      if (barrier.state === "locked") {
-        parts.push(
-          this.scene.add.rectangle(0, 0, TILE_SIZE * 0.3, TILE_SIZE * 0.3, COLOURS.doorLock),
-        );
+          break;
+        case "open":
+          parts.push(image(FURNITURE_KEYS.doorOpen, -TILE_SIZE * 0.32, 0));
+          break;
+        case "broken":
+          parts.push(image(FURNITURE_KEYS.doorBroken).setAlpha(0.85));
+          break;
       }
     } else {
-      const pane = this.scene.add.rectangle(
-        0,
-        0,
-        TILE_SIZE * 0.9,
-        TILE_SIZE * 0.4,
-        COLOURS.windowGlass,
-      );
-      if (barrier.state === "broken") pane.setAlpha(0.3);
-      parts.push(pane);
-    }
-    if (barrier.state === "broken") {
       parts.push(
-        this.scene.add.text(0, 0, "x", { fontSize: "16px", color: "#ffffff" }).setOrigin(0.5),
+        barrier.state === "broken"
+          ? image(FURNITURE_KEYS.windowBroken)
+          : image(FURNITURE_KEYS.window),
       );
     }
     return this.scene.add.container(0, 0, parts).setDepth(DEPTH.furniture);
@@ -512,11 +503,12 @@ export class BoardRenderer implements AnimationStage {
   }
 
   private createItemSprite(id: ItemId, type: ItemType): ItemSprite {
-    const body = this.scene.add.rectangle(0, 0, TILE_SIZE * 0.4, TILE_SIZE * 0.4, COLOURS.item);
-    const label = this.scene.add
-      .text(0, 0, ITEM_LABELS[type], { fontSize: "12px", color: "#000000" })
-      .setOrigin(0.5);
-    const container = this.scene.add.container(0, 0, [body, label]).setDepth(DEPTH.items);
+    // Item icons come in two sizes (64 px tiles and larger generic icons); fit both to
+    // roughly half a tile so a pistol and a medkit read at the same weight.
+    const body = this.scene.add.image(0, 0, ITEM_KEYS[type]);
+    const longest = Math.max(body.width, body.height, 1);
+    body.setScale((TILE_SIZE * 0.55) / longest);
+    const container = this.scene.add.container(0, 0, [body]).setDepth(DEPTH.items);
     const sprite: ItemSprite = { container };
     this.items.set(id, sprite);
     return sprite;
@@ -531,8 +523,14 @@ export class BoardRenderer implements AnimationStage {
       const { x, y } = tileCenter(player.position);
       sprite.container.setPosition(x, y).setScale(1).setAlpha(1);
       sprite.ring?.setVisible(player.id === active);
-      sprite.body.setFillStyle(player.status === "down" ? COLOURS.down : sprite.colour);
-      sprite.body.setAlpha(player.present ? 1 : 0.4);
+      const before = this.shownState?.players.find((p) => p.id === player.id)?.position;
+      sprite.facing = facingAfter(sprite.facing, before, player.position);
+      const pose = player.status === "down" ? "stand" : WEAPON_POSE[player.weapon.type];
+      sprite.body
+        .setTexture(characterKey(SPECIALTY_CHARACTER[player.specialty], pose))
+        .setRotation(player.status === "down" ? sprite.facing + Math.PI / 2 : sprite.facing)
+        .setTint(player.status === "down" ? COLOURS.down : sprite.tint)
+        .setAlpha(player.present ? 1 : 0.4);
       setHealthBar(sprite, player.health / player.maxHealth);
     });
     for (const [id, sprite] of this.players) {
@@ -546,18 +544,35 @@ export class BoardRenderer implements AnimationStage {
   private createPlayerSprite(player: PlayerState, state: GameState): EntitySprite {
     const index = state.turnOrder.indexOf(player.id);
     const colour = COLOURS.players[index % COLOURS.players.length] ?? COLOURS.absent;
+    // The turn ring keeps each player's colour so teammates stay telling apart at a glance;
+    // a thin badge in that colour sits under the figure at all times.
+    const badge = this.scene.add.circle(0, 0, TILE_SIZE * 0.36, colour, 0.35);
     const ring = this.scene.add
-      .circle(0, 0, TILE_SIZE * 0.42)
+      .circle(0, 0, TILE_SIZE * 0.44)
       .setStrokeStyle(3, COLOURS.activeRing);
-    const body = this.scene.add.circle(0, 0, TILE_SIZE * 0.34, colour);
+    const body = this.scene.add
+      .image(0, 0, characterKey(SPECIALTY_CHARACTER[player.specialty], "stand"))
+      .setScale(FIGURE_SCALE);
     const label = this.scene.add
-      .text(0, 0, player.name.slice(0, 1).toUpperCase(), { fontSize: "16px", color: "#ffffff" })
-      .setOrigin(0.5);
+      .text(0, -TILE_SIZE * 0.46, player.name.slice(0, 8), {
+        fontSize: "10px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1);
     const [healthBack, healthFill] = createHealthBar(this.scene);
     const container = this.scene.add
-      .container(0, 0, [ring, body, label, healthBack, healthFill])
+      .container(0, 0, [badge, ring, body, label, healthBack, healthFill])
       .setDepth(DEPTH.entities);
-    const sprite: EntitySprite = { container, body, ring, colour, healthFill };
+    const sprite: EntitySprite = {
+      container,
+      body,
+      ring,
+      tint: 0xffffff,
+      healthFill,
+      facing: FACING_RIGHT,
+    };
     this.players.set(player.id, sprite);
     return sprite;
   }
@@ -569,7 +584,9 @@ export class BoardRenderer implements AnimationStage {
       const sprite = this.zombies.get(zombie.id) ?? this.createZombieSprite(zombie);
       const { x, y } = tileCenter(zombie.position);
       sprite.container.setPosition(x, y).setScale(1).setAlpha(1);
-      sprite.body.setFillStyle(sprite.colour);
+      const before = this.shownState?.zombies.find((z) => z.id === zombie.id)?.position;
+      sprite.facing = facingAfter(sprite.facing, before, zombie.position);
+      sprite.body.setRotation(sprite.facing).setTint(sprite.tint);
       setHealthBar(sprite, zombie.health / state.rules.zombieDefinitions[zombie.type].maxHealth);
     }
     for (const [id, sprite] of this.zombies) {
@@ -581,22 +598,23 @@ export class BoardRenderer implements AnimationStage {
   }
 
   private createZombieSprite(zombie: ZombieState): EntitySprite {
-    const style = ZOMBIE_STYLE[zombie.type];
-    const body = this.scene.add.rectangle(
-      0,
-      0,
-      TILE_SIZE * style.size,
-      TILE_SIZE * style.size,
-      style.colour,
-    );
-    const label = this.scene.add
-      .text(0, 0, style.label, { fontSize: "16px", color: "#ffffff" })
-      .setOrigin(0.5);
+    const look = ZOMBIE_LOOK[zombie.type];
+    const body = this.scene.add
+      .image(0, 0, characterKey(ZOMBIE_CHARACTER[zombie.type], "hold"))
+      .setScale(FIGURE_SCALE * look.scale)
+      .setTint(look.tint);
     const [healthBack, healthFill] = createHealthBar(this.scene);
     const container = this.scene.add
-      .container(0, 0, [body, label, healthBack, healthFill])
+      .container(0, 0, [body, healthBack, healthFill])
       .setDepth(DEPTH.entities);
-    const sprite: EntitySprite = { container, body, colour: style.colour, healthFill };
+    const sprite: EntitySprite = {
+      container,
+      body,
+      tint: look.tint,
+      healthFill,
+      // Zombies start facing a random-looking but deterministic way, from their position.
+      facing: (variant([0, 1, 2, 3], zombie.position.x, zombie.position.y) * Math.PI) / 2,
+    };
     this.zombies.set(zombie.id, sprite);
     return sprite;
   }
@@ -613,6 +631,12 @@ function createHealthBar(
     .rectangle(-HEALTH_BAR_WIDTH / 2, HEALTH_BAR_Y, HEALTH_BAR_WIDTH, 4, COLOURS.healthFill)
     .setOrigin(0, 0.5);
   return [back, fill];
+}
+
+/** The direction of the last step, or the previous facing when the figure did not move. */
+function facingAfter(current: number, before: Position | undefined, after: Position): number {
+  if (before === undefined || (before.x === after.x && before.y === after.y)) return current;
+  return Math.atan2(after.y - before.y, after.x - before.x);
 }
 
 function setHealthBar(sprite: EntitySprite, fraction: number): void {
