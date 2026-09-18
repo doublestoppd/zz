@@ -92,7 +92,9 @@ events exactly; the event log of the match is the rest of the replay.
 
 `apps/server/src/simulation.test.ts` plays extraction with the default balance using a
 deliberately plain bot (shoot what is within two tiles, reload when empty, walk to the
-objective, open or force doors in the way). Results are a floor for human play:
+objective, open or force doors in the way, attack whatever it can reach when nothing brings
+it closer, step deeper into the zone when a teammate is walled out; `soak/botPolicy.ts`).
+Results are a floor for human play:
 
 | players | seed | outcome | rounds | downs | threat |
 | ------- | ---- | ------- | ------ | ----- | ------ |
@@ -109,7 +111,7 @@ objective, open or force doors in the way). Results are a floor for human play:
 | 3       | 3    | victory | 13     | 0     | 4      |
 | 3       | 4    | victory | 12     | 0     | 3      |
 | 4       | 1    | victory | 14     | 0     | 4      |
-| 4       | 2    | victory | 15     | 0     | 4      |
+| 4       | 2    | victory | 14     | 0     | 4      |
 | 4       | 3    | victory | 15     | 0     | 4      |
 | 4       | 4    | victory | 14     | 0     | 4      |
 

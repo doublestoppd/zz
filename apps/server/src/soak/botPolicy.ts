@@ -18,8 +18,9 @@ import {
 
 /**
  * A plain, greedy survivor: shoot what is close, reload when empty, otherwise walk toward
- * the current objective (opening or forcing doors in the way), then end the turn. Not
- * clever, so its results are a floor: humans should do better than this.
+ * the current objective (opening or forcing doors in the way); when nothing brings it
+ * closer, attack whatever it can reach, then end the turn. Not clever, so its results are
+ * a floor: humans should do better than this.
  */
 export function decide(state: GameState, me: PlayerState): Command {
   const near = legalFireTargets(state, me).filter(
@@ -68,6 +69,16 @@ export function decide(state: GameState, me: PlayerState): Command {
       }
     }
   }
+  // Nowhere useful to go: a zombie is often the reason (a brute in the doorway), so use
+  // the turn on whatever can be shot or hit rather than waiting for it to come closer.
+  const blocking = legalFireTargets(state, me)[0];
+  if (blocking !== undefined) {
+    return { type: "fire_weapon", playerId: me.id, targetId: blocking.id };
+  }
+  const reachable = legalMeleeTargets(state, me)[0];
+  if (reachable !== undefined) {
+    return { type: "melee_attack", playerId: me.id, targetId: reachable.id };
+  }
   return { type: "end_turn", playerId: me.id };
 }
 
@@ -79,10 +90,12 @@ function goalFor(state: GameState, me: PlayerState): Position | undefined {
     return item?.position;
   }
   const zone = stepZone(step);
-  if (zone.some((p) => positionsEqual(p, me.position))) return undefined;
   const free = zone.filter(
     (p) => !state.players.some((o) => o.id !== me.id && positionsEqual(o.position, p)),
   );
+  if (zone.some((p) => positionsEqual(p, me.position))) {
+    return shuffleDeeper(state, me, zone, free);
+  }
   // Fill the back of the zone first so late arrivals are not walled out by teammates.
   const passable = passabilityFor(state, { kind: "survivor", id: me.id });
   let best: { p: Position; d: number } | undefined;
@@ -92,4 +105,46 @@ function goalFor(state: GameState, me: PlayerState): Position | undefined {
     if (best === undefined || d > best.d) best = { p, d };
   }
   return best?.p;
+}
+
+/**
+ * Already in the zone: stay put unless a teammate outside cannot reach any free zone tile
+ * because the party is standing in the doorway (a corner zone fills from the front when
+ * turns are lost). Then step to the free tile farthest from them so the vacated tile
+ * becomes their way in.
+ */
+function shuffleDeeper(
+  state: GameState,
+  me: PlayerState,
+  zone: readonly Position[],
+  free: readonly Position[],
+): Position | undefined {
+  const outside = state.players.filter(
+    (o) =>
+      o.id !== me.id &&
+      o.present &&
+      o.status === "active" &&
+      !zone.some((z) => positionsEqual(z, o.position)),
+  );
+  if (outside.length === 0 || free.length === 0) return undefined;
+  const ownFree = free.filter((p) => !positionsEqual(p, me.position));
+  const someoneCanEnter = ownFree.some((tile) =>
+    outside.some(
+      (o) =>
+        findShortestPath(
+          state.map,
+          o.position,
+          tile,
+          500,
+          passabilityFor(state, { kind: "survivor", id: o.id }),
+        ) !== undefined,
+    ),
+  );
+  if (someoneCanEnter) return undefined;
+  const distanceToOutside = (p: Position) =>
+    Math.min(...outside.map((o) => chebyshevDistance(o.position, p)));
+  return ownFree.reduce<Position | undefined>(
+    (best, p) => (best === undefined || distanceToOutside(p) > distanceToOutside(best) ? p : best),
+    undefined,
+  );
 }
