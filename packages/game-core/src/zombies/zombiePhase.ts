@@ -14,24 +14,29 @@ export interface ZombiePhaseOutcome {
 /**
  * Every zombie acts in id order, each seeing the board as left by the previous one. A
  * zombie may step up to its type's `movesPerPhase` tiles, deciding afresh after each step;
- * an attack or a wait ends its activity for the phase. No randomness is consumed yet;
- * `rng` is accepted so that behaviour which needs it later has its dependency in place.
+ * an attack or a wait ends its activity for the phase. A `slow` type gets no steps in
+ * odd-numbered rounds: it decides once, and a step it would have taken becomes a wait that
+ * keeps its memory. No randomness is consumed yet; `rng` is accepted so that behaviour
+ * which needs it later has its dependency in place.
  */
 export function runZombiePhase(state: GameState, _rng: Rng): ZombiePhaseOutcome {
   let current = state;
   const events: GameEvent[] = [];
 
   for (const original of state.zombies) {
-    const moves = current.rules.zombieDefinitions[original.type].movesPerPhase;
+    const definition = current.rules.zombieDefinitions[original.type];
+    const resting = definition.slow === true && current.round % 2 === 1;
+    const moves = resting ? 1 : definition.movesPerPhase;
     for (let step = 0; step < moves; step += 1) {
       const zombie = current.zombies.find((z) => z.id === original.id);
       if (zombie === undefined) break;
-      const decision = decideZombieAction(current, zombie);
-      if (decision.kind !== "step") {
-        current = applyDecision(current, zombie, decision, events);
-        break;
-      }
+      const decided = decideZombieAction(current, zombie);
+      const decision: ZombieDecision =
+        resting && decided.kind === "step"
+          ? { kind: "wait", investigating: decided.investigating }
+          : decided;
       current = applyDecision(current, zombie, decision, events);
+      if (decision.kind !== "step") break;
     }
   }
   return { state: current, events };

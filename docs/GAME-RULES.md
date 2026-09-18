@@ -19,8 +19,15 @@ that file is named so the rule can be changed in one place.
 - Every survivor starts with the values in `packages/game-data/src/survivors.ts`
   (10 health, 4 action points) and full action points.
 - The zombie type at each spawn is rolled from the weighted spawn table in
-  `packages/game-data/src/zombies.ts` on its own RNG stream (currently only walkers: 3
-  health, 2 damage, 1 move per phase).
+  `packages/game-data/src/zombies.ts` on its own RNG stream (walker 6, runner 2, brute 1).
+  Types differ only by numbers and two behaviour flags (see Zombie phase):
+
+  | Type   | Health | Damage | Moves per phase | Sight | Flags                                            |
+  | ------ | ------ | ------ | --------------- | ----- | ------------------------------------------------ |
+  | walker | 3      | 2      | 1               | 6     |                                                  |
+  | runner | 2      | 1      | 2               | 8     |                                                  |
+  | brute  | 8      | 4      | 1               | 5     | `slow` (steps in even rounds only), `unshakable` |
+
 - Every survivor carries the starting weapon from `packages/game-data/src/survivors.ts`
   (a pistol with a full magazine), 12 rounds of reserve ammunition, and an empty inventory
   with room for 3 items.
@@ -100,6 +107,10 @@ in this order:
    or next to the spot forgets it, as does finding nothing around it reachable. A zombie
    that remembers a spot but is boxed in keeps the memory and waits.
 4. **Wait** otherwise.
+
+A `slow` type (the brute) gets no steps in odd-numbered rounds: it still attacks an adjacent
+survivor and still picks up and remembers noises, but a step it would have taken becomes a
+wait. An `unshakable` type is never moved by melee knockback.
 
 A zombie that sees nobody and hears nothing stays where it is, so survivors can slip past
 zombies by keeping walls between them and staying quiet. Zombies path around shut doors

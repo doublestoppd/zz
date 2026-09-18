@@ -108,7 +108,7 @@ export function validateReload(state: GameState, player: PlayerState): ReloadVal
  * Decides whether `player` may strike the zombie `targetId` with their melee weapon.
  * Reasons in order: target, adjacency (Chebyshev distance within the weapon's range, so
  * diagonals count), action points. No ammunition and no line-of-sight check: adjacent
- * tiles have nothing between them.
+ * tiles have nothing between them. An `unshakable` zombie type is never knocked back.
  */
 export function validateMelee(
   state: GameState,
@@ -124,8 +124,11 @@ export function validateMelee(
   if (player.actionPoints < weapon.attackActionPointCost) {
     return { ok: false, reason: "INSUFFICIENT_ACTION_POINTS" };
   }
+  const unshakable = state.rules.zombieDefinitions[target.type].unshakable === true;
   const knockbackTo =
-    weapon.knockback === true ? knockbackDestination(state, player.position, target) : undefined;
+    weapon.knockback === true && !unshakable
+      ? knockbackDestination(state, player.position, target)
+      : undefined;
   return { ok: true, target, weapon, knockbackTo };
 }
 

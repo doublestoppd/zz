@@ -1,7 +1,12 @@
 import { matchId, playerId, type PlayerId } from "../ids.js";
 import { parseAsciiMap, type MapLayout } from "../map/asciiMap.js";
 import { createInitialState } from "../state/createInitialState.js";
-import type { FirearmDefinition, ItemDefinition, WeaponDefinition } from "../state/definitions.js";
+import type {
+  FirearmDefinition,
+  ItemDefinition,
+  WeaponDefinition,
+  ZombieSpawnTableEntry,
+} from "../state/definitions.js";
 import type { ItemType, WeaponType } from "../state/types.js";
 import type { GameState } from "../state/types.js";
 
@@ -49,6 +54,8 @@ export interface TestStateOptions {
   readonly searchNoise?: number;
   readonly zombieSightRange?: number;
   readonly forceEntryNoise?: number;
+  /** Which types the `Z` markers roll; every marker is a walker by default. */
+  readonly zombieSpawnTable?: readonly ZombieSpawnTableEntry[];
 }
 
 const DEFAULT_PISTOL: FirearmDefinition = {
@@ -138,6 +145,15 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
           movesPerPhase: options.zombieMovesPerPhase ?? 1,
           sightRange: options.zombieSightRange ?? 6,
         },
+        runner: { maxHealth: 2, damage: 1, movesPerPhase: 2, sightRange: 8 },
+        brute: {
+          maxHealth: 8,
+          damage: 4,
+          movesPerPhase: 1,
+          sightRange: 5,
+          slow: true,
+          unshakable: true,
+        },
       },
       weaponDefinitions: mergeWeapons(
         { ...TEST_WEAPONS, pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
@@ -201,7 +217,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       inventoryCapacity: options.inventoryCapacity ?? 3,
     },
     lootTable: [{ type: "medkit", weight: 1 }],
-    zombieSpawnTable: [{ type: "walker", weight: 1 }],
+    zombieSpawnTable: options.zombieSpawnTable ?? [{ type: "walker", weight: 1 }],
     objective: { kind: "extraction", holdoutRounds: options.holdoutRounds ?? 0 },
     layout: options.layout ?? TEST_LAYOUT,
     players: players.map((id) => ({ id, name: id })),

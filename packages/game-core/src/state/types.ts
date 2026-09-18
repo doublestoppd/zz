@@ -185,7 +185,9 @@ export interface PlayerState {
   readonly present: boolean;
 }
 
-export type ZombieType = "walker";
+/** Runtime list of zombie types; `ZOMBIE_TYPES` lets spawn tables and UIs iterate. */
+export const ZOMBIE_TYPES = ["walker", "runner", "brute"] as const;
+export type ZombieType = (typeof ZOMBIE_TYPES)[number];
 
 export interface ZombieState {
   readonly id: ZombieId;

@@ -95,6 +95,13 @@ export interface ZombieDefinition {
   readonly movesPerPhase: number;
   /** Chebyshev distance within which a survivor in line of sight is noticed. */
   readonly sightRange: number;
+  /**
+   * Behaviour flags, composed rather than inherited. `slow`: steps only in even-numbered
+   * rounds (it still attacks and remembers noises every round). `unshakable`: melee
+   * knockback never moves it.
+   */
+  readonly slow?: boolean;
+  readonly unshakable?: boolean;
 }
 
 /** Relative chance of each zombie type appearing at a zombie spawn. */

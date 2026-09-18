@@ -18,7 +18,18 @@ export function makeClientTestState(
     seed: 1,
     rules: {
       moveCostPerTile: 1,
-      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1, sightRange: 6 } },
+      zombieDefinitions: {
+        walker: { maxHealth: 3, damage: 2, movesPerPhase: 1, sightRange: 6 },
+        runner: { maxHealth: 2, damage: 1, movesPerPhase: 2, sightRange: 8 },
+        brute: {
+          maxHealth: 8,
+          damage: 4,
+          movesPerPhase: 1,
+          sightRange: 5,
+          slow: true,
+          unshakable: true,
+        },
+      },
       itemDefinitions: {
         bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },

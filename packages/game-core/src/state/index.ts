@@ -22,7 +22,13 @@ export type {
   ZombieState,
   ZombieType,
 } from "./types.js";
-export { AMMO_TYPES, CONTAINER_CATEGORIES, ITEM_TYPES, WEAPON_TYPES } from "./types.js";
+export {
+  AMMO_TYPES,
+  CONTAINER_CATEGORIES,
+  ITEM_TYPES,
+  WEAPON_TYPES,
+  ZOMBIE_TYPES,
+} from "./types.js";
 export { findPlayer, replacePlayer } from "./players.js";
 export { setBarrierState, type BarrierBoard } from "./barriers.js";
 export type {

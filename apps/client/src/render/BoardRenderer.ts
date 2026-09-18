@@ -22,6 +22,7 @@ import {
   type TileType,
   type ZombieId,
   type ZombieState,
+  type ZombieType,
 } from "@zombie/game-core";
 import type { SoundPlayer } from "../audio/SoundPlayer.js";
 import {
@@ -60,7 +61,6 @@ const COLOURS = {
   activeRing: 0xffffff,
   absent: 0x777777,
   down: 0x5a5a5a,
-  zombie: 0x6a8f3c,
   healthBack: 0x222222,
   healthFill: 0x4caf50,
   damageFlash: 0xff5252,
@@ -99,6 +99,15 @@ const ITEM_LABELS: Readonly<Record<ItemType, string>> = {
   rifle: "r",
   knife: "n",
   bat: "t",
+};
+
+/** How each zombie type looks; the compiler demands an entry for every `ZombieType`. */
+const ZOMBIE_STYLE: Readonly<
+  Record<ZombieType, { readonly label: string; readonly colour: number; readonly size: number }>
+> = {
+  walker: { label: "Z", colour: 0x6a8f3c, size: 0.6 },
+  runner: { label: "R", colour: 0xc9a227, size: 0.5 },
+  brute: { label: "B", colour: 0x8e3b3b, size: 0.8 },
 };
 
 interface EntitySprite {
@@ -543,15 +552,22 @@ export class BoardRenderer implements AnimationStage {
   }
 
   private createZombieSprite(zombie: ZombieState): EntitySprite {
-    const body = this.scene.add.rectangle(0, 0, TILE_SIZE * 0.6, TILE_SIZE * 0.6, COLOURS.zombie);
+    const style = ZOMBIE_STYLE[zombie.type];
+    const body = this.scene.add.rectangle(
+      0,
+      0,
+      TILE_SIZE * style.size,
+      TILE_SIZE * style.size,
+      style.colour,
+    );
     const label = this.scene.add
-      .text(0, 0, "Z", { fontSize: "16px", color: "#ffffff" })
+      .text(0, 0, style.label, { fontSize: "16px", color: "#ffffff" })
       .setOrigin(0.5);
     const [healthBack, healthFill] = createHealthBar(this.scene);
     const container = this.scene.add
       .container(0, 0, [body, label, healthBack, healthFill])
       .setDepth(DEPTH.entities);
-    const sprite: EntitySprite = { container, body, colour: COLOURS.zombie, healthFill };
+    const sprite: EntitySprite = { container, body, colour: style.colour, healthFill };
     this.zombies.set(zombie.id, sprite);
     return sprite;
   }

@@ -56,7 +56,18 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
           ],
         },
       },
-      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1, sightRange: 6 } },
+      zombieDefinitions: {
+        walker: { maxHealth: 3, damage: 2, movesPerPhase: 1, sightRange: 6 },
+        runner: { maxHealth: 2, damage: 1, movesPerPhase: 2, sightRange: 8 },
+        brute: {
+          maxHealth: 8,
+          damage: 4,
+          movesPerPhase: 1,
+          sightRange: 5,
+          slow: true,
+          unshakable: true,
+        },
+      },
       weaponDefinitions: {
         pistol: {
           kind: "firearm",

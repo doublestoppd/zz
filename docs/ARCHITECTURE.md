@@ -203,6 +203,7 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 | Gameplay B Noise       | done   | gunfire and search noises, zombie sight range and line of sight, noise investigation with memory               |
 | Gameplay C Doors       | done   | door and window barriers with open/closed/locked/broken state, keys, forced entry through the noise system     |
 | Gameplay D Weapons     | done   | shotgun falloff, rifle reach, knife and bat melee with knockback, ammunition kinds, weapon swapping by pick-up |
+| Gameplay E Archetypes  | done   | runner (fast, sharp-eyed) and brute (tough, slow, unshakable) as data plus two behaviour flags                 |
 
 Deliberately not generalised yet: no quest engine, no entity-component system, no action
 registry, no transport abstraction, no delta sync, no persistence or accounts, no plugin

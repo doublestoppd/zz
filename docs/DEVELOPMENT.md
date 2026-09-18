@@ -79,12 +79,15 @@ own layout in `testing/makeTestState.ts`.
 
 1. `packages/game-core/src/state/types.ts`: extend `ZombieType`.
 2. `packages/game-data/src/zombies.ts`: the compiler now demands a `ZombieDefinition` entry
-   (health, damage, `movesPerPhase`, `sightRange`). Add a weight to `ZOMBIE_SPAWN_TABLE` so it appears at
+   (health, damage, `movesPerPhase`, `sightRange`, and the optional flags `slow` and
+   `unshakable`). Add a weight to `ZOMBIE_SPAWN_TABLE` so it appears at
    spawns; the type at each `Z` is rolled from that table on the `zombieSpawns` RNG stream.
-3. Behaviour that differs per type should be data first (`ZombieDefinition` fields read in
-   `zombies/targetSelection.ts` and `zombies/zombiePhase.ts`). Only add a `switch` on the type
-   when a number or flag cannot express the difference.
-4. `apps/client/src/render/BoardRenderer.ts`: a colour or label per type if wanted.
+3. Behaviour that differs per type should be data first: a number or a flag on
+   `ZombieDefinition`, read at one extension point (`slow` in `zombies/zombiePhase.ts`,
+   `unshakable` in `rules/combat.ts`, `sightRange` in `zombies/targetSelection.ts`). Never
+   `switch` on the type in the rules; compose flags instead.
+4. `apps/client/src/render/BoardRenderer.ts` (`ZOMBIE_STYLE`): the compiler demands a
+   label, colour, and size for the new type.
 5. Tests in `zombies/*.test.ts` using an ASCII layout with `Z` markers.
 
 ## Add a weapon

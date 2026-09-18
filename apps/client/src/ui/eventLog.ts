@@ -22,8 +22,14 @@ const NOISE_LABELS: Readonly<Record<NoiseSourceType, string>> = {
   forced_entry: "Splintering",
 };
 
+/** "Runner z3" for a zombie still on the board, "Zombie z3" once it is gone. */
+function zombieName(state: GameState, id: ZombieId): string {
+  const type = state.zombies.find((z) => z.id === id)?.type;
+  return `${type === undefined ? "Zombie" : type.charAt(0).toUpperCase() + type.slice(1)} ${id}`;
+}
+
 function nameOf(state: GameState, id: PlayerId | ZombieId): string {
-  return state.players.find((p) => p.id === id)?.name ?? `Zombie ${id}`;
+  return state.players.find((p) => p.id === id)?.name ?? zombieName(state, id as ZombieId);
 }
 
 /** One human-readable line per event, for the HUD log. */
@@ -43,7 +49,7 @@ export function describeEvent(event: GameEvent, state: GameState): string {
     case "weapon_equipped":
       return `${nameOf(state, event.playerId)} takes the ${event.weaponType} and drops the ${event.replaced}`;
     case "zombie_knocked_back":
-      return `Zombie ${event.zombieId} is knocked back to (${event.to.x}, ${event.to.y})`;
+      return `${zombieName(state, event.zombieId)} is knocked back to (${event.to.x}, ${event.to.y})`;
     case "entity_died":
       return `Zombie ${event.entityId} is destroyed`;
     case "item_picked_up":
@@ -74,9 +80,9 @@ export function describeEvent(event: GameEvent, state: GameState): string {
     case "player_presence_changed":
       return `${nameOf(state, event.playerId)} ${event.present ? "reconnected" : "disconnected"}`;
     case "zombie_moved":
-      return `Zombie ${event.zombieId} shambles to (${event.to.x}, ${event.to.y})`;
+      return `${zombieName(state, event.zombieId)} shambles to (${event.to.x}, ${event.to.y})`;
     case "zombie_attacked":
-      return `Zombie ${event.zombieId} attacks ${nameOf(state, event.targetId)} for ${event.damage}`;
+      return `${zombieName(state, event.zombieId)} attacks ${nameOf(state, event.targetId)} for ${event.damage}`;
     case "noise_made":
       return `${NOISE_LABELS[event.sourceType]} at (${event.position.x}, ${event.position.y}) carries ${event.intensity} tiles`;
     case "door_opened":
@@ -86,7 +92,7 @@ export function describeEvent(event: GameEvent, state: GameState): string {
     case "barrier_forced":
       return `${nameOf(state, event.playerId)} breaks the ${event.kind} at (${event.position.x}, ${event.position.y})`;
     case "zombie_investigating":
-      return `Zombie ${event.zombieId} heads for the noise at (${event.position.x}, ${event.position.y})`;
+      return `${zombieName(state, event.zombieId)} heads for the noise at (${event.position.x}, ${event.position.y})`;
     case "entity_damaged":
       return `${nameOf(state, event.entityId)} has ${event.remainingHealth} HP left`;
     case "player_downed":
