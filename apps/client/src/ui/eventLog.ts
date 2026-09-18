@@ -49,6 +49,10 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return `Zombie ${event.zombieId} shambles to (${event.to.x}, ${event.to.y})`;
     case "zombie_attacked":
       return `Zombie ${event.zombieId} attacks ${nameOf(state, event.targetId)} for ${event.damage}`;
+    case "noise_made":
+      return `${event.sourceType === "gunfire" ? "Gunfire" : "Rummaging"} at (${event.position.x}, ${event.position.y}) carries ${event.intensity} tiles`;
+    case "zombie_investigating":
+      return `Zombie ${event.zombieId} heads for the noise at (${event.position.x}, ${event.position.y})`;
     case "entity_damaged":
       return `${nameOf(state, event.entityId)} has ${event.remainingHealth} HP left`;
     case "player_downed":

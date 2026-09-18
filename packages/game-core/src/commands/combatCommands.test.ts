@@ -36,6 +36,22 @@ describe("fire_weapon", () => {
         actionPointsSpent: 1,
       },
       { type: "entity_damaged", entityId: Z1, damage: 2, remainingHealth: 3 },
+      {
+        type: "noise_made",
+        noiseId: "n1",
+        position: { x: 1, y: 1 },
+        intensity: 8,
+        sourceType: "gunfire",
+      },
+    ]);
+    expect(result.state.noises).toEqual([
+      {
+        id: "n1",
+        position: { x: 1, y: 1 },
+        intensity: 8,
+        remainingRounds: 2,
+        sourceType: "gunfire",
+      },
     ]);
   });
 
@@ -53,7 +69,7 @@ describe("fire_weapon", () => {
       targetId: Z1,
     });
     if (!second.ok) throw new Error(second.reason);
-    expect(second.events.at(-1)).toEqual({ type: "entity_died", entityId: Z1 });
+    expect(second.events).toContainEqual({ type: "entity_died", entityId: Z1 });
     expect(applyCommand(after, { type: "fire_weapon", playerId: P1, targetId: Z1 })).toEqual({
       ok: false,
       reason: "TARGET_NOT_FOUND",

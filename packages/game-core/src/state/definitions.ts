@@ -47,6 +47,8 @@ export interface WeaponDefinition {
   readonly magazineSize: number;
   readonly fireActionPointCost: number;
   readonly reloadActionPointCost: number;
+  /** Noise intensity (hearing radius in tiles) of one shot. */
+  readonly noise: number;
 }
 
 /** Statistics for one zombie type. Values come from game-data. */
@@ -56,6 +58,8 @@ export interface ZombieDefinition {
   readonly damage: number;
   /** Tiles the zombie may step per zombie phase. An attack ends its activity for the phase. */
   readonly movesPerPhase: number;
+  /** Chebyshev distance within which a survivor in line of sight is noticed. */
+  readonly sightRange: number;
 }
 
 /** Relative chance of each zombie type appearing at a zombie spawn. */

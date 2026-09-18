@@ -15,6 +15,8 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
       moveCostPerTile: 1,
       pickUpActionPointCost: 1,
       searchActionPointCost: 2,
+      searchNoise: 2,
+      noiseDurationRounds: 2,
       searchLootTables: {
         home: {
           minRolls: 1,
@@ -50,7 +52,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
           ],
         },
       },
-      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1 } },
+      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1, sightRange: 6 } },
       weaponDefinitions: {
         pistol: {
           damage: 2,
@@ -58,6 +60,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
           magazineSize: 6,
           fireActionPointCost: 1,
           reloadActionPointCost: 1,
+          noise: 8,
         },
       },
       itemDefinitions: {

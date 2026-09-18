@@ -1,4 +1,5 @@
 import { itemId } from "../../ids.js";
+import { makeNoise } from "../../rules/noise.js";
 import { rollSearchLoot, validateSearch } from "../../rules/search.js";
 import { replacePlayer } from "../../state/players.js";
 import type { GameState, GroundItem, ItemType } from "../../state/types.js";
@@ -33,14 +34,20 @@ export function applySearch(state: GameState, command: SearchCommand): CommandRe
     actionPoints: check.player.actionPoints - search.cost,
     inventory: [...check.player.inventory, ...carried],
   });
-  return ok({
-    state: {
+  const noise = makeNoise(
+    {
       ...searched,
       containers: searched.containers.map((c) =>
         c.id === search.container.id ? { ...c, searched: true } : c,
       ),
       items: [...searched.items, ...groundItems],
     },
+    search.container.position,
+    state.rules.searchNoise,
+    "search",
+  );
+  return ok({
+    state: noise.state,
     events: [
       {
         type: "container_searched",
@@ -52,6 +59,7 @@ export function applySearch(state: GameState, command: SearchCommand): CommandRe
         dropped,
         actionPointsSpent: search.cost,
       },
+      ...noise.events,
     ],
   });
 }

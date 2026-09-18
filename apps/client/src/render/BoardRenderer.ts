@@ -42,6 +42,8 @@ const COLOURS = {
   container: 0x8d6e63,
   containerSearched: 0x4e4e4e,
   containerReachable: 0xffd54f,
+  noiseGunfire: 0xffb74d,
+  noiseSearch: 0x90caf9,
   activeRing: 0xffffff,
   absent: 0x777777,
   down: 0x5a5a5a,
@@ -98,6 +100,7 @@ export class BoardRenderer implements AnimationStage {
   private readonly highlightLayer: Phaser.GameObjects.Graphics;
   private readonly effectLayer: Phaser.GameObjects.Graphics;
   private readonly hoverLayer: Phaser.GameObjects.Graphics;
+  private readonly noiseLayer: Phaser.GameObjects.Graphics;
   private readonly players = new Map<PlayerId, EntitySprite>();
   private readonly zombies = new Map<ZombieId, EntitySprite>();
   private readonly items = new Map<ItemId, ItemSprite>();
@@ -113,6 +116,7 @@ export class BoardRenderer implements AnimationStage {
   ) {
     this.tileLayer = scene.add.graphics();
     this.highlightLayer = scene.add.graphics();
+    this.noiseLayer = scene.add.graphics();
     this.hoverLayer = scene.add.graphics();
     this.effectLayer = scene.add.graphics().setDepth(10);
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -130,6 +134,7 @@ export class BoardRenderer implements AnimationStage {
       if (!completed) return;
       this.shownState = state;
       this.drawHighlights(state, me);
+      this.drawNoises(state);
       this.reconcileContainers(state);
       this.reconcileItems(state);
       this.reconcilePlayers(state);
@@ -255,6 +260,30 @@ export class BoardRenderer implements AnimationStage {
     for (const c of searchableContainersInReach(state, player)) {
       const { x, y } = tileToPixel(c.position);
       g.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    }
+  }
+
+  /**
+   * Marks every lingering noise: a dot on its tile and the square of tiles within earshot
+   * (Chebyshev distance up to the intensity), fading as the noise's rounds run out.
+   */
+  private drawNoises(state: GameState): void {
+    const g = this.noiseLayer;
+    g.clear();
+    for (const noise of state.noises) {
+      const colour = noise.sourceType === "gunfire" ? COLOURS.noiseGunfire : COLOURS.noiseSearch;
+      const alpha = Math.min(1, noise.remainingRounds / state.rules.noiseDurationRounds);
+      const { x, y } = tileCenter(noise.position);
+      g.fillStyle(colour, 0.8 * alpha);
+      g.fillCircle(x, y, TILE_SIZE / 5);
+      g.lineStyle(2, colour, 0.45 * alpha);
+      const reach = noise.intensity * TILE_SIZE;
+      g.strokeRect(
+        x - TILE_SIZE / 2 - reach,
+        y - TILE_SIZE / 2 - reach,
+        TILE_SIZE + 2 * reach,
+        TILE_SIZE + 2 * reach,
+      );
     }
   }
 

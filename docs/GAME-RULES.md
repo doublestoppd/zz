@@ -76,17 +76,51 @@ round N+1: ...
 ## Zombie phase (`zombies/`)
 
 Every zombie acts once per round, in id order, each seeing the board as the previous one
-left it. For each zombie, `decideZombieAction` (`zombies/targetSelection.ts`) picks one of:
+left it. For each zombie, `decideZombieAction` (`zombies/targetSelection.ts`) picks one of,
+in this order:
 
 1. **Attack** if a standing survivor (status `active`, connected or not) is orthogonally
    adjacent. The first such survivor in turn order is hit for the zombie type's `damage`.
-2. **Step** one tile along the shortest path to a free tile next to the nearest standing
-   survivor, then decide again, up to the type's `movesPerPhase` steps. Distance is BFS path length. Ties are broken by turn order, so there is no
-   randomness. Survivors block the search; other zombies do not, but a zombie never steps
-   onto an occupied tile (a queue in a corridor waits for the zombie in front to move).
-3. **Wait** if no survivor is reachable or the next tile is occupied.
+2. **Pursue** a survivor it can **see**: within the type's `sightRange` (Chebyshev
+   distance, 6 for a walker) with a clear line of sight (same Bresenham rule as shooting).
+   It steps one tile along the shortest path to a free tile next to the nearest visible
+   standing survivor, then decides again, up to the type's `movesPerPhase` steps. Distance
+   is BFS path length. Ties are broken by turn order, so there is no randomness. Survivors
+   block the search; other zombies do not, but a zombie never steps onto an occupied tile
+   (a queue in a corridor waits for the zombie in front to move). Seeing a survivor clears
+   any remembered noise.
+3. **Investigate** a noise (see Noise below) when no survivor is visible: the best audible
+   noise this phase, or failing that the spot it remembered from an earlier phase. It walks
+   one tile at a time toward the spot, or toward the nearest walkable tile beside it when
+   the spot itself cannot be reached (a survivor is still standing there, say). Arriving on
+   or next to the spot forgets it, as does finding nothing around it reachable. A zombie
+   that remembers a spot but is boxed in keeps the memory and waits.
+4. **Wait** otherwise.
+
+A zombie that sees nobody and hears nothing stays where it is, so survivors can slip past
+zombies by keeping walls between them and staying quiet.
 
 Zombies take damage only from survivor attacks (see Combat) and die at zero health.
+
+## Noise (`rules/noise.ts`)
+
+Loud actions leave a `NoiseEvent` in `state.noises`: a position, an `intensity` (how many
+tiles it carries), a `sourceType`, and `remainingRounds`.
+
+- **Sources**: firing a weapon makes a noise of the weapon's `noise` at the shooter's tile
+  (pistol 8); searching a container makes a noise of `searchNoise` (2) at the container's
+  tile. Movement is silent. A source with intensity 0 makes no noise.
+- **Hearing** ignores walls: a zombie hears a noise when its Chebyshev distance to the
+  noise is at most the intensity.
+- **Choosing**: among the noises a zombie can hear, it prefers the highest _score_
+  (intensity minus distance, so a loud far shot can beat a quiet nearby rummage); a tie goes
+  to the earlier noise (lower id).
+- **Decay**: every noise loses one round at the end of each zombie phase and disappears at
+  zero; `noiseDurationRounds` (2) is the starting value, so a shot fired during round _n_
+  is audible in the zombie phases of rounds _n_ and _n + 1_. The zombie's memory of the
+  spot outlives the noise (`investigating` on the zombie) until it arrives or sees someone.
+- Noises are deterministic: they are part of the state, created by commands, and never
+  rolled.
 
 ## Combat (`rules/combat.ts`, `rules/lineOfSight.ts`)
 
@@ -102,6 +136,8 @@ magazine 6, 1 action point to fire, 1 action point to reload.
 - **Line of sight** follows Bresenham's line between the two tiles, checked in both
   directions so it is symmetric. Any tile strictly between them that `blocksVision` (walls)
   blocks the shot. Survivors and zombies never block sight.
+- **Noise**: every shot, hit or not, makes a noise of the weapon's `noise` (pistol 8) at
+  the shooter's tile (see Noise).
 - **Reload** fills the magazine from reserve ammunition, limited by what the reserve holds.
   Rejected when the magazine is full, the reserve is empty, or action points are short.
 - A zombie at zero health dies and is removed from the board (`entity_died`).
@@ -143,7 +179,7 @@ table in `packages/game-data/src/containers.ts`. Searching costs `searchActionPo
   fit is dropped on the container's tile as an ordinary ground item and can be picked up
   later by anyone.
 - A container never yields twice. Searched containers stay on the map, greyed out.
-- Searching makes no noise yet (a later milestone).
+- Searching makes a noise of `searchNoise` (2) at the container's tile (see Noise).
 
 Item numbers live in `packages/game-data/src/items.ts`: a bandage heals 3, a medkit heals
 5, an ammo box adds 6 rounds to the reserve; using any costs 1 action point, and picking up
@@ -167,4 +203,5 @@ costs 1.
 
 ## Not yet implemented
 
-Melee, more weapons, dropping or trading items, searchable containers, other game modes.
+Melee, more weapons, dropping or trading items, other game modes, noise from movement or
+doors.

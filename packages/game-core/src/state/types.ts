@@ -1,4 +1,4 @@
-import type { ContainerId, ItemId, MatchId, PlayerId, ZombieId } from "../ids.js";
+import type { ContainerId, ItemId, MatchId, NoiseId, PlayerId, ZombieId } from "../ids.js";
 import type { GameMap, Position } from "../map/types.js";
 import type {
   ItemDefinition,
@@ -32,6 +32,10 @@ export interface GameState {
   readonly items: readonly GroundItem[];
   /** Searchable objects inside buildings. Each yields loot once. */
   readonly containers: readonly SearchableContainer[];
+  /** Recent loud actions that zombies may investigate. Expire after `noiseDurationRounds`. */
+  readonly noises: readonly NoiseEvent[];
+  /** Counter behind noise ids, so ids are unique and creation order is recoverable. */
+  readonly noiseCounter: number;
   readonly objective: ObjectiveState;
 }
 
@@ -61,6 +65,10 @@ export interface GameRules {
   readonly pickUpActionPointCost: number;
   /** Action points to search a container. */
   readonly searchActionPointCost: number;
+  /** Noise intensity (hearing radius in tiles) made by a search; 0 means silent. */
+  readonly searchNoise: number;
+  /** Zombie phases a noise stays audible for, counting the one right after it is made. */
+  readonly noiseDurationRounds: number;
   /** What each kind of location yields when searched. */
   readonly searchLootTables: Readonly<Record<ContainerCategory, SearchLootTable>>;
 }
@@ -128,6 +136,28 @@ export interface ZombieState {
   readonly type: ZombieType;
   readonly position: Position;
   readonly health: number;
+  /**
+   * A remembered noise position the zombie is walking to. Kept until it arrives, sees a
+   * survivor, or finds the spot unreachable, so a sound keeps drawing it after the source
+   * has moved on.
+   */
+  readonly investigating?: Position;
+}
+
+/** What made a noise. Drives client presentation and, later, per-source rules. */
+export type NoiseSourceType = "gunfire" | "search";
+
+/**
+ * A sound remembered by the world. `intensity` is the hearing radius in tiles (Chebyshev):
+ * a zombie hears it when its distance is at most the intensity. `remainingRounds` counts
+ * the zombie phases it will still be evaluated in.
+ */
+export interface NoiseEvent {
+  readonly id: NoiseId;
+  readonly position: Position;
+  readonly intensity: number;
+  readonly remainingRounds: number;
+  readonly sourceType: NoiseSourceType;
 }
 
 /** Discriminated union so a second game mode can be added as another member. */

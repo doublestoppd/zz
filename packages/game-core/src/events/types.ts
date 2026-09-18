@@ -1,10 +1,11 @@
-import type { ContainerId, ItemId, PlayerId, ZombieId } from "../ids.js";
+import type { ContainerId, ItemId, NoiseId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
 import type {
   ContainerCategory,
   GamePhase,
   ItemType,
   MatchOutcome,
+  NoiseSourceType,
   WeaponType,
 } from "../state/types.js";
 
@@ -21,6 +22,8 @@ export type GameEvent =
   | ItemPickedUpEvent
   | ItemUsedEvent
   | ContainerSearchedEvent
+  | NoiseMadeEvent
+  | ZombieInvestigatingEvent
   | PlayerHealedEvent
   | AmmoGainedEvent
   | TurnEndedEvent
@@ -83,6 +86,22 @@ export interface ContainerSearchedEvent {
   readonly carried: readonly ItemType[];
   readonly dropped: readonly ItemType[];
   readonly actionPointsSpent: number;
+}
+
+/** A loud action happened; zombies within `intensity` tiles may investigate. */
+export interface NoiseMadeEvent {
+  readonly type: "noise_made";
+  readonly noiseId: NoiseId;
+  readonly position: Position;
+  readonly intensity: number;
+  readonly sourceType: NoiseSourceType;
+}
+
+/** A zombie that sees nobody picked a noise position to walk to. */
+export interface ZombieInvestigatingEvent {
+  readonly type: "zombie_investigating";
+  readonly zombieId: ZombieId;
+  readonly position: Position;
 }
 
 export interface ItemUsedEvent {

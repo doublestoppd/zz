@@ -78,7 +78,7 @@ own layout in `testing/makeTestState.ts`.
 
 1. `packages/game-core/src/state/types.ts`: extend `ZombieType`.
 2. `packages/game-data/src/zombies.ts`: the compiler now demands a `ZombieDefinition` entry
-   (health, damage, `movesPerPhase`). Add a weight to `ZOMBIE_SPAWN_TABLE` so it appears at
+   (health, damage, `movesPerPhase`, `sightRange`). Add a weight to `ZOMBIE_SPAWN_TABLE` so it appears at
    spawns; the type at each `Z` is rolled from that table on the `zombieSpawns` RNG stream.
 3. Behaviour that differs per type should be data first (`ZombieDefinition` fields read in
    `zombies/targetSelection.ts` and `zombies/zombiePhase.ts`). Only add a `switch` on the type
@@ -90,7 +90,7 @@ own layout in `testing/makeTestState.ts`.
 
 1. `packages/game-core/src/state/types.ts`: extend `WeaponType`.
 2. `packages/game-data/src/weapons.ts`: the compiler demands a `WeaponDefinition` entry
-   (damage, range, magazine size, action point costs).
+   (damage, range, magazine size, action point costs, `noise`).
 3. Nothing else, if the weapon behaves like the pistol. Behaviour that differs (spread,
    burst, melee) is a new field on `WeaponDefinition` read in `rules/combat.ts`, not a
    `switch` on the type, unless a number or flag cannot express it.
@@ -160,6 +160,23 @@ intended shape until a third mode proves otherwise.
 2. For a new sound, add the name to `SoundName` and its tones to `TONES` in
    `apps/client/src/audio/SoundPlayer.ts`. Sounds are synthesized; there are no audio files.
 3. Add a case to `animationPlan.test.ts`; it runs without Phaser.
+
+## Add a noise source or change what zombies notice
+
+1. A new loud action calls `makeNoise(state, position, intensity, sourceType)` from
+   `packages/game-core/src/rules/noise.ts` inside its command handler (see
+   `commands/handlers/combat.ts` and `handlers/search.ts`) and appends the returned events.
+   Put the intensity in game data (a `WeaponDefinition.noise` field, `GameRules.searchNoise`)
+   rather than in the handler, and add a `validateSetup.ts` check for it.
+2. A new `sourceType` extends `NoiseSourceType` in `state/types.ts`; the client log and the
+   board marker colour in `apps/client/src/render/BoardRenderer.ts` switch on it.
+3. Hearing and preference live in `rules/noise.ts` (`canHear`, `noiseScore`); sight in
+   `zombies/targetSelection.ts` (`canSee`, reading `ZombieDefinition.sightRange`). The
+   priority order (attack, pursue, investigate, wait) is `decideZombieAction`.
+4. Decay happens once per zombie phase in `turn/phases.ts` via `decayNoises`;
+   `GameRules.noiseDurationRounds` sets how many phases a noise lasts.
+5. Tests: `zombies/noise.test.ts` uses small ASCII corridors with a wall between the
+   survivor and the zombie so sight and hearing can be told apart.
 
 ## Add a keyboard shortcut
 

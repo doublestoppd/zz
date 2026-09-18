@@ -4,6 +4,8 @@ export type {
   ExtractionObjectiveState,
   GroundItem,
   ItemType,
+  NoiseEvent,
+  NoiseSourceType,
   GamePhase,
   GameRules,
   GameState,

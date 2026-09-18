@@ -40,11 +40,11 @@ describe("decideZombieAction", () => {
       ...base,
       players: base.players.map((p) => ({ ...p, status: "down", health: 0 })),
     };
-    expect(decideZombieAction(allDown, zombie(allDown))).toEqual({ kind: "wait" });
+    expect(decideZombieAction(allDown, zombie(allDown))).toMatchObject({ kind: "wait" });
 
     const sealed = parseAsciiMap(["#######", "#S#..Z#", "#######"]);
     const walled = makeTestState({ players: [P1], layout: sealed });
-    expect(decideZombieAction(walled, zombie(walled))).toEqual({ kind: "wait" });
+    expect(decideZombieAction(walled, zombie(walled))).toMatchObject({ kind: "wait" });
   });
 
   it("breaks distance ties by turn order", () => {
@@ -54,7 +54,7 @@ describe("decideZombieAction", () => {
     expect(decideZombieAction(state, zombie(state))).toMatchObject({
       kind: "step",
       to: { x: 2, y: 1 },
-      target: { id: P1 },
+      reason: "pursue",
     });
   });
 
@@ -64,6 +64,6 @@ describe("decideZombieAction", () => {
     const state = makeTestState({ players: [P1], layout });
     const [a, b] = state.zombies;
     expect(decideZombieAction(state, a!)).toMatchObject({ kind: "step", to: { x: 2, y: 1 } });
-    expect(decideZombieAction(state, b!)).toEqual({ kind: "wait" });
+    expect(decideZombieAction(state, b!)).toMatchObject({ kind: "wait" });
   });
 });

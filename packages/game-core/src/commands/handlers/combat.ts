@@ -1,5 +1,6 @@
 import { validateFire, validateReload } from "../../rules/combat.js";
 import { damageZombie } from "../../rules/health.js";
+import { makeNoise } from "../../rules/noise.js";
 import { replacePlayer } from "../../state/players.js";
 import type { GameState } from "../../state/types.js";
 import { requireActivePlayer } from "../turnChecks.js";
@@ -23,8 +24,15 @@ export function applyFireWeapon(state: GameState, command: FireWeaponCommand): C
     survivor === undefined
       ? shooter.zombies.filter((z) => z.id !== fire.target.id)
       : shooter.zombies.map((z) => (z.id === fire.target.id ? survivor : z));
+  // The shot is heard at the shooter's tile, whatever it hit.
+  const noise = makeNoise(
+    { ...shooter, zombies },
+    check.player.position,
+    fire.weapon.noise,
+    "gunfire",
+  );
   return ok({
-    state: { ...shooter, zombies },
+    state: noise.state,
     events: [
       {
         type: "weapon_fired",
@@ -34,6 +42,7 @@ export function applyFireWeapon(state: GameState, command: FireWeaponCommand): C
         actionPointsSpent: fire.weapon.fireActionPointCost,
       },
       ...hit.events,
+      ...noise.events,
     ],
   });
 }

@@ -18,7 +18,7 @@ export function makeClientTestState(
     seed: 1,
     rules: {
       moveCostPerTile: 1,
-      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1 } },
+      zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1, sightRange: 6 } },
       itemDefinitions: {
         bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
@@ -26,6 +26,8 @@ export function makeClientTestState(
       },
       pickUpActionPointCost: 1,
       searchActionPointCost: 2,
+      searchNoise: 2,
+      noiseDurationRounds: 2,
       searchLootTables: {
         home: { minRolls: 1, maxRolls: 1, entries: [{ type: "bandage", weight: 1 }] },
         clinic: { minRolls: 1, maxRolls: 1, entries: [{ type: "medkit", weight: 1 }] },
@@ -39,6 +41,7 @@ export function makeClientTestState(
           magazineSize: 6,
           fireActionPointCost: 1,
           reloadActionPointCost: 1,
+          noise: 8,
         },
       },
     },

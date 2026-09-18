@@ -44,6 +44,8 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   positiveInteger(issues, "rules.moveCostPerTile", rules.moveCostPerTile, 1);
   positiveInteger(issues, "rules.pickUpActionPointCost", rules.pickUpActionPointCost, 0);
   positiveInteger(issues, "rules.searchActionPointCost", rules.searchActionPointCost, 0);
+  positiveInteger(issues, "rules.searchNoise", rules.searchNoise, 0);
+  positiveInteger(issues, "rules.noiseDurationRounds", rules.noiseDurationRounds, 1);
   for (const [category, table] of Object.entries(rules.searchLootTables)) {
     positiveInteger(issues, `search table ${category}.minRolls`, table.minRolls, 0);
     positiveInteger(issues, `search table ${category}.maxRolls`, table.maxRolls, table.minRolls);
@@ -66,11 +68,13 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
       weapon.reloadActionPointCost,
       0,
     );
+    positiveInteger(issues, `weapon ${type}.noise`, weapon.noise, 0);
   }
   for (const [type, zombie] of Object.entries(rules.zombieDefinitions)) {
     positiveInteger(issues, `zombie ${type}.maxHealth`, zombie.maxHealth, 1);
     positiveInteger(issues, `zombie ${type}.damage`, zombie.damage, 0);
     positiveInteger(issues, `zombie ${type}.movesPerPhase`, zombie.movesPerPhase, 1);
+    positiveInteger(issues, `zombie ${type}.sightRange`, zombie.sightRange, 1);
   }
   for (const [type, item] of Object.entries(rules.itemDefinitions)) {
     positiveInteger(issues, `item ${type}.useActionPointCost`, item.useActionPointCost, 0);

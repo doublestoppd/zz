@@ -8,5 +8,6 @@ export const WEAPON_DEFINITIONS: Readonly<Record<WeaponType, WeaponDefinition>> 
     magazineSize: 6,
     fireActionPointCost: 1,
     reloadActionPointCost: 1,
+    noise: 8,
   },
 };

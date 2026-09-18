@@ -42,6 +42,8 @@ export interface TestStateOptions {
   readonly inventoryCapacity?: number;
   readonly zombieMovesPerPhase?: number;
   readonly searchActionPointCost?: number;
+  readonly searchNoise?: number;
+  readonly zombieSightRange?: number;
 }
 
 const DEFAULT_PISTOL: WeaponDefinition = {
@@ -50,6 +52,7 @@ const DEFAULT_PISTOL: WeaponDefinition = {
   magazineSize: 6,
   fireActionPointCost: 1,
   reloadActionPointCost: 1,
+  noise: 8,
 };
 
 export function makeTestState(options: TestStateOptions = {}): GameState {
@@ -64,6 +67,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
           maxHealth: options.zombieHealth ?? 3,
           damage: options.zombieDamage ?? 2,
           movesPerPhase: options.zombieMovesPerPhase ?? 1,
+          sightRange: options.zombieSightRange ?? 6,
         },
       },
       weaponDefinitions: { pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
@@ -74,6 +78,8 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       },
       pickUpActionPointCost: 1,
       searchActionPointCost: options.searchActionPointCost ?? 2,
+      searchNoise: options.searchNoise ?? 2,
+      noiseDurationRounds: 2,
       searchLootTables: {
         home: {
           minRolls: 1,

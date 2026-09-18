@@ -2,6 +2,7 @@ import type { GameEvent } from "../events/types.js";
 import type { Rng } from "../random/rng.js";
 import { damagePlayer } from "../rules/health.js";
 import { replacePlayer } from "../state/players.js";
+import { positionsEqual } from "../map/position.js";
 import type { GameState, ZombieState } from "../state/types.js";
 import { decideZombieAction, type ZombieDecision } from "./targetSelection.js";
 
@@ -42,27 +43,56 @@ function applyDecision(
   decision: ZombieDecision,
   events: GameEvent[],
 ): GameState {
+  const remembered = withMemory(current, zombie, decision, events);
   switch (decision.kind) {
     case "attack": {
-      const damage = current.rules.zombieDefinitions[zombie.type].damage;
+      const damage = remembered.rules.zombieDefinitions[zombie.type].damage;
       const outcome = damagePlayer(decision.target, damage);
       events.push(
         { type: "zombie_attacked", zombieId: zombie.id, targetId: decision.target.id, damage },
         ...outcome.events,
       );
-      return replacePlayer(current, outcome.player);
+      return replacePlayer(remembered, outcome.player);
     }
     case "step": {
-      const moved: ZombieState = { ...zombie, position: decision.to };
       events.push({
         type: "zombie_moved",
         zombieId: zombie.id,
         from: zombie.position,
         to: decision.to,
       });
-      return { ...current, zombies: current.zombies.map((z) => (z.id === zombie.id ? moved : z)) };
+      return replaceZombie(remembered, zombie.id, (z) => ({ ...z, position: decision.to }));
     }
     case "wait":
-      return current;
+      return remembered;
   }
+}
+
+/** Stores the decision's investigation memory on the zombie, announcing a newly chosen spot. */
+function withMemory(
+  state: GameState,
+  zombie: ZombieState,
+  decision: ZombieDecision,
+  events: GameEvent[],
+): GameState {
+  const next = decision.kind === "attack" ? undefined : decision.investigating;
+  const before = zombie.investigating;
+  const unchanged =
+    (next === undefined && before === undefined) ||
+    (next !== undefined && before !== undefined && positionsEqual(next, before));
+  if (unchanged) return state;
+  if (next !== undefined)
+    events.push({ type: "zombie_investigating", zombieId: zombie.id, position: next });
+  return replaceZombie(state, zombie.id, (z) => {
+    const { investigating: _forgotten, ...rest } = z;
+    return next === undefined ? rest : { ...rest, investigating: next };
+  });
+}
+
+function replaceZombie(
+  state: GameState,
+  id: ZombieState["id"],
+  update: (zombie: ZombieState) => ZombieState,
+): GameState {
+  return { ...state, zombies: state.zombies.map((z) => (z.id === id ? update(z) : z)) };
 }

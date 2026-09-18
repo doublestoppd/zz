@@ -106,6 +106,8 @@ export function createInitialState(setup: MatchSetup): GameState {
     zombies,
     items,
     containers,
+    noises: [],
+    noiseCounter: 0,
     objective: createObjective(layout, setup.objective),
   };
 

@@ -12,5 +12,9 @@ export const DEFAULT_GAME_RULES: GameRules = {
   itemDefinitions: ITEM_DEFINITIONS,
   pickUpActionPointCost: 1,
   searchActionPointCost: 2,
+  /** A search is a low local disturbance; a pistol shot is 8 (weapons.ts). */
+  searchNoise: 2,
+  /** A noise is heard in the zombie phase right after it and one more. */
+  noiseDurationRounds: 2,
   searchLootTables: SEARCH_LOOT_TABLES,
 };

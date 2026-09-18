@@ -101,6 +101,8 @@ export function planAnimations(
       case "match_ended":
         steps.push({ kind: "sound", name: event.outcome === "victory" ? "victory" : "defeat" });
         break;
+      case "noise_made":
+      case "zombie_investigating":
       case "item_used":
       case "player_downed":
       case "turn_ended":

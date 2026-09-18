@@ -338,8 +338,10 @@ describe("gameplay", () => {
     guest.command({ type: "end_turn" }, { seq: 1 });
     const [after] = await Promise.all([host.next("update"), guest.next("update")]);
     expect(after.state.round).toBe(2);
-    expect(after.events.some((e) => e.type === "zombie_moved")).toBe(true);
-    expect(after.state.zombies).not.toEqual(first.state.zombies);
+    // Zombies out of sight and earshot stay put, so the phase itself is the evidence.
+    expect(
+      after.events.some((e) => e.type === "phase_changed" && e.phase.kind === "zombie_phase"),
+    ).toBe(true);
   });
 
   it("applies fire and reload commands from the active player", async () => {

@@ -3,6 +3,7 @@ import type { PlayerId } from "../ids.js";
 import { createRng, type Rng } from "../random/rng.js";
 import type { GamePhase, GameState, MatchOutcome } from "../state/types.js";
 import { evaluateObjective } from "../objectives/evaluate.js";
+import { decayNoises } from "../rules/noise.js";
 import { runZombiePhase } from "../zombies/zombiePhase.js";
 import {
   firstEligiblePlayer,
@@ -60,7 +61,9 @@ export function resolveZombiePhase(state: GameState, rng: Rng): Transition {
     throw new Error(`resolveZombiePhase: expected zombie_phase, got ${state.phase.kind}`);
   }
   const zombies = runZombiePhase(state, rng);
-  const withRng: GameState = { ...zombies.state, rngState: rng.getState() };
+  // Noises are heard during the phase above, then age; a noise made this round is thus
+  // evaluated in `noiseDurationRounds` consecutive zombie phases.
+  const withRng: GameState = { ...decayNoises(zombies.state), rngState: rng.getState() };
   const next = setPhase(withRng, { kind: "end_of_round" });
   return { state: next.state, events: [...zombies.events, ...next.events] };
 }

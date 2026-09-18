@@ -47,3 +47,4 @@ export {
   type SearchRejectionReason,
   type SearchValidation,
 } from "./search.js";
+export { canHear, decayNoises, makeNoise, noiseScore, type NoiseOutcome } from "./noise.js";

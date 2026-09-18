@@ -8,6 +8,7 @@ export type {
   ItemUsedEvent,
   GameEvent,
   MatchEndedEvent,
+  NoiseMadeEvent,
   PhaseChangedEvent,
   PlayerDownedEvent,
   PlayerHealedEvent,
@@ -19,5 +20,6 @@ export type {
   WeaponFiredEvent,
   WeaponReloadedEvent,
   ZombieAttackedEvent,
+  ZombieInvestigatingEvent,
   ZombieMovedEvent,
 } from "./types.js";
