@@ -14,6 +14,7 @@ const ERROR_TEXT: Readonly<Record<ErrorCode, string>> = {
   INVALID_REJOIN_TOKEN: "That rejoin token is not valid for this match.",
   RATE_LIMITED: "Too many messages; slow down.",
   SESSION_REPLACED: "Another connection took over this player.",
+  SHUTTING_DOWN: "The server is restarting; try again in a moment.",
   INTERNAL_ERROR: "The server hit a problem handling that message.",
 };
 

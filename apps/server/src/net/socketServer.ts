@@ -43,6 +43,7 @@ const DEFAULTS = {
 
 /** Close codes from RFC 6455 used here. */
 const CLOSE_POLICY_VIOLATION = 1008;
+const CLOSE_GOING_AWAY = 1001;
 const CLOSE_TRY_AGAIN_LATER = 1013;
 
 /**
@@ -91,8 +92,9 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       send(message) {
         if (socket.readyState === WebSocket.OPEN) socket.send(encodeMessage(message));
       },
-      close() {
-        socket.close(CLOSE_POLICY_VIOLATION, "session replaced");
+      close(reason = "replaced") {
+        if (reason === "going_away") socket.close(CLOSE_GOING_AWAY, "server restarting");
+        else socket.close(CLOSE_POLICY_VIOLATION, "session replaced");
       },
     };
 

@@ -1,4 +1,5 @@
 import {
+  applyCommand,
   createInitialState,
   fingerprint,
   journalEntry,
@@ -39,6 +40,8 @@ import { sendError } from "../errors.js";
 import { log } from "../log.js";
 import { GAME_VERSION } from "../version.js";
 import type { ClientSession } from "../session/ClientSession.js";
+import type { MatchRecord, MatchStatus, MatchStore } from "../persistence/matchStore.js";
+import { rebuildInitialState, verifyJournal } from "../replay/verifier.js";
 import { MatchRuntime } from "./MatchRuntime.js";
 import { redactEvents, redactState } from "./redact.js";
 
@@ -84,6 +87,8 @@ export interface MatchDependencies {
   readonly createLayout: (seed: number, playerCount: number) => CreatedLayout;
   /** Receives every finished match's journal; production writes it to disk when configured. */
   readonly onJournal?: (journal: MatchJournal) => void;
+  /** Where records are checkpointed after every mutation and restored from after a restart. */
+  readonly store?: MatchStore;
 }
 
 export interface CreatedLayout {
@@ -154,6 +159,7 @@ export class ServerMatch {
   private journalMetadata: JournalMetadata | undefined;
   private journalEntries: JournalEntry[] = [];
   private initialCheckpoint = "";
+  private status: MatchStatus = "lobby";
 
   constructor(
     code: string,
@@ -164,6 +170,99 @@ export class ServerMatch {
 
   isStarted(): boolean {
     return this.runtime !== undefined;
+  }
+
+  /** Where the match is in its lifecycle: lobby, starting, active, completed, or abandoned. */
+  getStatus(): MatchStatus {
+    return this.status;
+  }
+
+  /** Marks the match abandoned (nobody came back within the grace period); the registry then deletes it. */
+  markAbandoned(): void {
+    this.status = "abandoned";
+    this.deps.store?.delete(this.code);
+  }
+
+  /** Tells every connected member the server is going away (close code 1001); the state is already saved. */
+  closeAll(): void {
+    for (const member of this.members) {
+      if (member.session === undefined) continue;
+      sendError(member.session, "SHUTTING_DOWN");
+      member.session.close("going_away");
+    }
+  }
+
+  /**
+   * What the store keeps: membership with credentials, the journal, and the status. The
+   * journal alone rebuilds the state; nothing about sockets or presentation is recorded.
+   */
+  record(): MatchRecord | undefined {
+    const journal = this.journal();
+    if (journal === undefined) return undefined;
+    return {
+      code: this.code,
+      status: this.status,
+      hostId: this.hostId,
+      members: this.members.map((m) => ({
+        playerId: m.playerId,
+        name: m.name,
+        specialty: m.specialty,
+        rejoinToken: m.rejoinToken,
+      })),
+      journal,
+      savedAt: Date.now(),
+    };
+  }
+
+  /**
+   * Brings a saved match back after a restart: the initial state is rebuilt from the
+   * journal's metadata and every recorded mutation is re-applied, so the revision and the
+   * journal continue exactly where they stopped. Every member starts absent; the usual
+   * rejoin path (same token) brings them back. Throws when the journal does not replay,
+   * which the registry logs and treats as an unrecoverable record.
+   */
+  static restore(record: MatchRecord, deps: MatchDependencies): ServerMatch {
+    const match = new ServerMatch(record.code, deps);
+    match.hostId = record.hostId;
+    for (const m of record.members) {
+      match.members.push({
+        playerId: m.playerId,
+        name: m.name,
+        specialty: m.specialty,
+        rejoinToken: m.rejoinToken,
+        session: undefined,
+        recentCommands: new RecentCommandIds(),
+      });
+    }
+    match.nextPlayerNumber = record.members.length + 1;
+    const verdict = verifyJournal(record.journal);
+    if (!verdict.ok) throw new Error(`restore ${record.code}: ${verdict.reason}`);
+    let state = rebuildInitialState(record.journal);
+    for (const entry of record.journal.entries) {
+      const applied = applyCommand(state, entry.command);
+      if (!applied.ok)
+        throw new Error(`restore ${record.code}: ${applied.reason} at ${entry.revision}`);
+      state = applied.state;
+    }
+    match.runtime = new MatchRuntime(state, record.journal.entries.length);
+    match.journalMetadata = record.journal.metadata;
+    match.journalEntries = [...record.journal.entries];
+    match.initialCheckpoint = record.journal.initialCheckpoint;
+    match.status = state.phase.kind === "finished" ? "completed" : "active";
+    match.endLogged = match.status === "completed";
+    // Disconnected members must be absent in the state too; the journal did record their last presence.
+    for (const m of match.members) {
+      const player = state.players.find((p) => p.id === m.playerId);
+      if (player?.present === true)
+        match.mutate({ type: "set_player_presence", playerId: m.playerId, present: false });
+    }
+    match.persist();
+    return match;
+  }
+
+  private persist(): void {
+    const record = this.record();
+    if (record !== undefined) this.deps.store?.save(record);
   }
 
   /** True when no member is connected. The registry uses this to discard matches. */
@@ -256,6 +355,9 @@ export class ServerMatch {
     const result = this.runtime.apply(command);
     if (result.ok) {
       this.journalEntries.push(journalEntry(this.runtime.getRevision(), command, result.state));
+      if (result.state.phase.kind === "finished") this.status = "completed";
+      // Checkpoint after every accepted mutation: the record is small and matches move at human speed.
+      this.persist();
     }
     return result;
   }
@@ -299,6 +401,7 @@ export class ServerMatch {
     if (this.isStarted()) return "MATCH_ALREADY_STARTED";
     if (member.playerId !== this.hostId) return "NOT_HOST";
 
+    this.status = "starting";
     const seed = this.deps.createSeed();
     const created = this.deps.createLayout(seed, this.members.length);
     const initial = createInitialState({
@@ -325,6 +428,8 @@ export class ServerMatch {
     };
     this.journalEntries = [];
     this.initialCheckpoint = fingerprint(initial);
+    this.status = "active";
+    this.persist();
     log("info", "match started", {
       matchCode: this.code,
       seed,

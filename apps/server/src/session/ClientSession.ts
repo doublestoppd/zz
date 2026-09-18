@@ -8,8 +8,8 @@ import type { ServerMessage } from "@zombie/protocol";
 export interface ClientSession {
   readonly id: string;
   send(message: ServerMessage): void;
-  /** Closes the socket, for example when another socket takes over this player slot. */
-  close(): void;
+  /** Closes the socket: 1008 when another socket takes over this slot, 1001 when the server goes away. */
+  close(reason?: "replaced" | "going_away"): void;
   matchCode: string | undefined;
   playerId: PlayerId | undefined;
 }

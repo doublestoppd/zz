@@ -219,6 +219,7 @@ export type ErrorCode =
   | "INVALID_REJOIN_TOKEN"
   | "RATE_LIMITED"
   | "SESSION_REPLACED"
+  | "SHUTTING_DOWN"
   | "INTERNAL_ERROR";
 
 /** Session-level problems (never the outcome of a gameplay command). Sent to the sender only. */

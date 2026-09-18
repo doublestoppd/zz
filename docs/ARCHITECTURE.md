@@ -145,6 +145,21 @@ disconnecting passes the turn at once; an absent player is skipped until they re
 match nobody is connected to is kept ten minutes. Every policy decision is recorded in
 [ADR 0007](adr/0007-session-identity-and-reconnect-policy.md).
 
+## Match lifecycle and persistence
+
+```
+LOBBY -> STARTING -> ACTIVE -> COMPLETED
+                        \-> ABANDONED
+```
+
+`ServerMatch.getStatus()` reports the state; `STARTING` is the synchronous window inside
+`start()`. The persistence boundary is `MatchStore` (`apps/server/src/persistence/`): a
+record (status, members with their tokens, journal) is saved after every accepted mutation
+and at start, and an active match is rebuilt after a restart by replaying its journal, so
+the revision and journal continue exactly. Files under `STATE_DIR`, or memory when unset.
+Nothing in game-core knows any of this ([ADR 0009](adr/0009-persistence-strategy.md);
+operations in [OPERATIONS.md](OPERATIONS.md)).
+
 ## Match journal and replay
 
 `ServerMatch.mutate` is the one path every authoritative mutation takes; it appends a

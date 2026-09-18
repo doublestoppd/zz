@@ -20,12 +20,20 @@ export function handleClientMessage(
         return;
       }
       const match = registry.create();
+      if (match === undefined) {
+        sendError(session, "SHUTTING_DOWN");
+        return;
+      }
       const error = match.join(session, message.playerName, message.specialty);
       registry.noteMembershipChanged(match);
       if (error !== undefined) sendError(session, error);
       return;
     }
     case "join_match": {
+      if (registry.isDraining()) {
+        sendError(session, "SHUTTING_DOWN");
+        return;
+      }
       const match = registry.get(message.matchCode);
       if (match === undefined) {
         sendError(session, "MATCH_NOT_FOUND");

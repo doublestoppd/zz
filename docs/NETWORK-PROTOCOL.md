@@ -203,7 +203,9 @@ absent only for `MALFORMED_COMMAND`, which is answered before any match is looke
 Session-level problems, never the outcome of a gameplay command. Codes: `MALFORMED_MESSAGE`,
 `INVALID_PLAYER_NAME`, `MATCH_NOT_FOUND`, `MATCH_FULL`, `MATCH_ALREADY_STARTED`,
 `MATCH_NOT_STARTED`, `NOT_IN_MATCH`, `ALREADY_IN_MATCH`, `NOT_HOST`, `INVALID_REJOIN_TOKEN`,
-`RATE_LIMITED`, `SESSION_REPLACED`, `INTERNAL_ERROR` (a handler threw; the message was not
+`RATE_LIMITED`, `SESSION_REPLACED`, `SHUTTING_DOWN` (the server is draining: no lobby can
+be created or joined; connected players receive it just before their socket closes with
+code 1001 and should reconnect), `INTERNAL_ERROR` (a handler threw; the message was not
 applied; nothing about the exception is sent). `MALFORMED_MESSAGE` covers invalid JSON,
 unknown `t`, and wrong field types in the envelope; a well-formed `command` envelope with a
 bad body is answered with `rejected MALFORMED_COMMAND` instead. `message` is fixed text per

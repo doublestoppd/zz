@@ -9,8 +9,9 @@ export class MatchRuntime {
   private state: GameState;
   private revision = 0;
 
-  constructor(initialState: GameState) {
+  constructor(initialState: GameState, revision = 0) {
     this.state = initialState;
+    this.revision = revision;
   }
 
   getState(): GameState {
