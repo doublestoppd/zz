@@ -20,12 +20,18 @@ export {
 } from "./health.js";
 export { hasLineOfSight, tilesBetween, type VisionBoard } from "./lineOfSight.js";
 export {
+  damageAtDistance,
+  firearmOf,
   legalFireTargets,
+  legalMeleeTargets,
+  meleeWeaponOf,
   validateFire,
+  validateMelee,
   validateReload,
-  weaponOf,
   type FireRejectionReason,
   type FireValidation,
+  type MeleeRejectionReason,
+  type MeleeValidation,
   type ReloadRejectionReason,
   type ReloadValidation,
 } from "./combat.js";

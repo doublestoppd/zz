@@ -1,8 +1,23 @@
-import type { GameEvent, GameState, NoiseSourceType, PlayerId, ZombieId } from "@zombie/game-core";
+import type {
+  AmmoType,
+  GameEvent,
+  GameState,
+  NoiseSourceType,
+  PlayerId,
+  ZombieId,
+} from "@zombie/game-core";
+
+/** Plain names for ammunition kinds; the compiler demands every kind. */
+export const AMMO_LABELS: Readonly<Record<AmmoType, string>> = {
+  pistol_rounds: "pistol rounds",
+  shells: "shells",
+  rifle_rounds: "rifle rounds",
+};
 
 /** What each noise source sounds like in the log; the compiler demands every source. */
 const NOISE_LABELS: Readonly<Record<NoiseSourceType, string>> = {
   gunfire: "Gunfire",
+  melee: "A scuffle",
   search: "Rummaging",
   forced_entry: "Splintering",
 };
@@ -21,8 +36,14 @@ export function describeEvent(event: GameEvent, state: GameState): string {
     }
     case "weapon_fired":
       return `${nameOf(state, event.playerId)} fires the ${event.weaponType} at zombie ${event.targetId}`;
+    case "weapon_swung":
+      return `${nameOf(state, event.playerId)} strikes zombie ${event.targetId} with the ${event.weaponType}`;
     case "weapon_reloaded":
-      return `${nameOf(state, event.playerId)} reloads (${event.loadedAmmo} loaded, ${event.reserveAmmo} left)`;
+      return `${nameOf(state, event.playerId)} reloads (${event.loadedAmmo} loaded, ${event.reserveAmmo} ${AMMO_LABELS[event.ammoType]} left)`;
+    case "weapon_equipped":
+      return `${nameOf(state, event.playerId)} takes the ${event.weaponType} and drops the ${event.replaced}`;
+    case "zombie_knocked_back":
+      return `Zombie ${event.zombieId} is knocked back to (${event.to.x}, ${event.to.y})`;
     case "entity_died":
       return `Zombie ${event.entityId} is destroyed`;
     case "item_picked_up":
@@ -41,7 +62,7 @@ export function describeEvent(event: GameEvent, state: GameState): string {
     case "player_healed":
       return `${nameOf(state, event.playerId)} heals ${event.amount} (${event.health} HP)`;
     case "ammo_gained":
-      return `${nameOf(state, event.playerId)} gains ${event.rounds} rounds (${event.reserveAmmo} in reserve)`;
+      return `${nameOf(state, event.playerId)} gains ${event.rounds} ${AMMO_LABELS[event.ammoType]} (${event.reserveAmmo} in reserve)`;
     case "turn_ended":
       return `${nameOf(state, event.playerId)} ended their turn`;
     case "turn_started":

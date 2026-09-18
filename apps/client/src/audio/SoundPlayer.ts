@@ -26,6 +26,7 @@ const TONES: Readonly<Record<SoundName, readonly Tone[]>> = {
   ],
   zombie: [{ frequency: 110, endFrequency: 70, duration: 0.25, type: "sawtooth", gain: 0.2 }],
   door: [{ frequency: 160, endFrequency: 120, duration: 0.09, type: "square", gain: 0.15 }],
+  swing: [{ frequency: 700, endFrequency: 200, duration: 0.08, type: "triangle", gain: 0.2 }],
   crash: [{ frequency: 420, endFrequency: 50, duration: 0.3, type: "sawtooth", gain: 0.25 }],
   your_turn: [
     { frequency: 440, duration: 0.08, type: "sine", gain: 0.2 },

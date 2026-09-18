@@ -1,7 +1,8 @@
 import { matchId, playerId, type PlayerId } from "../ids.js";
 import { parseAsciiMap, type MapLayout } from "../map/asciiMap.js";
 import { createInitialState } from "../state/createInitialState.js";
-import type { WeaponDefinition } from "../state/definitions.js";
+import type { FirearmDefinition, ItemDefinition, WeaponDefinition } from "../state/definitions.js";
+import type { ItemType, WeaponType } from "../state/types.js";
 import type { GameState } from "../state/types.js";
 
 /**
@@ -36,7 +37,10 @@ export interface TestStateOptions {
   readonly seed?: number;
   readonly zombieDamage?: number;
   readonly zombieHealth?: number;
-  readonly pistol?: Partial<WeaponDefinition>;
+  readonly pistol?: Partial<FirearmDefinition>;
+  /** Overrides for any weapon definition, by type. */
+  readonly weapons?: Partial<Record<WeaponType, Partial<WeaponDefinition>>>;
+  readonly startingMeleeWeapon?: WeaponType;
   readonly startingReserveAmmo?: number;
   readonly holdoutRounds?: number;
   readonly inventoryCapacity?: number;
@@ -47,14 +51,78 @@ export interface TestStateOptions {
   readonly forceEntryNoise?: number;
 }
 
-const DEFAULT_PISTOL: WeaponDefinition = {
+const DEFAULT_PISTOL: FirearmDefinition = {
+  kind: "firearm",
   damage: 2,
   range: 4,
-  magazineSize: 6,
-  fireActionPointCost: 1,
-  reloadActionPointCost: 1,
+  attackActionPointCost: 1,
   noise: 8,
+  ammoType: "pistol_rounds",
+  magazineSize: 6,
+  reloadActionPointCost: 1,
 };
+
+/** The full weapon set as tests see it; game-data holds the real numbers. */
+export const TEST_WEAPONS: Readonly<Record<WeaponType, WeaponDefinition>> = {
+  pistol: DEFAULT_PISTOL,
+  shotgun: {
+    kind: "firearm",
+    damage: 1,
+    damageByDistance: [5, 3],
+    range: 2,
+    attackActionPointCost: 1,
+    noise: 12,
+    ammoType: "shells",
+    magazineSize: 2,
+    reloadActionPointCost: 1,
+  },
+  rifle: {
+    kind: "firearm",
+    damage: 4,
+    range: 7,
+    attackActionPointCost: 2,
+    noise: 10,
+    ammoType: "rifle_rounds",
+    magazineSize: 5,
+    reloadActionPointCost: 1,
+  },
+  knife: { kind: "melee", damage: 1, range: 1, attackActionPointCost: 1, noise: 0 },
+  bat: { kind: "melee", damage: 2, range: 1, attackActionPointCost: 2, noise: 1, knockback: true },
+};
+
+export const TEST_ITEMS: Readonly<Record<ItemType, ItemDefinition>> = {
+  bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
+  medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
+  ammo_box: {
+    effect: { kind: "ammo", ammoType: "pistol_rounds", rounds: 6 },
+    useActionPointCost: 1,
+  },
+  shell_box: { effect: { kind: "ammo", ammoType: "shells", rounds: 4 }, useActionPointCost: 1 },
+  rifle_clip: {
+    effect: { kind: "ammo", ammoType: "rifle_rounds", rounds: 5 },
+    useActionPointCost: 1,
+  },
+  key: { effect: { kind: "key" }, useActionPointCost: 0 },
+  pistol: { effect: { kind: "weapon", weaponType: "pistol" }, useActionPointCost: 0 },
+  shotgun: { effect: { kind: "weapon", weaponType: "shotgun" }, useActionPointCost: 0 },
+  rifle: { effect: { kind: "weapon", weaponType: "rifle" }, useActionPointCost: 0 },
+  knife: { effect: { kind: "weapon", weaponType: "knife" }, useActionPointCost: 0 },
+  bat: { effect: { kind: "weapon", weaponType: "bat" }, useActionPointCost: 0 },
+};
+
+function mergeWeapons(
+  base: Readonly<Record<WeaponType, WeaponDefinition>>,
+  overrides: Partial<Record<WeaponType, Partial<WeaponDefinition>>>,
+): Readonly<Record<WeaponType, WeaponDefinition>> {
+  const merged = { ...base };
+  for (const [type, patch] of Object.entries(overrides) as [
+    WeaponType,
+    Partial<WeaponDefinition>,
+  ][]) {
+    merged[type] = { ...merged[type], ...patch } as WeaponDefinition;
+  }
+  return merged;
+}
 
 export function makeTestState(options: TestStateOptions = {}): GameState {
   const players = options.players ?? [P1, P2];
@@ -71,13 +139,11 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
           sightRange: options.zombieSightRange ?? 6,
         },
       },
-      weaponDefinitions: { pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
-      itemDefinitions: {
-        bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
-        medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
-        ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
-        key: { effect: { kind: "key" }, useActionPointCost: 0 },
-      },
+      weaponDefinitions: mergeWeapons(
+        { ...TEST_WEAPONS, pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
+        options.weapons ?? {},
+      ),
+      itemDefinitions: TEST_ITEMS,
       pickUpActionPointCost: 1,
       searchActionPointCost: options.searchActionPointCost ?? 2,
       searchNoise: options.searchNoise ?? 2,
@@ -126,7 +192,12 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       maxHealth: 10,
       maxActionPoints: options.maxActionPoints ?? 4,
       startingWeapon: "pistol",
-      startingReserveAmmo: options.startingReserveAmmo ?? 12,
+      startingMeleeWeapon: options.startingMeleeWeapon ?? "knife",
+      startingReserveAmmo: {
+        pistol_rounds: options.startingReserveAmmo ?? 12,
+        shells: 0,
+        rifle_rounds: 0,
+      },
       inventoryCapacity: options.inventoryCapacity ?? 3,
     },
     lootTable: [{ type: "medkit", weight: 1 }],

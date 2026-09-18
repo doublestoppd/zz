@@ -59,26 +59,75 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
       zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1, sightRange: 6 } },
       weaponDefinitions: {
         pistol: {
+          kind: "firearm",
           damage: 2,
           range: 4,
-          magazineSize: 6,
-          fireActionPointCost: 1,
-          reloadActionPointCost: 1,
+          attackActionPointCost: 1,
           noise: 8,
+          ammoType: "pistol_rounds",
+          magazineSize: 6,
+          reloadActionPointCost: 1,
+        },
+        shotgun: {
+          kind: "firearm",
+          damage: 1,
+          damageByDistance: [5, 3],
+          range: 2,
+          attackActionPointCost: 1,
+          noise: 12,
+          ammoType: "shells",
+          magazineSize: 2,
+          reloadActionPointCost: 1,
+        },
+        rifle: {
+          kind: "firearm",
+          damage: 4,
+          range: 7,
+          attackActionPointCost: 2,
+          noise: 10,
+          ammoType: "rifle_rounds",
+          magazineSize: 5,
+          reloadActionPointCost: 1,
+        },
+        knife: { kind: "melee", damage: 1, range: 1, attackActionPointCost: 1, noise: 0 },
+        bat: {
+          kind: "melee",
+          damage: 2,
+          range: 1,
+          attackActionPointCost: 2,
+          noise: 1,
+          knockback: true,
         },
       },
       itemDefinitions: {
         bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
-        ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
+        ammo_box: {
+          effect: { kind: "ammo", ammoType: "pistol_rounds", rounds: 6 },
+          useActionPointCost: 1,
+        },
+        shell_box: {
+          effect: { kind: "ammo", ammoType: "shells", rounds: 4 },
+          useActionPointCost: 1,
+        },
+        rifle_clip: {
+          effect: { kind: "ammo", ammoType: "rifle_rounds", rounds: 5 },
+          useActionPointCost: 1,
+        },
         key: { effect: { kind: "key" }, useActionPointCost: 0 },
+        pistol: { effect: { kind: "weapon", weaponType: "pistol" }, useActionPointCost: 0 },
+        shotgun: { effect: { kind: "weapon", weaponType: "shotgun" }, useActionPointCost: 0 },
+        rifle: { effect: { kind: "weapon", weaponType: "rifle" }, useActionPointCost: 0 },
+        knife: { effect: { kind: "weapon", weaponType: "knife" }, useActionPointCost: 0 },
+        bat: { effect: { kind: "weapon", weaponType: "bat" }, useActionPointCost: 0 },
       },
     },
     survivor: {
       maxHealth: 10,
       maxActionPoints: 4,
       startingWeapon: "pistol",
-      startingReserveAmmo: 12,
+      startingMeleeWeapon: "knife",
+      startingReserveAmmo: { pistol_rounds: 12, shells: 0, rifle_rounds: 0 },
       inventoryCapacity: 3,
     },
     objective: { kind: "extraction", holdoutRounds: 1 },
@@ -171,12 +220,19 @@ describe("validateMatchSetup", () => {
     );
   });
 
-  it("rejects a starting weapon or loot item without a definition", () => {
+  it("rejects starting weapons without a definition or of the wrong kind", () => {
     const noWeapon = setup({
-      survivor: { ...setup().survivor, startingWeapon: "rifle" as "pistol" },
+      survivor: { ...setup().survivor, startingWeapon: "laser" as "pistol" },
     });
     expect(validateMatchSetup(noWeapon)).toContain(
-      'survivor.startingWeapon "rifle" has no definition',
+      'survivor.startingWeapon "laser" has no definition',
     );
+    const swapped = setup({
+      survivor: { ...setup().survivor, startingWeapon: "bat", startingMeleeWeapon: "pistol" },
+    });
+    expect(validateMatchSetup(swapped)).toEqual([
+      'survivor.startingWeapon "bat" is not a firearm',
+      'survivor.startingMeleeWeapon "pistol" is not a melee weapon',
+    ]);
   });
 });

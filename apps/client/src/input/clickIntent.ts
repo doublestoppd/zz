@@ -1,6 +1,7 @@
 import {
   barrierAt,
   legalFireTargets,
+  legalMeleeTargets,
   positionsEqual,
   searchableContainersInReach,
   validateOpenDoor,
@@ -13,7 +14,9 @@ import { decideMoveIntent } from "./moveIntent.js";
 
 /**
  * Turns a tile click into the one command it can mean: fire at the zombie standing there
- * if that shot is legal, else search the unsearched container there if it is in reach,
+ * if that shot is legal, else strike it with the melee weapon if it is adjacent (the V key
+ * strikes even when a shot is possible), else search the unsearched container there if it
+ * is in reach,
  * else open the door there if it is in reach (a locked door is still asked for, so the
  * server's "locked" answer tells the player about keys and forcing), else move there if
  * that move is legal, else nothing. Closing and forcing are deliberate acts, reached
@@ -30,6 +33,8 @@ export function decideClickIntent(
   if (player === undefined) return undefined;
   const target = legalFireTargets(state, player).find((z) => positionsEqual(z.position, tile));
   if (target !== undefined) return { type: "fire_weapon", targetId: target.id };
+  const adjacent = legalMeleeTargets(state, player).find((z) => positionsEqual(z.position, tile));
+  if (adjacent !== undefined) return { type: "melee_attack", targetId: adjacent.id };
   const container = searchableContainersInReach(state, player).find((c) =>
     positionsEqual(c.position, tile),
   );

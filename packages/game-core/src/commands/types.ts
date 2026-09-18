@@ -9,6 +9,7 @@ import type { ItemType } from "../state/types.js";
 export type PlayerCommand =
   | MoveCommand
   | FireWeaponCommand
+  | MeleeAttackCommand
   | ReloadCommand
   | PickUpCommand
   | UseItemCommand
@@ -28,6 +29,13 @@ export interface MoveCommand {
 /** Fire the equipped weapon at a zombie. */
 export interface FireWeaponCommand {
   readonly type: "fire_weapon";
+  readonly playerId: PlayerId;
+  readonly targetId: ZombieId;
+}
+
+/** Strike an adjacent zombie with the melee weapon. Needs no ammunition. */
+export interface MeleeAttackCommand {
+  readonly type: "melee_attack";
   readonly playerId: PlayerId;
   readonly targetId: ZombieId;
 }

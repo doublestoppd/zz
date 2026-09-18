@@ -135,10 +135,11 @@ describe("pick_up and use_item commands", () => {
     });
     const result = applyCommand(state, { type: "use_item", playerId: P1, itemType: "ammo_box" });
     if (!result.ok) throw new Error(result.reason);
-    expect(findPlayer(result.state, P1)?.reserveAmmo).toBe(8);
+    expect(findPlayer(result.state, P1)?.reserveAmmo.pistol_rounds).toBe(8);
     expect(result.events[1]).toEqual({
       type: "ammo_gained",
       playerId: P1,
+      ammoType: "pistol_rounds",
       rounds: 6,
       reserveAmmo: 8,
     });

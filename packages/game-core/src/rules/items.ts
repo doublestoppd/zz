@@ -22,7 +22,10 @@ export function itemsUnderPlayer(state: GameState, player: PlayerState): GroundI
   return state.items.filter((item) => positionsEqual(item.position, player.position));
 }
 
-/** Reasons in order: the item exists, it is on the player's tile, there is room, action points. */
+/**
+ * Reasons in order: the item exists, it is on the player's tile, there is room (a weapon
+ * needs none: picking it up swaps it into its slot), action points.
+ */
 export function validatePickUp(
   state: GameState,
   player: PlayerState,
@@ -32,7 +35,8 @@ export function validatePickUp(
   if (item === undefined) return { ok: false, reason: "ITEM_NOT_FOUND" };
   if (!positionsEqual(item.position, player.position))
     return { ok: false, reason: "ITEM_NOT_HERE" };
-  if (player.inventory.length >= player.inventoryCapacity)
+  const isWeapon = state.rules.itemDefinitions[item.type].effect.kind === "weapon";
+  if (!isWeapon && player.inventory.length >= player.inventoryCapacity)
     return { ok: false, reason: "INVENTORY_FULL" };
   const cost = state.rules.pickUpActionPointCost;
   if (player.actionPoints < cost) return { ok: false, reason: "INSUFFICIENT_ACTION_POINTS" };
@@ -51,7 +55,9 @@ export function validateUseItem(
 ): UseItemValidation {
   if (!player.inventory.includes(itemType)) return { ok: false, reason: "ITEM_NOT_CARRIED" };
   const definition = state.rules.itemDefinitions[itemType];
-  if (definition.effect.kind === "key") return { ok: false, reason: "ITEM_NOT_USABLE" };
+  if (definition.effect.kind === "key" || definition.effect.kind === "weapon") {
+    return { ok: false, reason: "ITEM_NOT_USABLE" };
+  }
   if (definition.effect.kind === "heal" && player.health >= player.maxHealth) {
     return { ok: false, reason: "HEALTH_ALREADY_FULL" };
   }

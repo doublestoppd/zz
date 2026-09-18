@@ -63,6 +63,7 @@ everyone. Errors: `NOT_IN_MATCH`, `MATCH_ALREADY_STARTED`, `NOT_HOST`.
 ```json
 { "t": "command", "seq": 12, "expectedVersion": 3, "command": { "type": "move", "to": { "x": 3, "y": 1 } } }
 { "t": "command", "seq": 13, "expectedVersion": 4, "command": { "type": "fire_weapon", "targetId": "z1" } }
+{ "t": "command", "seq": 22, "expectedVersion": 4, "command": { "type": "melee_attack", "targetId": "z1" } }
 { "t": "command", "seq": 14, "expectedVersion": 5, "command": { "type": "reload" } }
 { "t": "command", "seq": 15, "expectedVersion": 6, "command": { "type": "pick_up", "itemId": "i3" } }
 { "t": "command", "seq": 16, "expectedVersion": 7, "command": { "type": "use_item", "itemType": "medkit" } }

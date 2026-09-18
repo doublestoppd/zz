@@ -89,21 +89,31 @@ own layout in `testing/makeTestState.ts`.
 
 ## Add a weapon
 
-1. `packages/game-core/src/state/types.ts`: extend `WeaponType`.
-2. `packages/game-data/src/weapons.ts`: the compiler demands a `WeaponDefinition` entry
-   (damage, range, magazine size, action point costs, `noise`).
-3. Nothing else, if the weapon behaves like the pistol. Behaviour that differs (spread,
-   burst, melee) is a new field on `WeaponDefinition` read in `rules/combat.ts`, not a
-   `switch` on the type, unless a number or flag cannot express it.
-4. Giving it to a survivor: `startingWeapon` in `packages/game-data/src/survivors.ts` until
-   the inventory milestone adds pickup.
+1. `packages/game-core/src/state/types.ts`: add the name to `WEAPON_TYPES` and to
+   `ITEM_TYPES` (a weapon is found and swapped as a ground item).
+2. `packages/game-data/src/weapons.ts`: the compiler demands a `WeaponDefinition`, either
+   `kind: "firearm"` (damage, range, action points, noise, ammunition kind, magazine,
+   reload cost, optional `damageByDistance` falloff) or `kind: "melee"` (damage, range 1,
+   action points, noise, optional `knockback`). `packages/game-data/src/items.ts` demands
+   the matching `{ kind: "weapon", weaponType }` item; add it to a loot or search table so
+   it appears.
+3. `apps/client/src/render/BoardRenderer.ts` (`ITEM_LABELS`) and `apps/client/src/ui/Hud.ts`
+   (`ITEM_USE_LABELS`): the compiler flags both.
+4. Nothing else if the numbers express the weapon. Behaviour a number cannot express is a
+   new optional field on the definition, read in one place in `rules/combat.ts`
+   (`damageAtDistance`, `knockbackDestination` are the examples), never a `switch` on the
+   weapon type. A new ammunition kind is an entry in `AMMO_TYPES` plus an item that adds to
+   it; the reserve record, HUD, and validation follow from the union.
+5. Tests in `rules/weapons.test.ts` using one-row layouts: range, action points, ammo,
+   noise, and the special rule.
 
 ## Add an item
 
 1. `packages/game-core/src/state/types.ts`: add the name to the `ITEM_TYPES` array; the
    `ItemType` union, the protocol decoder, and the HUD button list all derive from it.
 2. `packages/game-data/src/items.ts`: the compiler demands an `ItemDefinition` (an effect
-   and an action point cost). Add a weight to `LOOT_TABLE` if it should appear as loot.
+   and an action point cost; an `ammo` effect names its ammunition kind). Add a weight to
+   `LOOT_TABLE` or a search table if it should appear as loot.
 3. `apps/client/src/render/BoardRenderer.ts` (`ITEM_LABELS`) and `apps/client/src/ui/Hud.ts`
    (`ITEM_USE_LABELS`): the compiler flags both.
 4. If the item needs a new kind of effect, add a member to `ItemEffect` in

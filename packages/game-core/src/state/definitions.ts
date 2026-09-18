@@ -1,5 +1,5 @@
 import type { WeightedEntry } from "../random/weighted.js";
-import type { ItemType, WeaponType, ZombieType } from "./types.js";
+import type { AmmoType, ItemType, WeaponType, ZombieType } from "./types.js";
 
 /** One roll of a search: an item, or nothing. */
 export type SearchLoot = ItemType | "nothing";
@@ -18,9 +18,12 @@ export interface SearchLootTable {
 export interface SurvivorDefinition {
   readonly maxHealth: number;
   readonly maxActionPoints: number;
+  /** Must be a firearm. */
   readonly startingWeapon: WeaponType;
-  /** Rounds carried outside the magazine at match start. */
-  readonly startingReserveAmmo: number;
+  /** Must be a melee weapon. */
+  readonly startingMeleeWeapon: WeaponType;
+  /** Rounds carried outside the magazine at match start, per kind of ammunition. */
+  readonly startingReserveAmmo: Readonly<Record<AmmoType, number>>;
   /** Maximum number of items a survivor can carry. */
   readonly inventoryCapacity: number;
 }
@@ -28,9 +31,11 @@ export interface SurvivorDefinition {
 /** What using an item does. Add a member here for a new kind of effect. */
 export type ItemEffect =
   | { readonly kind: "heal"; readonly amount: number }
-  | { readonly kind: "ammo"; readonly rounds: number }
+  | { readonly kind: "ammo"; readonly ammoType: AmmoType; readonly rounds: number }
   /** Not usable on its own: spent by `open_door` on a locked door (rules/barriers.ts). */
-  | { readonly kind: "key" };
+  | { readonly kind: "key" }
+  /** Not usable on its own: picking the item up equips the weapon (rules/items.ts). */
+  | { readonly kind: "weapon"; readonly weaponType: WeaponType };
 
 /** Statistics for one item type. Values come from game-data. */
 export interface ItemDefinition {
@@ -41,17 +46,45 @@ export interface ItemDefinition {
 /** Relative chance of each item type appearing at a loot spawn. */
 export type LootTableEntry = WeightedEntry<ItemType>;
 
-/** Statistics for one weapon type. Values come from game-data. */
-export interface WeaponDefinition {
+/** What every weapon shares. Values come from game-data. */
+interface WeaponBase {
+  /** Health removed by one hit (a firearm's `damageByDistance` may override it by range). */
   readonly damage: number;
-  /** Maximum Chebyshev distance (tiles, diagonals count as 1) to a target. */
+  /** Maximum Chebyshev distance (tiles, diagonals count as 1) to a target. Melee: 1. */
   readonly range: number;
-  readonly magazineSize: number;
-  readonly fireActionPointCost: number;
-  readonly reloadActionPointCost: number;
-  /** Noise intensity (hearing radius in tiles) of one shot. */
+  readonly attackActionPointCost: number;
+  /** Noise intensity (hearing radius in tiles) of one attack; 0 is silent. */
   readonly noise: number;
 }
+
+/**
+ * A gun: needs line of sight, a loaded magazine, and a kind of ammunition to reload from.
+ * `damageByDistance` is the one firearm-specific behaviour so far: entry `i` is the damage
+ * at Chebyshev distance `i + 1`, beyond the list `damage` applies (a shotgun's falloff).
+ */
+export interface FirearmDefinition extends WeaponBase {
+  readonly kind: "firearm";
+  readonly ammoType: AmmoType;
+  readonly magazineSize: number;
+  readonly reloadActionPointCost: number;
+  readonly damageByDistance?: readonly number[];
+}
+
+/**
+ * A hand weapon: hits an adjacent zombie, never needs ammunition. `knockback` is the one
+ * melee-specific behaviour so far: a surviving target is shoved one tile directly away
+ * from the attacker when that tile is free.
+ */
+export interface MeleeWeaponDefinition extends WeaponBase {
+  readonly kind: "melee";
+  readonly knockback?: boolean;
+}
+
+/**
+ * Statistics for one weapon type. New weapons should be data first: add a field here (and
+ * read it in `rules/combat.ts`) only when a number cannot express the difference.
+ */
+export type WeaponDefinition = FirearmDefinition | MeleeWeaponDefinition;
 
 /** Statistics for one zombie type. Values come from game-data. */
 export interface ZombieDefinition {

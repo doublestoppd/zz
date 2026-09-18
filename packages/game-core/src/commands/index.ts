@@ -3,6 +3,7 @@ export type {
   Command,
   EndTurnCommand,
   ForceEntryCommand,
+  MeleeAttackCommand,
   OpenDoorCommand,
   FireWeaponCommand,
   MoveCommand,

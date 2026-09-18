@@ -10,6 +10,7 @@ export type SoundName =
   | "zombie"
   | "door"
   | "crash"
+  | "swing"
   | "your_turn"
   | "victory"
   | "defeat";
@@ -60,7 +61,13 @@ export function planAnimations(
         );
         break;
       case "zombie_moved":
+      case "zombie_knocked_back":
         steps.push({ kind: "move", entityId: event.zombieId, path: [event.to] });
+        break;
+      case "weapon_swung":
+        steps.push({ kind: "sound", name: "swing" });
+        break;
+      case "weapon_equipped":
         break;
       case "weapon_fired": {
         const from = positionOf(after, event.playerId);

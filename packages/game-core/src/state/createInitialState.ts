@@ -17,6 +17,7 @@ import type {
   GroundItem,
   PlayerState,
   SearchableContainer,
+  WeaponType,
   ZombieState,
 } from "./types.js";
 import { validateMatchSetup } from "./validateSetup.js";
@@ -34,6 +35,12 @@ export interface MatchSetup {
   readonly layout: MapLayout;
   /** In turn order. Between 1 and the number of spawn positions in the layout. */
   readonly players: readonly { readonly id: PlayerId; readonly name: string }[];
+}
+
+/** Validation guarantees the starting weapon is a firearm; this narrows it for the loaded count. */
+function magazineSizeOf(rules: GameRules, type: WeaponType): number {
+  const weapon = rules.weaponDefinitions[type];
+  return weapon.kind === "firearm" ? weapon.magazineSize : 0;
 }
 
 /**
@@ -61,8 +68,9 @@ export function createInitialState(setup: MatchSetup): GameState {
       status: "active",
       weapon: {
         type: setup.survivor.startingWeapon,
-        loadedAmmo: setup.rules.weaponDefinitions[setup.survivor.startingWeapon].magazineSize,
+        loadedAmmo: magazineSizeOf(setup.rules, setup.survivor.startingWeapon),
       },
+      meleeWeapon: setup.survivor.startingMeleeWeapon,
       reserveAmmo: setup.survivor.startingReserveAmmo,
       inventory: [],
       inventoryCapacity: setup.survivor.inventoryCapacity,

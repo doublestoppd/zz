@@ -1,5 +1,9 @@
 import type { BarrierRejectionReason } from "../rules/barriers.js";
-import type { FireRejectionReason, ReloadRejectionReason } from "../rules/combat.js";
+import type {
+  FireRejectionReason,
+  MeleeRejectionReason,
+  ReloadRejectionReason,
+} from "../rules/combat.js";
 import type { PickUpRejectionReason, UseItemRejectionReason } from "../rules/items.js";
 import type { MoveRejectionReason } from "../rules/movement.js";
 import type { SearchRejectionReason } from "../rules/search.js";
@@ -16,6 +20,7 @@ export type RejectionReason =
   | TurnRejectionReason
   | MoveRejectionReason
   | FireRejectionReason
+  | MeleeRejectionReason
   | ReloadRejectionReason
   | PickUpRejectionReason
   | UseItemRejectionReason

@@ -69,7 +69,10 @@ describe("validateReload", () => {
       ok: false,
       reason: "MAGAZINE_FULL",
     });
-    const dry = withPlayer(state, { weapon: { type: "pistol", loadedAmmo: 0 }, reserveAmmo: 0 });
+    const dry = withPlayer(state, {
+      weapon: { type: "pistol", loadedAmmo: 0 },
+      reserveAmmo: { pistol_rounds: 0, shells: 3, rifle_rounds: 0 },
+    });
     expect(validateReload(dry, findPlayer(dry, P1)!)).toEqual({
       ok: false,
       reason: "NO_RESERVE_AMMO",

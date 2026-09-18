@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {
   barrierOptions,
   legalFireTargets,
+  legalMeleeTargets,
   legalMoveDestinations,
   objectiveZoneTiles,
   searchableContainersInReach,
@@ -47,7 +48,9 @@ const COLOURS = {
   containerSearched: 0x4e4e4e,
   containerReachable: 0xffd54f,
   noiseGunfire: 0xffb74d,
+  noiseMelee: 0xbcaaa4,
   noiseSearch: 0x90caf9,
+  meleeTarget: 0xffa000,
   noiseForcedEntry: 0xff8a65,
   doorWood: 0x8d5a2b,
   doorLock: 0xffd54f,
@@ -79,6 +82,7 @@ const TILE_COLOURS: Readonly<Record<TileType, number>> = {
 /** What each noise source looks like on the board; the compiler demands every source. */
 const NOISE_COLOURS: Readonly<Record<NoiseSourceType, number>> = {
   gunfire: COLOURS.noiseGunfire,
+  melee: COLOURS.noiseMelee,
   search: COLOURS.noiseSearch,
   forced_entry: COLOURS.noiseForcedEntry,
 };
@@ -87,7 +91,14 @@ const ITEM_LABELS: Readonly<Record<ItemType, string>> = {
   bandage: "b",
   medkit: "+",
   ammo_box: "A",
+  shell_box: "S",
+  rifle_clip: "R",
   key: "k",
+  pistol: "p",
+  shotgun: "g",
+  rifle: "r",
+  knife: "n",
+  bat: "t",
 };
 
 interface EntitySprite {
@@ -293,6 +304,12 @@ export class BoardRenderer implements AnimationStage {
     }
     const player = state.players.find((p) => p.id === me);
     if (player === undefined) return;
+    // Melee targets get an inner amber ring; a zombie both slots can hit shows both.
+    g.lineStyle(3, COLOURS.meleeTarget);
+    for (const z of legalMeleeTargets(state, player)) {
+      const { x, y } = tileToPixel(z.position);
+      g.strokeRect(x + 6, y + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+    }
     g.lineStyle(3, COLOURS.target);
     for (const z of legalFireTargets(state, player)) {
       const { x, y } = tileToPixel(z.position);

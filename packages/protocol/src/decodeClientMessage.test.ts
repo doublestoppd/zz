@@ -33,6 +33,15 @@ describe("decodeClientMessage", () => {
       },
     ],
     [
+      '{"t":"command","seq":5,"expectedVersion":7,"command":{"type":"melee_attack","targetId":"z2"}}',
+      {
+        t: "command",
+        seq: 5,
+        expectedVersion: 7,
+        command: { type: "melee_attack", targetId: "z2" },
+      },
+    ],
+    [
       '{"t":"command","seq":6,"expectedVersion":7,"command":{"type":"reload"}}',
       { t: "command", seq: 6, expectedVersion: 7, command: { type: "reload" } },
     ],

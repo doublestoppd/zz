@@ -54,8 +54,9 @@ the cabinets (**Q** or the Search button) for bandages, medkits, ammunition, and
 everyone into the green zone and hold it to win.
 
 Keyboard: arrows or WASD move one tile, **F** fires at the nearest zombie in range, **R**
-reloads, **P** picks up, **O** opens, **C** closes, **X** forces the door or window next
-to you, **E** ends the turn. Sound effects are synthesized in the browser;
+reloads, **V** strikes an adjacent zombie with your knife or bat, **P** picks up (a weapon
+on the ground swaps into your hands), **O** opens, **C** closes, **X** forces the door or
+window next to you, **E** ends the turn. Sound effects are synthesized in the browser;
 **Mute** remembers your choice. If the connection drops, the client reconnects and rejoins
 on its own. Animations are skipped when the OS "reduce motion" setting is on.
 Reloading a tab or losing the connection rejoins the match automatically; **Rejoin previous

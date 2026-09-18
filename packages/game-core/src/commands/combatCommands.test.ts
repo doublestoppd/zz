@@ -98,13 +98,14 @@ describe("reload", () => {
     expect(findPlayer(result.state, P1)).toMatchObject({
       actionPoints: 1,
       weapon: { loadedAmmo: 6 },
-      reserveAmmo: 8,
+      reserveAmmo: { pistol_rounds: 8 },
     });
     expect(result.events).toEqual([
       {
         type: "weapon_reloaded",
         playerId: P1,
         loadedAmmo: 6,
+        ammoType: "pistol_rounds",
         reserveAmmo: 8,
         actionPointsSpent: 1,
       },

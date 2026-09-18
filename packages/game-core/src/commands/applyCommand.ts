@@ -1,7 +1,7 @@
 import type { GameState } from "../state/types.js";
 import { advanceUntilPlayerInput } from "../turn/phases.js";
 import { applyCloseDoor, applyForceEntry, applyOpenDoor } from "./handlers/barriers.js";
-import { applyFireWeapon, applyReload } from "./handlers/combat.js";
+import { applyFireWeapon, applyMeleeAttack, applyReload } from "./handlers/combat.js";
 import { applyPickUp, applyUseItem } from "./handlers/items.js";
 import { applyMove } from "./handlers/move.js";
 import { applySearch } from "./handlers/search.js";
@@ -33,6 +33,8 @@ function applyOne(state: GameState, command: Command): CommandResult {
       return applyMove(state, command);
     case "fire_weapon":
       return applyFireWeapon(state, command);
+    case "melee_attack":
+      return applyMeleeAttack(state, command);
     case "reload":
       return applyReload(state, command);
     case "pick_up":

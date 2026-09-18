@@ -3,7 +3,7 @@ import { applyCommand } from "../commands/applyCommand.js";
 import type { Command } from "../commands/types.js";
 import { parseAsciiMap } from "../map/asciiMap.js";
 import { createRng } from "../random/rng.js";
-import { legalFireTargets, legalMoveDestinations } from "../rules/index.js";
+import { legalFireTargets, legalMeleeTargets, legalMoveDestinations } from "../rules/index.js";
 import type { GameState } from "../state/types.js";
 import { isEligibleToAct } from "../turn/turnOrder.js";
 import { makeTestState, P1, P2, P3 } from "./makeTestState.js";
@@ -31,7 +31,10 @@ function randomCommand(state: GameState, rng: ReturnType<typeof createRng>): Com
   const targets = legalFireTargets(state, me);
   if (targets.length > 0)
     options.push({ type: "fire_weapon", playerId: me.id, targetId: rng.pick(targets).id });
-  if (me.weapon.loadedAmmo < 6 && me.reserveAmmo > 0)
+  const adjacent = legalMeleeTargets(state, me);
+  if (adjacent.length > 0)
+    options.push({ type: "melee_attack", playerId: me.id, targetId: rng.pick(adjacent).id });
+  if (me.weapon.loadedAmmo < 6 && me.reserveAmmo.pistol_rounds > 0)
     options.push({ type: "reload", playerId: me.id });
   const item = state.items.find(
     (i) => i.position.x === me.position.x && i.position.y === me.position.y,

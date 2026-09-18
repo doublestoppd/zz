@@ -122,7 +122,19 @@ export interface Barrier {
 }
 
 /** Runtime list of item types; the type is derived from it so decoders and UIs can iterate. */
-export const ITEM_TYPES = ["bandage", "medkit", "ammo_box", "key"] as const;
+export const ITEM_TYPES = [
+  "bandage",
+  "medkit",
+  "ammo_box",
+  "shell_box",
+  "rifle_clip",
+  "key",
+  "pistol",
+  "shotgun",
+  "rifle",
+  "knife",
+  "bat",
+] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
 
 export interface GroundItem {
@@ -131,9 +143,15 @@ export interface GroundItem {
   readonly position: Position;
 }
 
-export type WeaponType = "pistol";
+/** Runtime list of weapon types; `WEAPON_TYPES` lets decoders and UIs iterate. */
+export const WEAPON_TYPES = ["pistol", "shotgun", "rifle", "knife", "bat"] as const;
+export type WeaponType = (typeof WEAPON_TYPES)[number];
 
-/** The one weapon a survivor carries. The inventory milestone will generalise this. */
+/** Kinds of ammunition. Each firearm uses one; reserves are kept per kind. */
+export const AMMO_TYPES = ["pistol_rounds", "shells", "rifle_rounds"] as const;
+export type AmmoType = (typeof AMMO_TYPES)[number];
+
+/** The firearm a survivor holds and what is in its magazine. */
 export interface EquippedWeapon {
   readonly type: WeaponType;
   readonly loadedAmmo: number;
@@ -151,9 +169,12 @@ export interface PlayerState {
   readonly actionPoints: number;
   readonly maxActionPoints: number;
   readonly status: PlayerStatus;
+  /** The firearm slot: always a weapon whose definition has `kind: "firearm"`. */
   readonly weapon: EquippedWeapon;
-  /** Rounds available for reloading. */
-  readonly reserveAmmo: number;
+  /** The melee slot: always a weapon whose definition has `kind: "melee"`. Never needs ammo. */
+  readonly meleeWeapon: WeaponType;
+  /** Rounds available for reloading, per kind of ammunition. */
+  readonly reserveAmmo: Readonly<Record<AmmoType, number>>;
   /** Carried items, unordered, at most `inventoryCapacity` from the survivor definition. */
   readonly inventory: readonly ItemType[];
   readonly inventoryCapacity: number;
@@ -180,7 +201,7 @@ export interface ZombieState {
 }
 
 /** What made a noise. Drives client presentation and, later, per-source rules. */
-export type NoiseSourceType = "gunfire" | "search" | "forced_entry";
+export type NoiseSourceType = "gunfire" | "melee" | "search" | "forced_entry";
 
 /**
  * A sound remembered by the world. `intensity` is the hearing radius in tiles (Chebyshev):

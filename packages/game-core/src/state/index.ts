@@ -1,4 +1,5 @@
 export type {
+  AmmoType,
   Barrier,
   BarrierKind,
   BarrierState,
@@ -21,12 +22,14 @@ export type {
   ZombieState,
   ZombieType,
 } from "./types.js";
-export { CONTAINER_CATEGORIES, ITEM_TYPES } from "./types.js";
+export { AMMO_TYPES, CONTAINER_CATEGORIES, ITEM_TYPES, WEAPON_TYPES } from "./types.js";
 export { findPlayer, replacePlayer } from "./players.js";
 export { setBarrierState, type BarrierBoard } from "./barriers.js";
 export type {
   ExtractionSettings,
+  FirearmDefinition,
   ItemDefinition,
+  MeleeWeaponDefinition,
   ItemEffect,
   LootTableEntry,
   ObjectiveSettings,

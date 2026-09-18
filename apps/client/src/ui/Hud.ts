@@ -1,7 +1,11 @@
 import {
+  AMMO_TYPES,
   barrierOptions,
+  firearmOf,
   ITEM_TYPES,
   itemsUnderPlayer,
+  legalMeleeTargets,
+  meleeWeaponOf,
   searchableContainersInReach,
   type Barrier,
   type BarrierOptions,
@@ -15,6 +19,7 @@ import type { CommandSender } from "../net/CommandSender.js";
 import type { GameConnection } from "../net/GameConnection.js";
 import type { ClientState, ClientStore } from "../state/ClientStore.js";
 import { clearIdentity } from "./identityStorage.js";
+import { AMMO_LABELS } from "./eventLog.js";
 import { describeObjective, describeOutcome } from "./objectiveText.js";
 import { button, el, requireElement } from "./dom.js";
 import { REJECTION_MESSAGES } from "./rejectionMessages.js";
@@ -27,8 +32,21 @@ const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
   bandage: "Use bandage",
   medkit: "Use medkit",
   ammo_box: "Open ammo box",
+  shell_box: "Open box of shells",
+  rifle_clip: "Load rifle clip into reserve",
   key: "Use key",
+  pistol: "Pistol",
+  shotgun: "Shotgun",
+  rifle: "Rifle",
+  knife: "Knife",
+  bat: "Bat",
 };
+
+/** Item types whose button never shows: they act through another command. */
+function isPassiveItem(game: GameState, type: ItemType): boolean {
+  const kind = game.rules.itemDefinitions[type].effect.kind;
+  return kind === "key" || kind === "weapon";
+}
 
 /** Round, turn, action points, end-turn control, and the event log. */
 export class Hud {
@@ -41,6 +59,8 @@ export class Hud {
   private readonly backButton: HTMLButtonElement;
   private readonly playerList = el("ul", { className: "players" });
   private readonly weaponLine = el("div");
+  private readonly ammoLine = el("div");
+  private readonly meleeButton: HTMLButtonElement;
   private readonly inventoryLine = el("div");
   private readonly pickUpButton: HTMLButtonElement;
   private readonly searchButton: HTMLButtonElement;
@@ -76,6 +96,11 @@ export class Hud {
     });
     this.reloadButton = button("Reload", () => {
       sender.send({ type: "reload" });
+    });
+    this.meleeButton = button("Melee", () => {
+      const me = currentPlayer(store.get());
+      const target = me === undefined ? undefined : legalMeleeTargets(me.game, me.player)[0];
+      if (target !== undefined) sender.send({ type: "melee_attack", targetId: target.id });
     });
     this.searchButton = button("Search", () => {
       const client = store.get();
@@ -131,6 +156,7 @@ export class Hud {
       this.objectiveLine,
       this.playerList,
       this.weaponLine,
+      this.ammoLine,
       this.inventoryLine,
       el("div", {}, [
         this.searchButton,
@@ -140,7 +166,15 @@ export class Hud {
         ...[...this.useButtons.values()].flatMap((b) => [b, " "]),
       ]),
       el("div", {}, [this.openDoorButton, " ", this.closeDoorButton, " ", this.forceEntryButton]),
-      el("div", {}, [this.reloadButton, " ", this.endTurnButton, " ", this.muteButton]),
+      el("div", {}, [
+        this.reloadButton,
+        " ",
+        this.meleeButton,
+        " ",
+        this.endTurnButton,
+        " ",
+        this.muteButton,
+      ]),
       this.messageLine,
       el("details", {}, [
         el("summary", { textContent: "Keyboard controls" }),
@@ -206,12 +240,23 @@ export class Hud {
       ),
     );
     const mine = game.players.find((p) => p.id === me);
-    this.weaponLine.textContent =
-      mine === undefined
-        ? ""
-        : `${mine.weapon.type}: ${mine.weapon.loadedAmmo}/${game.rules.weaponDefinitions[mine.weapon.type].magazineSize} loaded, ${mine.reserveAmmo} in reserve`;
+    if (mine === undefined) {
+      this.weaponLine.textContent = "";
+      this.ammoLine.textContent = "";
+    } else {
+      const firearm = firearmOf(game, mine);
+      const melee = meleeWeaponOf(game, mine);
+      this.weaponLine.textContent = `${mine.weapon.type}: ${mine.weapon.loadedAmmo}/${firearm.magazineSize} loaded, range ${firearm.range}, ${firearm.attackActionPointCost} AP a shot. ${mine.meleeWeapon}: ${melee.damage} damage, ${melee.attackActionPointCost} AP a strike.`;
+      this.ammoLine.textContent = `Reserve: ${AMMO_TYPES.map((t) => `${mine.reserveAmmo[t]} ${AMMO_LABELS[t]}`).join(", ")}`;
+    }
     const busy = active !== me || state.pendingSeq !== undefined;
     this.reloadButton.disabled = busy;
+    const meleeTargets = mine === undefined ? [] : legalMeleeTargets(game, mine);
+    this.meleeButton.disabled = busy || meleeTargets.length === 0;
+    this.meleeButton.textContent =
+      mine === undefined
+        ? "Melee"
+        : `Strike with ${mine.meleeWeapon} (${meleeWeaponOf(game, mine).attackActionPointCost} AP)`;
     this.endTurnButton.disabled = busy;
     const reachable = mine === undefined ? [] : searchableContainersInReach(game, mine);
     this.searchButton.disabled = busy || reachable.length === 0;
@@ -232,17 +277,21 @@ export class Hud {
     this.forceEntryButton.textContent = `Force ${doors.force[0]?.kind ?? "entry"} (${game.rules.forceEntryActionPointCost} AP, loud)`;
     const underfoot = mine === undefined ? [] : itemsUnderPlayer(game, mine);
     this.pickUpButton.disabled = busy || underfoot.length === 0;
+    const first = underfoot[0];
     this.pickUpButton.textContent =
-      underfoot.length === 0 ? "Pick up" : `Pick up ${underfoot[0]?.type.replace("_", " ") ?? ""}`;
+      first === undefined
+        ? "Pick up"
+        : game.rules.itemDefinitions[first.type].effect.kind === "weapon"
+          ? `Take ${first.type} (swap, ${game.rules.pickUpActionPointCost} AP)`
+          : `Pick up ${first.type.replace("_", " ")}`;
     const carried = mine?.inventory ?? [];
     this.inventoryLine.textContent =
       mine === undefined
         ? ""
         : `Carrying (${carried.length}/${mine.inventoryCapacity}): ${carried.length === 0 ? "nothing" : carried.map((i) => i.replace("_", " ")).join(", ")}`;
     for (const [type, useButton] of this.useButtons) {
-      // Keys have no use of their own: they are spent by opening a locked door.
-      useButton.hidden =
-        !carried.includes(type) || game.rules.itemDefinitions[type].effect.kind === "key";
+      // Keys and weapons have no use of their own (doors and pick-up handle them).
+      useButton.hidden = !carried.includes(type) || isPassiveItem(game, type);
       useButton.disabled = busy;
     }
     this.messageLine.textContent =

@@ -3,6 +3,7 @@ import {
   chebyshevDistance,
   itemsUnderPlayer,
   legalFireTargets,
+  legalMeleeTargets,
   searchableContainersInReach,
   type GameState,
   type PlayerId,
@@ -26,6 +27,7 @@ const DIRECTIONS: Readonly<Record<string, Position>> = {
 export const KEY_HELP: readonly (readonly [string, string])[] = [
   ["Arrows / WASD", "move one tile"],
   ["F", "fire at the nearest zombie in range"],
+  ["V", "strike the nearest adjacent zombie with your melee weapon"],
   ["R", "reload"],
   ["P", "pick up the item underfoot"],
   ["Q", "search the nearest container in reach"],
@@ -34,6 +36,21 @@ export const KEY_HELP: readonly (readonly [string, string])[] = [
   ["X", "force the locked door or window next to you (loud)"],
   ["E", "end turn"],
 ];
+
+/** The first of `zombies` closest to `from` (Chebyshev), or undefined when there are none. */
+function nearestOf<T extends { readonly position: Position }>(
+  from: Position,
+  zombies: readonly T[],
+): T | undefined {
+  return zombies.reduce<T | undefined>(
+    (best, z) =>
+      best === undefined ||
+      chebyshevDistance(from, z.position) < chebyshevDistance(from, best.position)
+        ? z
+        : best,
+    undefined,
+  );
+}
 
 /**
  * Maps a key press to the command it means on my turn, or nothing. Pure so it is testable;
@@ -68,6 +85,11 @@ export function keyToCommand(
       const container = searchableContainersInReach(state, player)[0];
       return container === undefined ? undefined : { type: "search", containerId: container.id };
     }
+    case "v": {
+      const targets = legalMeleeTargets(state, player);
+      const nearest = nearestOf(player.position, targets);
+      return nearest === undefined ? undefined : { type: "melee_attack", targetId: nearest.id };
+    }
     case "o": {
       const door = barrierOptions(state, player).open[0];
       return door === undefined ? undefined : { type: "open_door", barrierId: door.id };
@@ -81,15 +103,8 @@ export function keyToCommand(
       return barrier === undefined ? undefined : { type: "force_entry", barrierId: barrier.id };
     }
     case "f": {
-      const targets = legalFireTargets(state, player);
-      if (targets.length === 0) return undefined;
-      const nearest = targets.reduce((best, z) =>
-        chebyshevDistance(player.position, z.position) <
-        chebyshevDistance(player.position, best.position)
-          ? z
-          : best,
-      );
-      return { type: "fire_weapon", targetId: nearest.id };
+      const nearest = nearestOf(player.position, legalFireTargets(state, player));
+      return nearest === undefined ? undefined : { type: "fire_weapon", targetId: nearest.id };
     }
     default:
       return undefined;

@@ -1,6 +1,7 @@
 import type { BarrierId, ContainerId, ItemId, NoiseId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
 import type {
+  AmmoType,
   BarrierKind,
   ContainerCategory,
   GamePhase,
@@ -18,7 +19,10 @@ import type {
 export type GameEvent =
   | PlayerMovedEvent
   | WeaponFiredEvent
+  | WeaponSwungEvent
   | WeaponReloadedEvent
+  | WeaponEquippedEvent
+  | ZombieKnockedBackEvent
   | EntityDiedEvent
   | ItemPickedUpEvent
   | ItemUsedEvent
@@ -58,12 +62,40 @@ export interface WeaponFiredEvent {
   readonly actionPointsSpent: number;
 }
 
+/** A melee strike at an adjacent zombie. Damage follows as `entity_damaged`. */
+export interface WeaponSwungEvent {
+  readonly type: "weapon_swung";
+  readonly playerId: PlayerId;
+  readonly weaponType: WeaponType;
+  readonly targetId: ZombieId;
+  readonly actionPointsSpent: number;
+}
+
 export interface WeaponReloadedEvent {
   readonly type: "weapon_reloaded";
   readonly playerId: PlayerId;
   readonly loadedAmmo: number;
+  readonly ammoType: AmmoType;
+  /** Reserve of that ammunition kind after the reload. */
   readonly reserveAmmo: number;
   readonly actionPointsSpent: number;
+}
+
+/** A weapon item was picked up and put in its slot; the old weapon lies where the survivor stands. */
+export interface WeaponEquippedEvent {
+  readonly type: "weapon_equipped";
+  readonly playerId: PlayerId;
+  readonly weaponType: WeaponType;
+  readonly replaced: WeaponType;
+  readonly droppedItemId: ItemId;
+}
+
+/** A surviving zombie was shoved one tile by a melee hit. */
+export interface ZombieKnockedBackEvent {
+  readonly type: "zombie_knocked_back";
+  readonly zombieId: ZombieId;
+  readonly from: Position;
+  readonly to: Position;
 }
 
 /** A zombie reached zero health and was removed from the board. */
@@ -153,7 +185,9 @@ export interface PlayerHealedEvent {
 export interface AmmoGainedEvent {
   readonly type: "ammo_gained";
   readonly playerId: PlayerId;
+  readonly ammoType: AmmoType;
   readonly rounds: number;
+  /** Reserve of that ammunition kind afterwards. */
   readonly reserveAmmo: number;
 }
 

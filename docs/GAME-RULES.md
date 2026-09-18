@@ -130,25 +130,51 @@ tiles it carries), a `sourceType`, and `remainingRounds`.
 
 ## Combat (`rules/combat.ts`, `rules/lineOfSight.ts`)
 
-Weapon numbers live in `packages/game-data/src/weapons.ts`. The pistol: 2 damage, range 4,
-magazine 6, 1 action point to fire, 1 action point to reload.
+Weapon numbers live in `packages/game-data/src/weapons.ts`. Every survivor carries one
+firearm (the `weapon` slot, starting with a pistol) and one melee weapon (the `meleeWeapon`
+slot, starting with a knife). Weapons differ in reach, action economy, ammunition, and
+noise, not just damage:
 
-- **Fire** (`fire_weapon` at a zombie id). Checked in this order: the target exists, it is
-  within range, there is line of sight, the magazine is not empty, the player has enough
-  action points. A legal shot always hits for the weapon's `damage`; there is no hit roll.
-  One round is spent per shot.
+| Weapon  | Kind    | Damage | Range | AP  | Ammunition           | Noise | Special                   |
+| ------- | ------- | ------ | ----- | --- | -------------------- | ----- | ------------------------- |
+| pistol  | firearm | 2      | 4     | 1   | pistol rounds, mag 6 | 8     | the reference weapon      |
+| shotgun | firearm | 5 / 3  | 2     | 1   | shells, mag 2        | 12    | damage falls off by range |
+| rifle   | firearm | 4      | 7     | 2   | rifle rounds, mag 5  | 10    | long reach, slow          |
+| knife   | melee   | 1      | 1     | 1   | none                 | 0     | silent                    |
+| bat     | melee   | 2      | 1     | 2   | none                 | 1     | knocks the target back    |
+
+- **Fire** (`fire_weapon` at a zombie id) uses the firearm slot. Checked in this order: the
+  target exists, it is within range, there is line of sight, the magazine is not empty, the
+  player has enough action points. A legal shot always hits; there is no hit roll. Damage
+  is the weapon's `damage`, or for a weapon with `damageByDistance` the entry for the
+  target's Chebyshev distance (shotgun: 5 at one tile, 3 at two). One round is spent.
+- **Strike** (`melee_attack` at a zombie id) uses the melee slot. Checked in order: the
+  target exists, it is adjacent (Chebyshev distance 1, so diagonals count), action points.
+  No ammunition and no line-of-sight check. A `knockback` weapon shoves a surviving target
+  one tile directly away from the attacker when that tile is walkable, not shut by a
+  barrier, and unoccupied; otherwise the target stays put. A dead target is never moved.
 - **Range** is Chebyshev distance: the larger of the horizontal and vertical tile distance,
   so a diagonal counts as one.
 - **Line of sight** follows Bresenham's line between the two tiles, checked in both
   directions so it is symmetric. Any tile strictly between them that `blocksVision` (walls)
   blocks the shot, as does a closed or locked door. Windows, open doors, and broken
   barriers never block sight, and neither do survivors or zombies.
-- **Noise**: every shot, hit or not, makes a noise of the weapon's `noise` (pistol 8) at
-  the shooter's tile (see Noise).
-- **Reload** fills the magazine from reserve ammunition, limited by what the reserve holds.
-  Rejected when the magazine is full, the reserve is empty, or action points are short.
+- **Noise**: every shot or strike, hit or not, makes a noise of the weapon's `noise` at
+  the attacker's tile (see Noise). A knife's 0 makes none.
+- **Ammunition** comes in kinds (`pistol_rounds`, `shells`, `rifle_rounds`); each firearm
+  uses one, and the reserve is kept per kind. **Reload** (`reload`) fills the magazine from
+  the reserve of the firearm's kind, limited by what that reserve holds. Rejected when the
+  magazine is full, that reserve is empty, or action points are short. Survivors start
+  with 12 pistol rounds and nothing else; an ammo box adds 6 pistol rounds, a shell box 4
+  shells, a rifle clip 5 rifle rounds.
+- **Swapping weapons**: a weapon lying on the ground (`pistol`, `shotgun`, `rifle`,
+  `knife`, `bat` items) is equipped by picking it up (`pick_up`, 1 AP, no inventory room
+  needed). It replaces the slot of its kind; the old weapon is dropped on the survivor's
+  tile as a ground item, so the swap can be undone. A replaced firearm is unloaded first
+  (its rounds return to the reserve) and the new firearm starts empty, so a swap costs a
+  reload. Weapons never sit in the inventory and cannot be used with `use_item`.
 - A zombie at zero health dies and is removed from the board (`entity_died`).
-- There is no melee attack yet, and survivors cannot be shot.
+- Survivors cannot be attacked by other survivors.
 
 ## Extraction objective (`objectives/extraction.ts`)
 
@@ -225,8 +251,9 @@ table in `packages/game-data/src/containers.ts`. Searching costs `searchActionPo
 - Searching makes a noise of `searchNoise` (2) at the container's tile (see Noise).
 
 Item numbers live in `packages/game-data/src/items.ts`: a bandage heals 3, a medkit heals
-5, an ammo box adds 6 rounds to the reserve; using any costs 1 action point, and picking up
-costs 1.
+5, an ammo box adds 6 pistol rounds, a shell box 4 shells, a rifle clip 5 rifle rounds;
+using any costs 1 action point, and picking up costs 1. Keys and weapons are picked up but
+never "used": keys open locked doors, weapons go straight into a slot (see Combat).
 
 - **Pick up** (`pick_up` with an item id) takes a ground item lying on the player's own
   tile into their inventory. Checked in order: the item exists, it is on the player's tile,
@@ -246,5 +273,5 @@ costs 1.
 
 ## Not yet implemented
 
-Melee, more weapons, dropping or trading items, other game modes, noise from movement or
-from doors opening, zombies breaking doors, barricades.
+Dropping or trading items, other game modes, noise from movement or from doors opening,
+zombies breaking doors, barricades, weapon durability or attachments.
