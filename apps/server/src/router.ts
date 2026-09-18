@@ -20,8 +20,8 @@ export function handleClientMessage(
         return;
       }
       const match = registry.create();
-      if (match === undefined) {
-        sendError(session, "SHUTTING_DOWN");
+      if (typeof match === "string") {
+        sendError(session, match);
         return;
       }
       const error = match.join(session, message.playerName, message.specialty);
@@ -34,8 +34,13 @@ export function handleClientMessage(
         sendError(session, "SHUTTING_DOWN");
         return;
       }
+      if (!registry.allowLookup(session.address)) {
+        sendError(session, "RATE_LIMITED");
+        return;
+      }
       const match = registry.get(message.matchCode);
       if (match === undefined) {
+        registry.noteLookupFailure(session.address);
         sendError(session, "MATCH_NOT_FOUND");
         return;
       }
@@ -45,13 +50,19 @@ export function handleClientMessage(
       return;
     }
     case "rejoin_match": {
+      if (!registry.allowLookup(session.address)) {
+        sendError(session, "RATE_LIMITED");
+        return;
+      }
       const match = registry.get(message.matchCode);
       if (match === undefined) {
+        registry.noteLookupFailure(session.address);
         sendError(session, "MATCH_NOT_FOUND");
         return;
       }
       const error = match.rejoin(session, message.rejoinToken);
       registry.noteMembershipChanged(match);
+      if (error === "INVALID_REJOIN_TOKEN") registry.noteLookupFailure(session.address);
       if (error !== undefined) sendError(session, error);
       return;
     }

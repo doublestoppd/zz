@@ -14,6 +14,7 @@ function fakeSession(id: string): FakeSession {
   return {
     id,
     sent,
+    address: "test",
     matchCode: undefined,
     playerId: undefined,
     send(message) {

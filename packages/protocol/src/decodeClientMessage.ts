@@ -12,9 +12,13 @@ import {
 } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
+  ID_MAX_LENGTH,
   isValidCommandId,
+  MATCH_CODE_MAX_LENGTH,
   PLAYER_NAME_MAX_LENGTH,
   PLAYER_NAME_MIN_LENGTH,
+  PLAYER_NAME_RAW_MAX_LENGTH,
+  REJOIN_TOKEN_MAX_LENGTH,
   type ClientCommand,
   type ClientMessage,
 } from "./messages.js";
@@ -46,6 +50,12 @@ export function isValidPlayerName(name: string): boolean {
   );
 }
 
+/** A string within a length cap: every client-supplied identifier goes through this. */
+function isBoundedString(value: unknown, max: number): value is string {
+  return isString(value) && value.length >= 1 && value.length <= max;
+}
+const isId = (value: unknown): value is string => isBoundedString(value, ID_MAX_LENGTH);
+
 /**
  * Parses raw socket text into a `ClientMessage`, accepting only exactly the shapes the
  * protocol defines. Anything else, including unknown command types and non-integer
@@ -62,7 +72,9 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
 
   switch (parsed.t) {
     case "create_match": {
-      if (!isString(parsed.playerName)) return fail("create_match.playerName must be a string");
+      if (!isBoundedString(parsed.playerName, PLAYER_NAME_RAW_MAX_LENGTH)) {
+        return fail("create_match.playerName must be a string of at most 200 characters");
+      }
       const specialty = decodeSpecialty(parsed.specialty);
       if (!specialty.ok) return fail(specialty.error);
       return {
@@ -72,8 +84,12 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
     }
 
     case "join_match": {
-      if (!isString(parsed.matchCode)) return fail("join_match.matchCode must be a string");
-      if (!isString(parsed.playerName)) return fail("join_match.playerName must be a string");
+      if (!isBoundedString(parsed.matchCode, MATCH_CODE_MAX_LENGTH)) {
+        return fail("join_match.matchCode must be a string of at most 16 characters");
+      }
+      if (!isBoundedString(parsed.playerName, PLAYER_NAME_RAW_MAX_LENGTH)) {
+        return fail("join_match.playerName must be a string of at most 200 characters");
+      }
       const specialty = decodeSpecialty(parsed.specialty);
       if (!specialty.ok) return fail(specialty.error);
       return {
@@ -95,8 +111,12 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
     }
 
     case "rejoin_match":
-      if (!isString(parsed.matchCode)) return fail("rejoin_match.matchCode must be a string");
-      if (!isString(parsed.rejoinToken)) return fail("rejoin_match.rejoinToken must be a string");
+      if (!isBoundedString(parsed.matchCode, MATCH_CODE_MAX_LENGTH)) {
+        return fail("rejoin_match.matchCode must be a string of at most 16 characters");
+      }
+      if (!isBoundedString(parsed.rejoinToken, REJOIN_TOKEN_MAX_LENGTH)) {
+        return fail("rejoin_match.rejoinToken must be a string of at most 128 characters");
+      }
       return {
         ok: true,
         value: { t: "rejoin_match", matchCode: parsed.matchCode, rejoinToken: parsed.rejoinToken },
@@ -165,23 +185,23 @@ function decodeClientCommand(value: unknown): DecodeResult<ClientCommand> {
       return { ok: true, value: { type: "move", to: { x: value.to.x, y: value.to.y } } };
     case "fire_weapon":
     case "melee_attack":
-      if (!isString(value.targetId)) return fail(`${value.type}.targetId must be a string`);
+      if (!isId(value.targetId)) return fail(`${value.type}.targetId must be an id`);
       return { ok: true, value: { type: value.type, targetId: zombieId(value.targetId) } };
     case "reload":
       return { ok: true, value: { type: "reload" } };
     case "pick_up":
-      if (!isString(value.itemId)) return fail("pick_up.itemId must be a string");
+      if (!isId(value.itemId)) return fail("pick_up.itemId must be an id");
       return { ok: true, value: { type: "pick_up", itemId: itemId(value.itemId) } };
     case "use_item":
       if (!isItemType(value.itemType)) return fail("use_item.itemType must be a known item type");
       return { ok: true, value: { type: "use_item", itemType: value.itemType } };
     case "search":
-      if (!isString(value.containerId)) return fail("search.containerId must be a string");
+      if (!isId(value.containerId)) return fail("search.containerId must be an id");
       return { ok: true, value: { type: "search", containerId: containerId(value.containerId) } };
     case "open_door":
     case "close_door":
     case "force_entry":
-      if (!isString(value.barrierId)) return fail(`${value.type}.barrierId must be a string`);
+      if (!isId(value.barrierId)) return fail(`${value.type}.barrierId must be an id`);
       return { ok: true, value: { type: value.type, barrierId: barrierId(value.barrierId) } };
     case "end_turn":
       return { ok: true, value: { type: "end_turn" } };

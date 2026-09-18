@@ -114,8 +114,9 @@ describe("ordering under simultaneous input", () => {
     const seen: number[] = [];
     // The active player moves; at the same moment a teammate drops and returns.
     const moveId = a.command({ type: "end_turn" }, { baseRevision: 0 });
+    const gone1 = harness.nextDisconnect();
     await c.terminate();
-    await harness.nextDisconnect();
+    await gone1;
     const back = await connect();
     back.send({ t: "rejoin_match", matchCode: code, rejoinToken: tokens[2] ?? "" });
     expect(await back.next("joined")).toMatchObject({ rejoined: true, matchStarted: true });
@@ -133,9 +134,9 @@ describe("ordering under simultaneous input", () => {
 describe("whole-party disconnect", () => {
   it("keeps a started match through the grace period and forgets it afterwards", async () => {
     const { clients, code, tokens } = await harness.matchOf(2);
+    const bothGone = harness.nextDisconnect(2);
     await Promise.all(clients.map((c) => c.terminate()));
-    await harness.nextDisconnect();
-    await harness.nextDisconnect();
+    await bothGone;
     // Still there: everyone may come back within the grace period.
     expect(
       harness.registry
@@ -157,8 +158,9 @@ describe("whole-party disconnect", () => {
     // Their return cancelled the abandonment timer.
     expect(scheduled).toHaveLength(0);
 
+    const gone2 = harness.nextDisconnect();
     await back.terminate();
-    await harness.nextDisconnect();
+    await gone2;
     expect(scheduled).toHaveLength(1);
     scheduled[0]?.();
     expect(harness.registry.get(code)).toBeUndefined();
@@ -205,8 +207,9 @@ describe("terminal matches", () => {
     expect(rejected).toMatchObject({ reason: "INVALID_PHASE", detail: "MATCH_FINISHED" });
     expect(match.describe().revision).toBe(solo.revision);
 
+    const gone3 = harness.nextDisconnect();
     await solo.terminate();
-    await harness.nextDisconnect();
+    await gone3;
     const back = await connect();
     back.send({ t: "rejoin_match", matchCode: code, rejoinToken: tokens[0] ?? "" });
     expect(await back.next("joined")).toMatchObject({ rejoined: true, matchStarted: true });

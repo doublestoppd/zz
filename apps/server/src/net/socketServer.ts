@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import type { IncomingMessage } from "node:http";
+import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { decodeClientMessage, encodeMessage, type ClientMessage } from "@zombie/protocol";
 import { sendError } from "../errors.js";
@@ -24,6 +26,15 @@ export interface SocketServerOptions {
   readonly maxPayloadBytes?: number;
   /** New connections beyond this count are refused (1013). */
   readonly maxConnections?: number;
+  /** Sockets one client address may hold at once; the rest are refused before the upgrade (default 16). */
+  readonly maxConnectionsPerAddress?: number;
+  /**
+   * Browser origins allowed to open a socket. Unset: any origin (development). A browser
+   * always sends `Origin`; a non-browser client may omit it and is not subject to the list.
+   */
+  readonly allowedOrigins?: readonly string[];
+  /** Behind a reverse proxy: take the client address from the first `X-Forwarded-For` entry. */
+  readonly trustProxy?: boolean;
   /** A socket that has not answered the previous ping by the next one is terminated. */
   readonly pingIntervalMs?: number;
   /** Token bucket per socket: `burst` messages at once, refilled at `perSecond`. */
@@ -42,6 +53,7 @@ export interface SocketServerHandle {
 const DEFAULTS = {
   maxPayloadBytes: 16 * 1024,
   maxConnections: 200,
+  maxConnectionsPerAddress: 16,
   pingIntervalMs: 30_000,
   rateLimit: { burst: 20, perSecond: 10 },
 } as const;
@@ -49,7 +61,6 @@ const DEFAULTS = {
 /** Close codes from RFC 6455 used here. */
 const CLOSE_POLICY_VIOLATION = 1008;
 const CLOSE_GOING_AWAY = 1001;
-const CLOSE_TRY_AGAIN_LATER = 1013;
 
 /**
  * The only file that knows about the `ws` library. It turns sockets into ClientSessions,
@@ -68,8 +79,40 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
   };
   const http = createHttpServer(httpOptions);
   const server = new WebSocketServer({
-    server: http,
+    noServer: true,
     maxPayload: options.maxPayloadBytes ?? DEFAULTS.maxPayloadBytes,
+  });
+  const maxPerAddress = options.maxConnectionsPerAddress ?? DEFAULTS.maxConnectionsPerAddress;
+  const perAddress = new Map<string, number>();
+  const allowedOrigins =
+    options.allowedOrigins === undefined ? undefined : new Set(options.allowedOrigins);
+
+  const refuse = (socket: Duplex, status: number, reason: string): void => {
+    metrics.increment("zombie_connections_refused_total", { reason });
+    socket.write(`HTTP/1.1 ${status} ${reason}\r\nConnection: close\r\n\r\n`);
+    socket.destroy();
+  };
+
+  // Upgrades are checked before a WebSocket exists, so a refused client costs one HTTP
+  // response and never reaches the message handlers.
+  http.on("upgrade", (request, socket, head) => {
+    const origin = request.headers.origin;
+    if (allowedOrigins !== undefined && origin !== undefined && !allowedOrigins.has(origin)) {
+      refuse(socket, 403, "origin not allowed");
+      return;
+    }
+    if (server.clients.size >= maxConnections) {
+      refuse(socket, 503, "server full");
+      return;
+    }
+    const address = clientAddress(request, options.trustProxy === true);
+    if ((perAddress.get(address) ?? 0) >= maxPerAddress) {
+      refuse(socket, 429, "too many connections from this address");
+      return;
+    }
+    server.handleUpgrade(request, socket, head, (ws) => {
+      server.emit("connection", ws, request);
+    });
   });
 
   const alive = new WeakMap<WebSocket, boolean>();
@@ -85,12 +128,9 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
   }, options.pingIntervalMs ?? DEFAULTS.pingIntervalMs);
   pinger.unref();
 
-  server.on("connection", (socket) => {
-    if (server.clients.size > maxConnections) {
-      metrics.increment("zombie_connections_refused_total");
-      socket.close(CLOSE_TRY_AGAIN_LATER, "server full");
-      return;
-    }
+  server.on("connection", (socket, request: IncomingMessage) => {
+    const address = clientAddress(request, options.trustProxy === true);
+    perAddress.set(address, (perAddress.get(address) ?? 0) + 1);
     metrics.increment("zombie_connections_total");
     metrics.set("zombie_connected_sockets", server.clients.size);
     alive.set(socket, true);
@@ -98,6 +138,7 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
 
     const session: ClientSession = {
       id: randomUUID(),
+      address,
       matchCode: undefined,
       playerId: undefined,
       send(message) {
@@ -170,6 +211,9 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
     });
 
     socket.on("close", () => {
+      const remaining = (perAddress.get(address) ?? 1) - 1;
+      if (remaining <= 0) perAddress.delete(address);
+      else perAddress.set(address, remaining);
       metrics.set("zombie_connected_sockets", Math.max(0, server.clients.size - 1));
       options.onDisconnect(session);
     });
@@ -199,4 +243,17 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       });
     });
   });
+}
+
+/**
+ * The address limits and logs are keyed by. Only a deployment that terminates TLS at a
+ * proxy sets `trustProxy`; otherwise a client could claim any address in the header.
+ */
+function clientAddress(request: IncomingMessage, trustProxy: boolean): string {
+  if (trustProxy) {
+    const forwarded = request.headers["x-forwarded-for"];
+    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim();
+    if (first !== undefined && first !== "") return first;
+  }
+  return request.socket.remoteAddress ?? "unknown";
 }

@@ -39,9 +39,12 @@ export class ProtocolClient {
     });
   }
 
-  static connect(port: number, options: { timeoutMs?: number } = {}): Promise<ProtocolClient> {
+  static connect(
+    port: number,
+    options: { timeoutMs?: number; headers?: Record<string, string> } = {},
+  ): Promise<ProtocolClient> {
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+      const socket = new WebSocket(`ws://127.0.0.1:${port}`, { headers: options.headers ?? {} });
       const client = new ProtocolClient(socket, options.timeoutMs ?? 2000);
       socket.on("message", (data) => {
         const text = Array.isArray(data)
@@ -84,6 +87,11 @@ export class ProtocolClient {
       command,
     });
     return commandId;
+  }
+
+  /** The address the server keys this client's limits by (the loopback peer in tests). */
+  address(): string {
+    return "127.0.0.1";
   }
 
   sendRaw(text: string): void {

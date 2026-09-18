@@ -24,8 +24,8 @@ export interface ServerHarness {
   /** Callbacks the registry scheduled; fire them instead of waiting on the clock. */
   readonly scheduled: (() => void)[];
   readonly connect: () => Promise<ProtocolClient>;
-  /** Resolves after the server has processed the next socket close. */
-  readonly nextDisconnect: () => Promise<void>;
+  /** Resolves once the server has processed `count` more socket closes (default one). Register it before closing. */
+  readonly nextDisconnect: (count?: number) => Promise<void>;
   /** Restarts the listener with different options for one test. */
   readonly restartWith: (
     options: Partial<Parameters<typeof startSocketServer>[0]>,
@@ -43,7 +43,8 @@ export function createServerHarness(
   let handle: SocketServerHandle | undefined;
   const clients: ProtocolClient[] = [];
   const scheduled: (() => void)[] = [];
-  let disconnectWaiters: (() => void)[] = [];
+  let disconnects = 0;
+  let disconnectWaiters: { target: number; resolve: () => void }[] = [];
   const manualScheduler = {
     schedule(callback: () => void) {
       scheduled.push(callback);
@@ -64,7 +65,10 @@ export function createServerHarness(
       },
       onDisconnect: (session) => {
         handleDisconnect(current(), session);
-        for (const resolve of disconnectWaiters.splice(0)) resolve();
+        disconnects += 1;
+        const due = disconnectWaiters.filter((w) => w.target <= disconnects);
+        disconnectWaiters = disconnectWaiters.filter((w) => w.target > disconnects);
+        for (const waiter of due) waiter.resolve();
       },
       ...options,
     });
@@ -92,6 +96,7 @@ export function createServerHarness(
       scheduler: manualScheduler,
     });
     scheduled.length = 0;
+    disconnects = 0;
     disconnectWaiters = [];
     handle = await start({});
   });
@@ -140,7 +145,8 @@ export function createServerHarness(
     },
     scheduled,
     connect,
-    nextDisconnect: () => new Promise((resolve) => disconnectWaiters.push(resolve)),
+    nextDisconnect: (count = 1) =>
+      new Promise((resolve) => disconnectWaiters.push({ target: disconnects + count, resolve })),
     restartWith: async (options) => {
       await listener().close();
       handle = await start(options);

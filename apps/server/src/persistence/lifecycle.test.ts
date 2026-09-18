@@ -27,6 +27,7 @@ function fakeSession(id: string): FakeSession {
     id,
     sent,
     closedWith,
+    address: "test",
     matchCode: undefined,
     playerId: undefined,
     send(message) {
@@ -260,7 +261,8 @@ describe("graceful shutdown", () => {
       deps: deps(store),
       scheduler: NEVER,
     });
-    const match = registry.create()!;
+    const match = registry.create();
+    if (typeof match === "string") throw new Error(match);
     const a = fakeSession("a");
     match.join(a, "Ann");
     match.start(a);
@@ -268,7 +270,7 @@ describe("graceful shutdown", () => {
     expect(drained).toEqual({ active: 1, lobbies: 0 });
     expect(a.sent.at(-1)).toMatchObject({ t: "error", code: "SHUTTING_DOWN" });
     expect(a.closedWith).toEqual(["going_away"]);
-    expect(registry.create()).toBeUndefined();
+    expect(registry.create()).toBe("SHUTTING_DOWN");
     expect(registry.isDraining()).toBe(true);
     expect(store.list().map((r) => r.status)).toEqual(["active"]);
   });

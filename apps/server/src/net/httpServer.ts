@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createReadStream, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
@@ -18,6 +19,24 @@ export interface HttpOptions {
   };
   /** Set to false while shutting down so readiness probes stop sending traffic. */
   readonly isReady?: () => boolean;
+}
+
+/**
+ * Sent with every response. The client is a same-origin app with no embedded third-party
+ * content: it must not be framed (clickjacking), scripts must not be sniffed from other
+ * types, and the referrer must not leak a match code in the URL to other sites.
+ */
+const SECURITY_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+  "content-security-policy": "frame-ancestors 'none'",
+} as const;
+
+/** Constant-time comparison so the admin token cannot be guessed byte by byte from timing. */
+function secretEquals(given: string, expected: string): boolean {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -87,7 +106,7 @@ function serveDiagnostics(
     adminToken === undefined ||
     adminToken === "" ||
     diagnostics === undefined ||
-    header !== `Bearer ${adminToken}`
+    !secretEquals(header, `Bearer ${adminToken}`)
   ) {
     respond(response, 404, "text/plain; charset=utf-8", "not found");
     return;
@@ -116,7 +135,15 @@ function serveStatic(
   request: IncomingMessage,
   response: ServerResponse,
 ): void {
-  const relative = normalize(decodeURIComponent(pathname === "/" ? "/index.html" : pathname));
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname === "/" ? "/index.html" : pathname);
+  } catch {
+    // A malformed percent-escape is a bad request, not an exception for the process.
+    respond(response, 400, "text/plain; charset=utf-8", "bad request");
+    return;
+  }
+  const relative = normalize(decoded);
   const file = join(root, relative);
   // Never serve anything outside the static directory, whatever the URL says.
   if (!file.startsWith(root + sep)) {
@@ -133,6 +160,7 @@ function serveStatic(
     return;
   }
   response.writeHead(200, {
+    ...SECURITY_HEADERS,
     "content-type": CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
     "content-length": size,
     "cache-control": file.endsWith("index.html")
@@ -147,6 +175,10 @@ function serveStatic(
 }
 
 function respond(response: ServerResponse, status: number, type: string, body: string): void {
-  response.writeHead(status, { "content-type": type, "content-length": Buffer.byteLength(body) });
+  response.writeHead(status, {
+    ...SECURITY_HEADERS,
+    "content-type": type,
+    "content-length": Buffer.byteLength(body),
+  });
   response.end(body);
 }

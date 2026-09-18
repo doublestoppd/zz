@@ -10,7 +10,7 @@ import type {
 } from "@zombie/game-core";
 
 /** Bumped on any incompatible change. The server sends it in `joined`; clients compare. */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Lobby limits shared by both sides so the client can validate before sending. */
 export const PLAYER_NAME_MIN_LENGTH = 1;
@@ -76,6 +76,13 @@ export interface StartMatchMessage {
   readonly t: "start_match";
   readonly scenario?: ScenarioType;
 }
+
+/** Longest entity id, match code, or rejoin token the decoders accept; longer strings are malformed. */
+export const ID_MAX_LENGTH = 64;
+export const MATCH_CODE_MAX_LENGTH = 16;
+export const REJOIN_TOKEN_MAX_LENGTH = 128;
+/** Longest raw player name accepted before trimming and the lobby's own length rule. */
+export const PLAYER_NAME_RAW_MAX_LENGTH = 200;
 
 /** Command ids are client-chosen: 1 to 64 characters from this alphabet. */
 export const COMMAND_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -220,6 +227,7 @@ export type ErrorCode =
   | "RATE_LIMITED"
   | "SESSION_REPLACED"
   | "SHUTTING_DOWN"
+  | "SERVER_FULL"
   | "INTERNAL_ERROR";
 
 /** Session-level problems (never the outcome of a gameplay command). Sent to the sender only. */

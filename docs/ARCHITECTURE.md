@@ -110,6 +110,9 @@ Clients send intent (`move` to a destination, `end_turn`). The server stamps the
 `playerId` from the session, calls `applyCommand`, and either broadcasts the full new state
 to everyone or sends a typed rejection to the sender. Clients never decide a position, an
 action-point balance, or any other outcome. See [ADR 0001](adr/0001-server-authoritative-simulation.md).
+The trust boundary is the socket: everything a client sends is untrusted until the
+decoders in `packages/protocol` have rebuilt it field by field, and the limits at the
+upgrade, the socket, and the lobby are listed in [SECURITY.md](SECURITY.md).
 
 ## Command processing
 

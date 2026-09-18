@@ -10,6 +10,7 @@ function fakeSession(id: string): ClientSession & { readonly sent: unknown[] } {
   return {
     id,
     sent,
+    address: "test",
     matchCode: undefined,
     playerId: undefined,
     send(message) {

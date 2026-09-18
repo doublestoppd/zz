@@ -7,6 +7,8 @@ import type { ServerMessage } from "@zombie/protocol";
  */
 export interface ClientSession {
   readonly id: string;
+  /** The peer address (or the first `X-Forwarded-For` entry behind a trusted proxy); for limits and logs only. */
+  readonly address: string;
   send(message: ServerMessage): void;
   /** Closes the socket: 1008 when another socket takes over this slot, 1001 when the server goes away. */
   close(reason?: "replaced" | "going_away"): void;

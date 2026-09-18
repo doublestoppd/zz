@@ -11,8 +11,10 @@ const port = parsePort(process.env.PORT);
 const staticDir = process.env.STATIC_DIR;
 const stateDir = process.env.STATE_DIR;
 const invariantLevel = parseInvariantLevel(process.env.INVARIANT_CHECKS);
+const maxMatches = parseCount("MAX_MATCHES", process.env.MAX_MATCHES);
 const registry = new MatchRegistry({
   deps: { ...DEFAULT_MATCH_DEPENDENCIES, invariantLevel },
+  ...(maxMatches === undefined ? {} : { maxMatches }),
   ...(stateDir === undefined || stateDir === "" ? {} : { store: new FileMatchStore(stateDir) }),
 });
 const recovered = registry.restore();
@@ -23,6 +25,26 @@ function parseInvariantLevel(raw: string | undefined): InvariantLevel {
   if (raw === "full") return "full";
   process.stderr.write(`INVARIANT_CHECKS must be "critical" or "full", got "${raw}"\n`);
   process.exit(1);
+}
+
+/** A comma-separated list; unset or empty means "not configured". */
+function parseList(raw: string | undefined): string[] | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+}
+
+/** A positive integer limit; unset means the built-in default. */
+function parseCount(name: string, raw: string | undefined): number | undefined {
+  if (raw === undefined || raw === "") return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    process.stderr.write(`${name} must be a positive integer, got "${raw}"\n`);
+    process.exit(1);
+  }
+  return value;
 }
 
 function parsePort(raw: string | undefined): number {
@@ -36,6 +58,13 @@ function parsePort(raw: string | undefined): number {
 }
 
 const adminToken = process.env.ADMIN_TOKEN;
+const allowedOrigins = parseList(process.env.ALLOWED_ORIGINS);
+const maxConnections = parseCount("MAX_CONNECTIONS", process.env.MAX_CONNECTIONS);
+const maxConnectionsPerAddress = parseCount(
+  "MAX_CONNECTIONS_PER_ADDRESS",
+  process.env.MAX_CONNECTIONS_PER_ADDRESS,
+);
+const trustProxy = process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true";
 const diagnostics = registry.diagnostics();
 metrics.set("zombie_process_start_time_seconds", Math.floor(Date.now() / 1000));
 
@@ -59,6 +88,10 @@ process.on("unhandledRejection", (reason) => {
 const handle = await startSocketServer({
   port,
   ...(staticDir === undefined ? {} : { staticDir }),
+  ...(allowedOrigins === undefined ? {} : { allowedOrigins }),
+  ...(maxConnections === undefined ? {} : { maxConnections }),
+  ...(maxConnectionsPerAddress === undefined ? {} : { maxConnectionsPerAddress }),
+  trustProxy,
   http: {
     metricsText: () => registry.metricsText(),
     ...(adminToken === undefined || adminToken === "" ? {} : { adminToken }),
@@ -80,6 +113,13 @@ log("info", "server listening", {
   category: "server",
   port: handle.port,
   adminEndpoints: adminToken !== undefined && adminToken !== "",
+  allowedOrigins: allowedOrigins ?? "any",
+  trustProxy,
+  limits: {
+    maxConnections: maxConnections ?? "default",
+    maxConnectionsPerAddress: maxConnectionsPerAddress ?? "default",
+    maxMatches: maxMatches ?? "default",
+  },
   staticDir: staticDir ?? null,
   stateDir: stateDir ?? null,
   gameVersion: GAME_VERSION,

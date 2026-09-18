@@ -39,7 +39,18 @@ export interface RegistryOptions {
   /** Records are checkpointed here and restored from here; memory when absent. */
   readonly store?: MatchStore;
   readonly completedRetentionMs?: number;
+  /** Lobbies plus matches held in memory at once; `create_match` beyond it is `SERVER_FULL`. */
+  readonly maxMatches?: number;
+  /**
+   * Failed lookups (unknown code, bad rejoin token) an address may make per window before
+   * its joins are answered `RATE_LIMITED`, so match codes cannot be enumerated quickly.
+   */
+  readonly lookupFailures?: { readonly max: number; readonly windowMs: number };
 }
+
+/** Default room capacity for one process; a small VM holds far more, but memory is not the limit, fairness is. */
+export const MAX_MATCHES = 100;
+const LOOKUP_FAILURES = { max: 10, windowMs: 60_000 } as const;
 
 /** Completed matches are kept this long for players to reread and for bug reports, then swept. */
 export const COMPLETED_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -104,6 +115,9 @@ export class MatchRegistry {
 
   private readonly store: MatchStore;
   private readonly completedRetentionMs: number;
+  private readonly maxMatches: number;
+  private readonly lookupFailures: { readonly max: number; readonly windowMs: number };
+  private readonly failedLookups = new Map<string, { count: number; windowStart: number }>();
   private draining = false;
 
   constructor(options: RegistryOptions = {}) {
@@ -112,6 +126,35 @@ export class MatchRegistry {
     this.abandonedMatchTtlMs = options.abandonedMatchTtlMs ?? ABANDONED_MATCH_TTL_MS;
     this.completedRetentionMs = options.completedRetentionMs ?? COMPLETED_RETENTION_MS;
     this.scheduler = options.scheduler ?? REAL_SCHEDULER;
+    this.maxMatches = options.maxMatches ?? MAX_MATCHES;
+    this.lookupFailures = options.lookupFailures ?? LOOKUP_FAILURES;
+  }
+
+  /** False while `address` has exhausted its failed-lookup allowance for the current window. */
+  allowLookup(address: string, now = Date.now()): boolean {
+    const entry = this.failedLookups.get(address);
+    if (entry === undefined) return true;
+    if (now - entry.windowStart >= this.lookupFailures.windowMs) {
+      this.failedLookups.delete(address);
+      return true;
+    }
+    return entry.count < this.lookupFailures.max;
+  }
+
+  /** Records a join or rejoin that named a match or token that does not exist. */
+  noteLookupFailure(address: string, now = Date.now()): void {
+    const entry = this.failedLookups.get(address);
+    if (entry === undefined || now - entry.windowStart >= this.lookupFailures.windowMs) {
+      this.failedLookups.set(address, { count: 1, windowStart: now });
+    } else {
+      entry.count += 1;
+    }
+    // Bounded memory: forget addresses whose window has passed once the table grows.
+    if (this.failedLookups.size > 10_000) {
+      for (const [key, value] of this.failedLookups) {
+        if (now - value.windowStart >= this.lookupFailures.windowMs) this.failedLookups.delete(key);
+      }
+    }
   }
 
   /**
@@ -180,8 +223,12 @@ export class MatchRegistry {
     return { active, lobbies };
   }
 
-  create(): ServerMatch | undefined {
-    if (this.draining) return undefined;
+  create(): ServerMatch | "SHUTTING_DOWN" | "SERVER_FULL" {
+    if (this.draining) return "SHUTTING_DOWN";
+    if (this.matches.size >= this.maxMatches) {
+      metrics.increment("zombie_matches_refused_total");
+      return "SERVER_FULL";
+    }
     let code = this.randomCode();
     while (this.matches.has(code)) code = this.randomCode();
     const match = new ServerMatch(code, this.deps);

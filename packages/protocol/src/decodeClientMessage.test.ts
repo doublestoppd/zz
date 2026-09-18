@@ -195,3 +195,39 @@ describe("decodeServerMessage", () => {
     expect(decodeServerMessage("{").ok).toBe(false);
   });
 });
+
+describe("length caps on client-supplied identifiers", () => {
+  const long = "x".repeat(65);
+  it("refuses ids, codes, tokens, and names beyond their caps", () => {
+    const envelope = (command: unknown) =>
+      JSON.stringify({ t: "command", commandId: "c1", baseRevision: 0, command });
+    expect(decodeClientMessage(envelope({ type: "fire_weapon", targetId: long }))).toMatchObject({
+      ok: false,
+      commandId: "c1",
+    });
+    expect(decodeClientMessage(envelope({ type: "pick_up", itemId: "" }))).toMatchObject({
+      ok: false,
+    });
+    expect(
+      decodeClientMessage(envelope({ type: "search", containerId: "c".repeat(64) })),
+    ).toMatchObject({
+      ok: true,
+    });
+    expect(
+      decodeClientMessage(
+        JSON.stringify({ t: "join_match", matchCode: "A".repeat(17), playerName: "x" }),
+      ),
+    ).toMatchObject({ ok: false });
+    expect(
+      decodeClientMessage(
+        JSON.stringify({ t: "rejoin_match", matchCode: "ABCD", rejoinToken: "t".repeat(129) }),
+      ),
+    ).toMatchObject({ ok: false });
+    expect(
+      decodeClientMessage(JSON.stringify({ t: "create_match", playerName: "n".repeat(201) })),
+    ).toMatchObject({ ok: false });
+    expect(
+      decodeClientMessage(JSON.stringify({ t: "create_match", playerName: "n".repeat(200) })),
+    ).toMatchObject({ ok: true });
+  });
+});

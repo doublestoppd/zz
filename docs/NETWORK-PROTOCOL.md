@@ -2,7 +2,7 @@
 
 Transport: one WebSocket per client, text frames containing JSON. Types live in
 `packages/protocol/src/messages.ts`; that file is the source of truth and this document
-follows its order. `PROTOCOL_VERSION` is 2.
+follows its order. `PROTOCOL_VERSION` is 4.
 
 Principles:
 
@@ -123,7 +123,7 @@ next member); in a running match the player is marked absent and may rejoin.
 ```json
 {
   "t": "joined",
-  "protocolVersion": 3,
+  "protocolVersion": 4,
   "matchCode": "QMCN",
   "playerId": "QMCN-p1",
   "rejoinToken": "…",
@@ -203,10 +203,13 @@ absent only for `MALFORMED_COMMAND`, which is answered before any match is looke
 Session-level problems, never the outcome of a gameplay command. Codes: `MALFORMED_MESSAGE`,
 `INVALID_PLAYER_NAME`, `MATCH_NOT_FOUND`, `MATCH_FULL`, `MATCH_ALREADY_STARTED`,
 `MATCH_NOT_STARTED`, `NOT_IN_MATCH`, `ALREADY_IN_MATCH`, `NOT_HOST`, `INVALID_REJOIN_TOKEN`,
-`RATE_LIMITED`, `SESSION_REPLACED`, `SHUTTING_DOWN` (the server is draining: no lobby can
-be created or joined; connected players receive it just before their socket closes with
-code 1001 and should reconnect), `INTERNAL_ERROR` (a handler threw; the message was not
-applied; nothing about the exception is sent). `MALFORMED_MESSAGE` covers invalid JSON,
+`RATE_LIMITED` (also answered to a join or rejoin from an address that made too many
+failed lookups in the last minute), `SESSION_REPLACED`, `SHUTTING_DOWN` (the server is
+draining: no lobby can be created or joined; connected players receive it just before their
+socket closes with code 1001 and should reconnect), `SERVER_FULL` (the room limit is
+reached; try again later), `INTERNAL_ERROR` (a handler threw, or the state a command
+produced failed an invariant; the message was not applied; nothing about the cause is
+sent). `MALFORMED_MESSAGE` covers invalid JSON,
 unknown `t`, and wrong field types in the envelope; a well-formed `command` envelope with a
 bad body is answered with `rejected MALFORMED_COMMAND` instead. `message` is fixed text per
 code, safe to show.
@@ -248,11 +251,28 @@ against a revision it has not seen.
 
 ## Limits
 
-Applied by the socket layer before any message is read: text frames larger than 16 KB close
-the socket (code 1009); more than 200 concurrent connections are refused (1013); each socket
-may send a burst of 20 messages and then 10 per second, beyond which messages are dropped
-with `error RATE_LIMITED` and a client that keeps flooding is closed (1008); the server pings
-every 30 seconds and terminates a socket that did not answer the previous ping.
+At the HTTP upgrade, before a socket exists: a browser `Origin` outside the configured
+allowlist is refused with 403 (no list configured: any origin); more than 200 concurrent
+connections (configurable) are refused with 503; more than 16 sockets from one address
+(configurable) with 429. A refused upgrade costs one HTTP response and never reaches a
+handler.
+
+By the socket layer before any message is read: text frames larger than 16 KB close the
+socket (code 1009); each socket may send a burst of 20 messages and then 10 per second,
+beyond which messages are dropped with `error RATE_LIMITED` and a client that keeps
+flooding is closed (1008); the server pings every 30 seconds and terminates a socket that
+did not answer the previous ping.
+
+By the decoders: every client-supplied string is bounded. Entity ids (`targetId`,
+`itemId`, `containerId`, `barrierId`) are 1 to 64 characters, `commandId` 1 to 64 of
+`[A-Za-z0-9_-]`, `matchCode` 1 to 16, `rejoinToken` 1 to 128, a raw player name 1 to 200
+(the lobby then trims it and applies its own 1 to 20 rule). Anything longer is
+`MALFORMED_MESSAGE` or `rejected MALFORMED_COMMAND`, exactly like a wrong type.
+
+By the lobby: at most 100 lobbies and matches per process (configurable; `SERVER_FULL`
+beyond it), one lobby per socket, and ten failed lookups (unknown code or wrong rejoin
+token) per address per minute before joins from that address are `RATE_LIMITED` for the
+rest of the minute. See `docs/SECURITY.md` for what each limit is for.
 
 ## Lifecycle and reconnect policy
 
