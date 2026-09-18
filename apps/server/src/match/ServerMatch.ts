@@ -177,7 +177,7 @@ export class ServerMatch {
     this.members.push(member);
     this.hostId ??= member.playerId;
     this.attach(session, member);
-    session.send(this.joinedMessage(member));
+    session.send(this.joinedMessage(member, false));
     this.broadcastLobby();
     return undefined;
   }
@@ -195,8 +195,13 @@ export class ServerMatch {
       replaced.close();
     }
     this.attach(session, member);
-    session.send(this.joinedMessage(member));
+    session.send(this.joinedMessage(member, true));
     this.broadcastLobby();
+    log("info", "player rejoined", {
+      matchCode: this.code,
+      playerId: member.playerId,
+      started: this.isStarted(),
+    });
     if (this.runtime !== undefined) {
       const presence = this.runtime.apply({
         type: "set_player_presence",
@@ -352,13 +357,15 @@ export class ServerMatch {
     session.playerId = undefined;
   }
 
-  private joinedMessage(member: Member): ServerMessage {
+  private joinedMessage(member: Member, rejoined: boolean): ServerMessage {
     return {
       t: "joined",
       protocolVersion: PROTOCOL_VERSION,
       matchCode: this.code,
       playerId: member.playerId,
       rejoinToken: member.rejoinToken,
+      rejoined,
+      matchStarted: this.isStarted(),
     };
   }
 

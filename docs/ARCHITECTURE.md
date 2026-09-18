@@ -134,6 +134,17 @@ Command identity and revisions live in the protocol and the server, never in gam
 reconnect) and `MatchRuntime` owns the revision. The full pipeline and the revision rule are
 in [NETWORK-PROTOCOL.md](NETWORK-PROTOCOL.md), "Command reliability".
 
+## Session identity and reconnection
+
+A player is a member of a `ServerMatch` (public `playerId`, secret `rejoinToken`); a socket
+is a transient attachment. Refreshing the browser is a reconnect: the client resends the
+token, the server reattaches the socket, marks the player present (an authoritative
+mutation), and sends `map` plus a full snapshot; the client rebuilds from it. The newest
+socket wins a slot; the older one is told `SESSION_REPLACED`. The active player
+disconnecting passes the turn at once; an absent player is skipped until they return; a
+match nobody is connected to is kept ten minutes. Every policy decision is recorded in
+[ADR 0007](adr/0007-session-identity-and-reconnect-policy.md).
+
 ## State synchronisation
 
 Full snapshot per update ([ADR 0002](adr/0002-plain-data-state-and-snapshot-sync.md)). The

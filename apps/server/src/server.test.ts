@@ -58,7 +58,7 @@ class TestClient {
   pings = 0;
   /** Resolves with the close code once the server closes the socket. */
   readonly closed: Promise<number>;
-  private nextSeq = 1;
+  private static nextCommandNumber = 0;
 
   send(message: ClientMessage): void {
     this.socket.send(encodeMessage(message));
@@ -69,8 +69,9 @@ class TestClient {
     command: ClientCommand,
     overrides: { commandId?: string; baseRevision?: number } = {},
   ): string {
-    this.nextSeq += 1;
-    const commandId = overrides.commandId ?? `cmd-${this.nextSeq}`;
+    // Ids are unique per player across sockets, so the counter is shared by every test client.
+    TestClient.nextCommandNumber += 1;
+    const commandId = overrides.commandId ?? `cmd-${TestClient.nextCommandNumber}`;
     this.send({
       t: "command",
       commandId,
@@ -623,6 +624,11 @@ describe("command reliability", () => {
   });
 });
 
+/** The id of the second player in a snapshot (the guest of `twoPlayerLobby`). */
+function guestId(update: { state: { players: readonly { id: string }[] } }): string {
+  return update.state.players[1]!.id;
+}
+
 describe("presence", () => {
   it("marks a disconnected player absent, passes the turn, and lets them rejoin", async () => {
     const { host, guest, code, hostId, hostToken, guestId } = await twoPlayerLobby();
@@ -642,6 +648,74 @@ describe("presence", () => {
     const snapshot = await returning.next("update");
     expect(snapshot.state.players.find((p) => p.id === hostId)?.present).toBe(true);
     expect(snapshot.state.phase).toEqual({ kind: "player_turn", activePlayerId: guestId });
+  });
+
+  it("restores the same survivor, untouched, when the active player refreshes mid-turn", async () => {
+    const { host, guest, code, hostId, hostToken } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    host.command({ type: "move", to: { x: 2, y: 1 } });
+    const [moved] = await Promise.all([host.next("update"), guest.next("update")]);
+    const before = moved.state.players.find((p) => p.id === hostId)!;
+
+    await host.close();
+    const dropped = await guest.next("update"); // turn passes to the guest at once
+    expect(dropped.state.phase).toEqual({ kind: "player_turn", activePlayerId: guestId(dropped) });
+
+    const back = await connect();
+    back.send({ t: "rejoin_match", matchCode: code, rejoinToken: hostToken });
+    const joined = await back.next("joined");
+    expect(joined).toMatchObject({ playerId: hostId, rejoined: true, matchStarted: true });
+    await back.next("map");
+    const snapshot = await back.next("update");
+    const after = snapshot.state.players.find((p) => p.id === hostId)!;
+    // Same slot, same body: position, action points, health, inventory, ammunition.
+    expect({ ...after, present: true }).toEqual({ ...before, present: true });
+    expect(snapshot.state.players).toHaveLength(2);
+    expect(snapshot.revision).toBe(dropped.revision + 1); // the presence change is a mutation
+    // The turn does not come back mid-round; the host acts again next round.
+    back.revision = snapshot.revision;
+    back.command({ type: "end_turn" });
+    expect((await back.next("rejected")).detail).toBe("NOT_YOUR_TURN");
+  });
+
+  it("reconnects after a zombie phase and after the match has finished", async () => {
+    const { host, guest, code, hostToken } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    host.command({ type: "end_turn" });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    await host.close();
+    await guest.next("update");
+    // The guest ends the round while the host is away: the zombie phase runs without them.
+    guest.command({ type: "end_turn" });
+    const round2 = await guest.next("update");
+    expect(round2.state.round).toBe(2);
+
+    const back = await connect();
+    back.send({ t: "rejoin_match", matchCode: code, rejoinToken: hostToken });
+    await back.next("joined");
+    await back.next("map");
+    const snapshot = await back.next("update");
+    expect(snapshot.state.round).toBe(2);
+    expect(snapshot.state.phase.kind).toBe("player_turn");
+
+    // A finished match still answers a rejoin with its final snapshot and refuses commands.
+    const solo = await connect();
+    solo.send({ t: "create_match", playerName: "Solo" });
+    const soloJoined = await solo.next("joined");
+    solo.send({ t: "start_match" });
+    await solo.next("update");
+    await solo.close();
+    const again = await connect();
+    again.send({
+      t: "rejoin_match",
+      matchCode: soloJoined.matchCode,
+      rejoinToken: soloJoined.rejoinToken,
+    });
+    await again.next("joined");
+    await again.next("map");
+    expect((await again.next("update")).state.players[0]?.present).toBe(true);
   });
 
   it("tells a superseded socket it was replaced and closes it", async () => {

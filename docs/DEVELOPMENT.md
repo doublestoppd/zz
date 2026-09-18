@@ -143,6 +143,15 @@ own layout in `testing/makeTestState.ts`.
 `DEFAULT_CITY_OPTIONS.lootSpawns` sets how many. For the test map, add `L` markers in
 `packages/game-core/src/map/testMaps.ts`.
 
+## Test with several clients locally
+
+Run `pnpm dev` and open `http://localhost:5173` in two or more tabs (or browsers): create
+in one, join with the code in the others. A refresh of any tab rejoins the same slot
+through the token in `sessionStorage`; opening the same match in a second tab of the same
+browser profile takes the slot over (`SESSION_REPLACED` in the first). For scripted
+clients, `apps/server/src/server.test.ts` shows the pattern: a `ws` socket, the protocol
+encoder, and `next(type)` to await the answer.
+
 ## Diagnose a stale-state or duplicate rejection
 
 Every command answer is logged by the server as one JSON line (`command accepted` or

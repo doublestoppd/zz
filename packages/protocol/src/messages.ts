@@ -129,6 +129,10 @@ export interface JoinedMessage {
   readonly playerId: PlayerId;
   /** Secret for `rejoin_match`. Store it client-side; never show it to other players. */
   readonly rejoinToken: string;
+  /** True when this socket reattached to an existing slot rather than creating one. */
+  readonly rejoined: boolean;
+  /** True when the match is running or finished; a `map` and `update` follow at once. */
+  readonly matchStarted: boolean;
 }
 
 export interface LobbyPlayer {

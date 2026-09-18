@@ -53,12 +53,15 @@ everyone (each `LobbyPlayer` carries its `specialty`). Errors: `NOT_IN_MATCH`,
 { "t": "rejoin_match", "matchCode": "QMCN", "rejoinToken": "…" }
 ```
 
-Reattaches a new socket to the slot whose token matches. The client sends this on its own
-whenever a socket opens while it remembers a slot from `joined`. Any older socket on that slot receives
-`error SESSION_REPLACED` and is closed (1008), so a second tab visibly takes over from the
-first. Response: `joined`, `lobby` to everyone, and if the match has started an `update`
-with the latest snapshot (the player is marked present; the resulting events go to
-everyone). Errors: `MATCH_NOT_FOUND`, `INVALID_REJOIN_TOKEN`, `ALREADY_IN_MATCH`.
+Reattaches a new socket to the slot whose token matches; the socket must not already be in
+a match. The client sends this on its own whenever a socket opens while it remembers a slot
+from `joined` (a refresh is a reconnect, never a new player). Any older socket on that slot
+receives `error SESSION_REPLACED` and is closed (1008), so a second tab visibly takes over
+from the first. Response: `joined` (with `rejoined: true` and `matchStarted`), `lobby` to
+everyone, and if the match has started a `map` and an `update` whose revision includes the
+presence change. The client must rebuild its presentation from that snapshot. Works in a
+lobby, a running match (whatever the phase; the server is never between phases), and a
+finished match. Errors: `MATCH_NOT_FOUND`, `INVALID_REJOIN_TOKEN`, `ALREADY_IN_MATCH`.
 
 ### `start_match`
 
@@ -123,11 +126,16 @@ next member); in a running match the player is marked absent and may rejoin.
   "protocolVersion": 3,
   "matchCode": "QMCN",
   "playerId": "QMCN-p1",
-  "rejoinToken": "…"
+  "rejoinToken": "…",
+  "rejoined": false,
+  "matchStarted": false
 }
 ```
 
-Store `rejoinToken`; it is the only credential for `rejoin_match`.
+Store `rejoinToken`; it is the only credential for `rejoin_match`, it is never logged by
+the server, and it is not derivable from the public `playerId`. `rejoined` is true when
+the socket reattached to an existing slot; `matchStarted` tells the client to expect a
+`map` and `update` next.
 
 ### `lobby`
 
@@ -244,8 +252,16 @@ may send a burst of 20 messages and then 10 per second, beyond which messages ar
 with `error RATE_LIMITED` and a client that keeps flooding is closed (1008); the server pings
 every 30 seconds and terminates a socket that did not answer the previous ping.
 
-## Lifecycle
+## Lifecycle and reconnect policy
 
-- A lobby with no connected members is deleted immediately.
-- A started match with no connected members is kept for 10 minutes
-  (`ABANDONED_MATCH_TTL_MS`) so players can rejoin, then deleted.
+| Situation                             | Behaviour                                                                                                       |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Active player disconnects             | Marked absent (a revision-bumping mutation); the turn passes at once; they are skipped until they return.       |
+| Disconnect during zombie or end phase | Cannot happen from the server's view: those phases resolve inside the command that ends the last turn.          |
+| Refresh                               | A reconnect: the stored token restores the same player, body, inventory, and position.                          |
+| Duplicate session                     | The newest socket wins; the older gets `SESSION_REPLACED` and is closed.                                        |
+| Per-player grace                      | Unlimited within the match; the slot is never removed, forfeited, or taken over.                                |
+| Whole party disconnects               | A started match is kept 10 minutes (`ABANDONED_MATCH_TTL_MS`), then deleted; an empty lobby is deleted at once. |
+| Match finished                        | Rejoin still returns the final snapshot; gameplay commands are refused (`INVALID_PHASE`).                       |
+
+See [ADR 0007](../docs/adr/0007-session-identity-and-reconnect-policy.md) for the reasoning.

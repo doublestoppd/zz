@@ -93,6 +93,8 @@ export class ClientStore {
   applyServerMessage(message: ServerMessage): void {
     switch (message.t) {
       case "joined":
+        // A rejoin is followed by a fresh map and snapshot: nothing shown before it is
+        // trusted, so no command stays pending and no old events get animated again.
         this.patch({
           me: {
             playerId: message.playerId,
@@ -100,6 +102,9 @@ export class ClientStore {
             rejoinToken: message.rejoinToken,
           },
           lastError: undefined,
+          ...(message.rejoined
+            ? { pendingCommandId: undefined, lastEvents: [], map: undefined }
+            : {}),
         });
         return;
       case "lobby":
