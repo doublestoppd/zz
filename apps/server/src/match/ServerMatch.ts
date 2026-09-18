@@ -7,7 +7,7 @@ import {
   playerId,
   SIMULATION_VERSION,
   type Command,
-  type CommandResult,
+  type InvariantLevel,
   type GameEvent,
   type JournalEntry,
   type JournalMetadata,
@@ -43,7 +43,7 @@ import { GAME_VERSION } from "../version.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import type { MatchRecord, MatchStatus, MatchStore } from "../persistence/matchStore.js";
 import { rebuildInitialState, verifyJournal } from "../replay/verifier.js";
-import { MatchRuntime } from "./MatchRuntime.js";
+import { MatchRuntime, type RuntimeOptions, type RuntimeResult } from "./MatchRuntime.js";
 import { redactEvents, redactState } from "./redact.js";
 
 /** Running totals of the events that describe how a match was played. */
@@ -90,6 +90,10 @@ export interface MatchDependencies {
   readonly onJournal?: (journal: MatchJournal) => void;
   /** Where records are checkpointed after every mutation and restored from after a restart. */
   readonly store?: MatchStore;
+  /** State checks after every accepted command; tests and the soak use `full`, production `critical`. */
+  readonly invariantLevel?: InvariantLevel;
+  /** Test seam for provoking a violation on a legal command. */
+  readonly invariantCheck?: RuntimeOptions["invariantCheck"];
 }
 
 /** What `/admin/matches/<code>` returns. */
@@ -107,6 +111,8 @@ export interface MatchDiagnostics {
   readonly phase: string | null;
   readonly threat: number | null;
   readonly journalEntries: number;
+  /** Mutations refused because the state they produced broke an invariant (see the error log). */
+  readonly invariantViolations: number;
   readonly metadata: JournalMetadata | null;
 }
 
@@ -179,6 +185,7 @@ export class ServerMatch {
   private journalEntries: JournalEntry[] = [];
   private initialCheckpoint = "";
   private status: MatchStatus = "lobby";
+  private invariantViolations = 0;
 
   constructor(
     code: string,
@@ -263,7 +270,7 @@ export class ServerMatch {
         throw new Error(`restore ${record.code}: ${applied.reason} at ${entry.revision}`);
       state = applied.state;
     }
-    match.runtime = new MatchRuntime(state, record.journal.entries.length);
+    match.runtime = new MatchRuntime(state, record.journal.entries.length, match.runtimeOptions());
     match.journalMetadata = record.journal.metadata;
     match.journalEntries = [...record.journal.entries];
     match.initialCheckpoint = record.journal.initialCheckpoint;
@@ -394,8 +401,21 @@ export class ServerMatch {
     };
   }
 
-  /** Applies a mutation through the runtime and, when accepted, appends it to the journal. */
-  private mutate(command: Command): CommandResult {
+  private runtimeOptions(): RuntimeOptions {
+    return {
+      invariantLevel: this.deps.invariantLevel ?? "full",
+      ...(this.deps.invariantCheck === undefined
+        ? {}
+        : { invariantCheck: this.deps.invariantCheck }),
+    };
+  }
+
+  /**
+   * Applies a mutation through the runtime and, when accepted, appends it to the journal.
+   * An invariant refusal is logged at error and counted; the state, revision, and journal
+   * are exactly as before, so the match goes on from its last consistent state.
+   */
+  private mutate(command: Command): RuntimeResult {
     if (this.runtime === undefined) throw new Error("mutate: match not started");
     const started = performance.now();
     const result = this.runtime.apply(command);
@@ -408,8 +428,29 @@ export class ServerMatch {
       kind: ranZombiePhase ? "with_zombie_phase" : "player_only",
     });
     if (ranZombiePhase) metrics.observe("zombie_zombie_phase_duration_ms", elapsed);
+    if (!result.ok && result.reason === "STATE_INVARIANT") {
+      this.invariantViolations += 1;
+      for (const violation of result.violations) {
+        metrics.increment("zombie_invariant_violations_total", { code: violation.code });
+      }
+      log("error", "state invariant violated", {
+        category: "match",
+        matchCode: this.code,
+        commandType: command.type,
+        playerId: command.playerId,
+        revision: this.runtime.getRevision(),
+        violations: result.violations,
+      });
+      return result;
+    }
     if (result.ok) {
-      this.journalEntries.push(journalEntry(this.runtime.getRevision(), command, result.state));
+      const revision = this.runtime.getRevision();
+      const previous = this.journalEntries.at(-1)?.revision ?? 0;
+      // The journal and the runtime count revisions independently; they must agree.
+      if (revision !== previous + 1) {
+        throw new Error(`revision ${revision} follows journal revision ${previous}`);
+      }
+      this.journalEntries.push(journalEntry(revision, command, result.state));
       if (result.state.phase.kind === "finished") this.status = "completed";
       // Checkpoint after every accepted mutation: the record is small and matches move at human speed.
       this.persist();
@@ -434,6 +475,7 @@ export class ServerMatch {
       phase: state?.phase.kind ?? null,
       threat: state?.threat ?? null,
       journalEntries: this.journalEntries.length,
+      invariantViolations: this.invariantViolations,
       metadata: this.journalMetadata ?? null,
     };
   }
@@ -506,7 +548,7 @@ export class ServerMatch {
       layout: created.layout,
       players: this.members.map((m) => ({ id: m.playerId, name: m.name, specialty: m.specialty })),
     });
-    this.runtime = new MatchRuntime(initial);
+    this.runtime = new MatchRuntime(initial, 0, this.runtimeOptions());
     this.journalMetadata = {
       matchId: matchId(this.code),
       seed,
@@ -579,7 +621,14 @@ export class ServerMatch {
     // The player id comes from the session, never from the payload.
     const result = this.mutate({ ...command, playerId: member.playerId });
     member.recentCommands.add(commandId);
-    if (!result.ok) return reject(categorize(result.reason), result.reason);
+    if (!result.ok) {
+      if (result.reason === "STATE_INVARIANT") {
+        // Refused to protect the match; the client gets the fixed error text, never the detail.
+        sendError(session, "INTERNAL_ERROR");
+        return undefined;
+      }
+      return reject(categorize(result.reason), result.reason);
+    }
     metrics.increment("zombie_commands_total", { outcome: "accepted" });
     log("info", "command accepted", {
       category: "command",

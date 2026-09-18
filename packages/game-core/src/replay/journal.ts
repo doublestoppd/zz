@@ -1,5 +1,6 @@
 import type { Command } from "../commands/types.js";
 import { applyCommand } from "../commands/applyCommand.js";
+import { checkInvariants, type InvariantViolation } from "../state/invariants.js";
 import type { MatchId } from "../ids.js";
 import type { GamePhase, GameState, ScenarioType, SpecialtyType } from "../state/types.js";
 import { SIMULATION_VERSION } from "../version.js";
@@ -91,6 +92,12 @@ export type ReplayVerdict =
       readonly revision: number;
       readonly expected: string;
       readonly actual: string;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: "INVARIANT_VIOLATION";
+      readonly revision: number;
+      readonly violations: readonly InvariantViolation[];
     };
 
 /**
@@ -137,6 +144,12 @@ export function replayJournal(journal: MatchJournal, initial: GameState): Replay
         expected: entry.checkpoint,
         actual,
       };
+    }
+    // A journal that replays exactly can still describe a state the rules never allow
+    // (a build that recorded it had a bug): refuse it rather than restore or trust it.
+    const violations = checkInvariants(state, "full");
+    if (violations.length > 0) {
+      return { ok: false, reason: "INVARIANT_VIOLATION", revision: entry.revision, violations };
     }
   }
   return { ok: true, finalCheckpoint: fingerprint(state), entries: journal.entries.length };

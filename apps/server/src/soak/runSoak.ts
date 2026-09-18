@@ -2,9 +2,9 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  checkInvariants,
   createRng,
   fingerprint,
-  isInBounds,
   type Command,
   type GameMap,
   type GameState,
@@ -102,29 +102,12 @@ class SoakError extends Error {
   }
 }
 
-/** Server-independent checks every bot runs on every snapshot it receives. */
+/**
+ * Checks every bot runs on every snapshot it receives: game-core's full invariant set on
+ * the team view, plus what only a client can see (below, `checkInvariants` in the bot).
+ */
 export function baseInvariants(state: GameState): string[] {
-  const problems: string[] = [];
-  for (const p of state.players) {
-    if (!isInBounds(state.map, p.position)) problems.push(`player ${p.id} out of bounds`);
-    if (p.actionPoints < 0) problems.push(`player ${p.id} has ${p.actionPoints} AP`);
-    if (p.weapon.loadedAmmo < 0) problems.push(`player ${p.id} has negative ammo`);
-  }
-  for (const z of state.zombies) {
-    if (!isInBounds(state.map, z.position)) problems.push(`zombie ${z.id} out of bounds`);
-  }
-  const phase = state.phase;
-  if (phase.kind === "player_turn") {
-    const active = state.players.find((p) => p.id === phase.activePlayerId);
-    const eligible = (p: PlayerState) => p.present && p.status === "active";
-    if (active === undefined) problems.push("active player does not exist");
-    // The turn may rest with an ineligible player only while nobody at all could act
-    // (everyone present is down and the rest are away); otherwise it must have moved on.
-    else if (!eligible(active) && state.players.some(eligible)) {
-      problems.push(`active player ${active.id} cannot act while a teammate could`);
-    }
-  }
-  return problems;
+  return checkInvariants(state, "full").map((v) => `${v.code}: ${v.detail}`);
 }
 
 interface MatchShared {

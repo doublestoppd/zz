@@ -1,4 +1,5 @@
-import { MatchRegistry } from "./lobby/MatchRegistry.js";
+import type { InvariantLevel } from "@zombie/game-core";
+import { DEFAULT_MATCH_DEPENDENCIES, MatchRegistry } from "./lobby/MatchRegistry.js";
 import { FileMatchStore } from "./persistence/matchStore.js";
 import { metrics } from "./observability/metrics.js";
 import { GAME_VERSION } from "./version.js";
@@ -9,10 +10,20 @@ import { handleClientMessage, handleDisconnect } from "./router.js";
 const port = parsePort(process.env.PORT);
 const staticDir = process.env.STATIC_DIR;
 const stateDir = process.env.STATE_DIR;
-const registry = new MatchRegistry(
-  stateDir === undefined || stateDir === "" ? {} : { store: new FileMatchStore(stateDir) },
-);
+const invariantLevel = parseInvariantLevel(process.env.INVARIANT_CHECKS);
+const registry = new MatchRegistry({
+  deps: { ...DEFAULT_MATCH_DEPENDENCIES, invariantLevel },
+  ...(stateDir === undefined || stateDir === "" ? {} : { store: new FileMatchStore(stateDir) }),
+});
 const recovered = registry.restore();
+
+/** `INVARIANT_CHECKS`: `critical` (default, cheap) or `full` (every check, for staging and soaks). */
+function parseInvariantLevel(raw: string | undefined): InvariantLevel {
+  if (raw === undefined || raw === "" || raw === "critical") return "critical";
+  if (raw === "full") return "full";
+  process.stderr.write(`INVARIANT_CHECKS must be "critical" or "full", got "${raw}"\n`);
+  process.exit(1);
+}
 
 function parsePort(raw: string | undefined): number {
   if (raw === undefined || raw === "") return 8080;

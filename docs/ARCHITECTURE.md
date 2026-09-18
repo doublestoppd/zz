@@ -192,6 +192,29 @@ stored in `GameState.rngState`, so a snapshot plus the commands that follow it r
 exactly ([ADR 0005](adr/0005-seeded-rng-carried-in-state.md)). The match seed derives
 independent streams for gameplay and map generation.
 
+## State invariants
+
+`checkInvariants(state, level)` (`packages/game-core/src/state/invariants.ts`) lists every
+assumption the rules rely on between commands: one solid entity per tile, every position on
+a walkable tile inside the map, action points, health, and ammunition within their bounds,
+down status matching zero health, an eligible active player whenever anyone is eligible,
+the turn order a permutation of the players, phase and objective status agreeing, ids
+unique, inventory and weapon references valid, objective steps well formed, counters
+sane. `critical` is the cheap O(entities) subset (positions, occupancy, numbers, turn and
+phase); `full` adds references and bookkeeping.
+
+Where it runs: game-core tests assert the full set after every command of the random
+play; the replay verifier refuses a journal whose replayed states violate it
+(`INVARIANT_VIOLATION`, so a corrupt record is discarded at restore rather than served);
+the soak checks every snapshot every bot receives; and `MatchRuntime.apply` checks the
+state each accepted command produced, `critical` in production and `full` under
+`INVARIANT_CHECKS=full`. A violation there is fail-safe: the mutation is discarded, the
+previous state and revision stand, the sender gets the fixed `INTERNAL_ERROR` text, and
+the server logs `state invariant violated` with the codes and counts
+`zombie_invariant_violations_total`. Revision monotonicity is by construction (the
+runtime is the only writer and adds exactly one per accepted command) and cross-checked
+against the journal on every append ([ADR 0012](adr/0012-state-invariants.md)).
+
 ## Match/turn state machine
 
 Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in

@@ -74,9 +74,10 @@ function applyOrEnd(state: GameState, command: Command, me: PlayerState["id"]) {
   return ended;
 }
 
-import { applyCommand } from "@zombie/game-core";
+import { applyCommand, assertInvariants } from "@zombie/game-core";
 function applyCommandSafe(state: GameState, command: Command) {
   const r = applyCommand(state, command);
+  if (r.ok) assertInvariants(r.state);
   return r.ok ? r : undefined;
 }
 

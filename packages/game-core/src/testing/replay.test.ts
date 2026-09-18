@@ -4,6 +4,7 @@ import type { Command } from "../commands/types.js";
 import { parseAsciiMap } from "../map/asciiMap.js";
 import { createRng } from "../random/rng.js";
 import { legalFireTargets, legalMeleeTargets, legalMoveDestinations } from "../rules/index.js";
+import { checkInvariants } from "../state/invariants.js";
 import type { GameState } from "../state/types.js";
 import { isEligibleToAct } from "../turn/turnOrder.js";
 import { makeTestState, P1, P2, P3 } from "./makeTestState.js";
@@ -80,9 +81,11 @@ describe("random play replays exactly and keeps the turn invariants", () => {
     const second = play(seed, 160);
     expect(second).toEqual(first);
 
-    // Every accepted state is waiting on someone who can act, or finished.
+    // Every accepted state is waiting on someone who can act, or finished, and every
+    // state invariant holds after every accepted command.
     for (const snapshot of first.snapshots) {
       if (snapshot === undefined) continue;
+      expect(checkInvariants(snapshot)).toEqual([]);
       if (snapshot.phase.kind === "player_turn") {
         const activeId = snapshot.phase.activePlayerId;
         const active = snapshot.players.find((p) => p.id === activeId);

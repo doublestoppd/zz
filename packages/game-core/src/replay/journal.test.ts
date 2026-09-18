@@ -133,3 +133,38 @@ describe("replayJournal", () => {
     }
   });
 });
+
+describe("replayJournal invariants", () => {
+  it("refuses a journal whose recorded states break an invariant even though they replay exactly", () => {
+    // A state the rules never produce (negative action points) recorded by a buggy build:
+    // end_turn is still accepted from it, so checkpoints match and only the invariant
+    // check can tell the journal is not to be trusted.
+    const corrupt: GameState = {
+      ...initial(5),
+      players: initial(5).players.map((p, i) => (i === 0 ? { ...p, actionPoints: -1 } : p)),
+    };
+    const first = applyCommand(corrupt, { type: "end_turn", playerId: P1 });
+    if (!first.ok) throw new Error(first.reason);
+    const journal: MatchJournal = {
+      journalVersion: 1,
+      metadata: {
+        matchId: matchId("corrupt"),
+        seed: 5,
+        gameVersion: "test",
+        protocolVersion: 0,
+        simulationVersion: SIMULATION_VERSION,
+        scenario: "extraction",
+        layout: { kind: "fixture", name: "test" },
+        players: corrupt.players.map((p) => ({ id: p.id, name: p.name, specialty: p.specialty })),
+      },
+      initialCheckpoint: fingerprint(corrupt),
+      entries: [journalEntry(1, { type: "end_turn", playerId: P1 }, first.state)],
+    };
+    expect(replayJournal(journal, corrupt)).toMatchObject({
+      ok: false,
+      reason: "INVARIANT_VIOLATION",
+      revision: 1,
+      violations: [{ code: "ACTION_POINTS" }],
+    });
+  });
+});

@@ -60,3 +60,10 @@ export type {
 } from "./definitions.js";
 export { createInitialState, type MatchSetup } from "./createInitialState.js";
 export { validateMatchSetup } from "./validateSetup.js";
+export {
+  assertInvariants,
+  checkInvariants,
+  type InvariantCode,
+  type InvariantLevel,
+  type InvariantViolation,
+} from "./invariants.js";

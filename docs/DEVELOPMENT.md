@@ -376,6 +376,17 @@ An `update` message contains the full `GameState`, including `rngState`. Paste i
 test as the starting state, apply the commands that followed, and assert. That state and
 command list is a complete, deterministic reproduction.
 
+## Add an invariant
+
+When a rule introduces a new assumption ("a survivor never carries two keys", "a barrier
+is never `open` on a window tile"), add the check to `checkInvariants` in
+`packages/game-core/src/state/invariants.ts` with a stable `InvariantCode` (extend the
+union) and a `detail` naming the entity, and decide its level: `critical` only if letting
+play continue would break a rule on the board (position, occupancy, numbers, turn), `full`
+otherwise. Add a case to `state/invariants.test.ts` that corrupts a state and expects the
+code, and confirm the random play and the soak stay clean (`pnpm check`). Nothing else
+changes: the runtime, the replay verifier, and the soak all call the same function.
+
 ## Where things are forbidden
 
 - Phaser, `ws`, DOM, or app code inside `packages/*`.
