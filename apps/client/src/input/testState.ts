@@ -20,10 +20,18 @@ export function makeClientTestState(
       moveCostPerTile: 1,
       zombieDefinitions: { walker: { maxHealth: 3, damage: 2, movesPerPhase: 1 } },
       itemDefinitions: {
+        bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
         ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
       },
       pickUpActionPointCost: 1,
+      searchActionPointCost: 2,
+      searchLootTables: {
+        home: { minRolls: 1, maxRolls: 1, entries: [{ type: "bandage", weight: 1 }] },
+        clinic: { minRolls: 1, maxRolls: 1, entries: [{ type: "medkit", weight: 1 }] },
+        police: { minRolls: 1, maxRolls: 1, entries: [{ type: "ammo_box", weight: 1 }] },
+        shop: { minRolls: 0, maxRolls: 1, entries: [{ type: "nothing", weight: 1 }] },
+      },
       weaponDefinitions: {
         pistol: {
           damage: 2,

@@ -30,6 +30,12 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   checkPositions(issues, map, "zombie spawn", layout.zombieSpawns);
   checkPositions(issues, map, "loot spawn", layout.lootSpawns);
   checkPositions(issues, map, "extraction tile", layout.extractionZone);
+  checkPositions(
+    issues,
+    map,
+    "container",
+    layout.containers.map((c) => c.position),
+  );
   const occupied = [...layout.spawnPositions.slice(0, players.length), ...layout.zombieSpawns];
   if (new Set(occupied.map(positionKey)).size !== occupied.length) {
     issues.push("survivor and zombie spawns overlap");
@@ -37,6 +43,18 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
 
   positiveInteger(issues, "rules.moveCostPerTile", rules.moveCostPerTile, 1);
   positiveInteger(issues, "rules.pickUpActionPointCost", rules.pickUpActionPointCost, 0);
+  positiveInteger(issues, "rules.searchActionPointCost", rules.searchActionPointCost, 0);
+  for (const [category, table] of Object.entries(rules.searchLootTables)) {
+    positiveInteger(issues, `search table ${category}.minRolls`, table.minRolls, 0);
+    positiveInteger(issues, `search table ${category}.maxRolls`, table.maxRolls, table.minRolls);
+    if (table.entries.length === 0) issues.push(`search table ${category} has no entries`);
+    for (const entry of table.entries) {
+      positiveInteger(issues, `search table ${category} weight for ${entry.type}`, entry.weight, 1);
+      if (entry.type !== "nothing" && !(entry.type in rules.itemDefinitions)) {
+        issues.push(`search table ${category} item "${entry.type}" has no definition`);
+      }
+    }
+  }
   for (const [type, weapon] of Object.entries(rules.weaponDefinitions)) {
     positiveInteger(issues, `weapon ${type}.damage`, weapon.damage, 0);
     positiveInteger(issues, `weapon ${type}.range`, weapon.range, 1);

@@ -8,5 +8,5 @@ export {
   positionsEqual,
   tileAt,
 } from "./position.js";
-export { parseAsciiMap, type MapLayout } from "./asciiMap.js";
+export { parseAsciiMap, type ContainerSpawn, type MapLayout } from "./asciiMap.js";
 export { SMALL_TEST_MAP } from "./testMaps.js";

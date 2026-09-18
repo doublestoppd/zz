@@ -1,4 +1,5 @@
 export type {
+  ContainerCategory,
   EquippedWeapon,
   ExtractionObjectiveState,
   GroundItem,
@@ -10,11 +11,12 @@ export type {
   ObjectiveState,
   PlayerState,
   PlayerStatus,
+  SearchableContainer,
   WeaponType,
   ZombieState,
   ZombieType,
 } from "./types.js";
-export { ITEM_TYPES } from "./types.js";
+export { CONTAINER_CATEGORIES, ITEM_TYPES } from "./types.js";
 export { findPlayer, replacePlayer } from "./players.js";
 export type {
   ExtractionSettings,
@@ -22,6 +24,8 @@ export type {
   ItemEffect,
   LootTableEntry,
   ObjectiveSettings,
+  SearchLoot,
+  SearchLootTable,
   SurvivorDefinition,
   ZombieSpawnTableEntry,
   WeaponDefinition,

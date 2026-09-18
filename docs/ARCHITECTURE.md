@@ -150,35 +150,37 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 
 ## Owner map
 
-| Question                                                         | Owner                                                                                                |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Where is movement validated?                                     | `packages/game-core/src/rules/movement.ts`                                                           |
-| Where is passability (what blocks a path) defined?               | `packages/game-core/src/rules/occupancy.ts` (`passabilityFor`, `canStandOn`)                         |
-| Where does a turn advance?                                       | `packages/game-core/src/turn/phases.ts`                                                              |
-| Where is turn eligibility decided?                               | `packages/game-core/src/turn/turnOrder.ts`                                                           |
-| Where are commands dispatched?                                   | `packages/game-core/src/commands/applyCommand.ts`                                                    |
-| Where are rejection reasons listed?                              | `packages/game-core/src/commands/rejection.ts` and the `rules/*.ts` validator each reason belongs to |
-| Where are events defined?                                        | `packages/game-core/src/events/types.ts`                                                             |
-| Where is weapon damage, range, and ammo validated?               | `packages/game-core/src/rules/combat.ts`                                                             |
-| Where is line of sight computed?                                 | `packages/game-core/src/rules/lineOfSight.ts`                                                        |
-| Where is damage applied, a survivor downed, or a zombie killed?  | `packages/game-core/src/rules/health.ts`                                                             |
-| Where is zombie behaviour selected?                              | `packages/game-core/src/zombies/targetSelection.ts`                                                  |
-| Where are pick-up and use-item validated?                        | `packages/game-core/src/rules/items.ts`                                                              |
-| Where is loot and the zombie type at each spawn rolled?          | `packages/game-core/src/state/createInitialState.ts` (`pickWeighted`)                                |
-| Where is the objective created, evaluated, and summarised?       | `packages/game-core/src/objectives/` (`createObjective.ts`, `evaluate.ts`, `extraction.ts`)          |
-| Where does defeat get decided?                                   | `packages/game-core/src/turn/phases.ts` (`resolveEndOfRound`)                                        |
-| Where are setup invariants checked?                              | `packages/game-core/src/state/validateSetup.ts`                                                      |
-| Where are survivor, weapon, zombie, item stats and rule numbers? | `packages/game-data/src/`                                                                            |
-| Where are client/server messages defined?                        | `packages/protocol/src/messages.ts`                                                                  |
-| Where does the server decide who sent a command?                 | `apps/server/src/match/ServerMatch.ts` (`handleCommand`)                                             |
-| Where are match codes and cleanup handled?                       | `apps/server/src/lobby/MatchRegistry.ts`                                                             |
-| Where does the server choose the map?                            | `apps/server/src/lobby/MatchRegistry.ts` (`DEFAULT_DEPS.createLayout`)                               |
-| Where does the client turn a click or key into a command?        | `apps/client/src/input/clickIntent.ts`, `input/keyboard.ts`                                          |
-| Where is objective and outcome wording?                          | `apps/client/src/ui/objectiveText.ts`                                                                |
-| Where is the board drawn and animated?                           | `apps/client/src/render/BoardRenderer.ts`, `render/animationPlan.ts`                                 |
-| Where is the hard-coded test map?                                | `packages/game-core/src/map/testMaps.ts`                                                             |
-| Where is map connectivity validated?                             | `packages/map-generation/src/validate/validateLayout.ts`                                             |
-| Where are building templates and generation rules?               | `packages/map-generation/src/templates/buildings.ts` and `city.ts`                                   |
+| Question                                                         | Owner                                                                                                   |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Where is movement validated?                                     | `packages/game-core/src/rules/movement.ts`                                                              |
+| Where is passability (what blocks a path) defined?               | `packages/game-core/src/rules/occupancy.ts` (`passabilityFor`, `canStandOn`)                            |
+| Where does a turn advance?                                       | `packages/game-core/src/turn/phases.ts`                                                                 |
+| Where is turn eligibility decided?                               | `packages/game-core/src/turn/turnOrder.ts`                                                              |
+| Where are commands dispatched?                                   | `packages/game-core/src/commands/applyCommand.ts`                                                       |
+| Where are rejection reasons listed?                              | `packages/game-core/src/commands/rejection.ts` and the `rules/*.ts` validator each reason belongs to    |
+| Where are events defined?                                        | `packages/game-core/src/events/types.ts`                                                                |
+| Where is weapon damage, range, and ammo validated?               | `packages/game-core/src/rules/combat.ts`                                                                |
+| Where is line of sight computed?                                 | `packages/game-core/src/rules/lineOfSight.ts`                                                           |
+| Where is damage applied, a survivor downed, or a zombie killed?  | `packages/game-core/src/rules/health.ts`                                                                |
+| Where is zombie behaviour selected?                              | `packages/game-core/src/zombies/targetSelection.ts`                                                     |
+| Where are pick-up and use-item validated?                        | `packages/game-core/src/rules/items.ts`                                                                 |
+| Where is searching validated and loot rolled?                    | `packages/game-core/src/rules/search.ts`; tables in `packages/game-data/src/containers.ts`              |
+| Where do containers get placed in buildings?                     | `packages/map-generation/src/templates/buildings.ts` (`c` cells and categories), collected in `city.ts` |
+| Where is loot and the zombie type at each spawn rolled?          | `packages/game-core/src/state/createInitialState.ts` (`pickWeighted`)                                   |
+| Where is the objective created, evaluated, and summarised?       | `packages/game-core/src/objectives/` (`createObjective.ts`, `evaluate.ts`, `extraction.ts`)             |
+| Where does defeat get decided?                                   | `packages/game-core/src/turn/phases.ts` (`resolveEndOfRound`)                                           |
+| Where are setup invariants checked?                              | `packages/game-core/src/state/validateSetup.ts`                                                         |
+| Where are survivor, weapon, zombie, item stats and rule numbers? | `packages/game-data/src/`                                                                               |
+| Where are client/server messages defined?                        | `packages/protocol/src/messages.ts`                                                                     |
+| Where does the server decide who sent a command?                 | `apps/server/src/match/ServerMatch.ts` (`handleCommand`)                                                |
+| Where are match codes and cleanup handled?                       | `apps/server/src/lobby/MatchRegistry.ts`                                                                |
+| Where does the server choose the map?                            | `apps/server/src/lobby/MatchRegistry.ts` (`DEFAULT_DEPS.createLayout`)                                  |
+| Where does the client turn a click or key into a command?        | `apps/client/src/input/clickIntent.ts`, `input/keyboard.ts`                                             |
+| Where is objective and outcome wording?                          | `apps/client/src/ui/objectiveText.ts`                                                                   |
+| Where is the board drawn and animated?                           | `apps/client/src/render/BoardRenderer.ts`, `render/animationPlan.ts`                                    |
+| Where is the hard-coded test map?                                | `packages/game-core/src/map/testMaps.ts`                                                                |
+| Where is map connectivity validated?                             | `packages/map-generation/src/validate/validateLayout.ts`                                                |
+| Where are building templates and generation rules?               | `packages/map-generation/src/templates/buildings.ts` and `city.ts`                                      |
 
 ## Roadmap
 
@@ -192,7 +194,8 @@ Defined by `GamePhase` and driven by `turn/phases.ts`; behaviour is described in
 | 5 Procedural city      | done   | road grid, lots with authored building templates, marker placement, validation, deterministic retry     |
 | 6 Inventory and loot   | done   | ground items rolled from a loot table, small inventory, pick up, medkit and ammo box                    |
 | 7 Presentation polish  | done   | event-driven tweens, synthesized sounds with mute, keyboard controls, health bars, auto-reconnect, a11y |
-| Audit follow-up        | active | see [CODEBASE-AUDIT.md](CODEBASE-AUDIT.md) and its resolution log                                       |
+| Audit follow-up        | done   | see [CODEBASE-AUDIT.md](CODEBASE-AUDIT.md) and its resolution log                                       |
+| Gameplay A Scavenging  | done   | searchable containers by building category, `search` command, deterministic per-container loot          |
 
 Deliberately not generalised yet: no quest engine, no entity-component system, no action
 registry, no transport abstraction, no delta sync, no persistence or accounts, no plugin

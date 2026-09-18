@@ -1,6 +1,19 @@
 import type { WeightedEntry } from "../random/weighted.js";
 import type { ItemType, WeaponType, ZombieType } from "./types.js";
 
+/** One roll of a search: an item, or nothing. */
+export type SearchLoot = ItemType | "nothing";
+
+/**
+ * What a category of location yields. A search makes between `minRolls` and `maxRolls`
+ * weighted draws; "nothing" draws are how a table expresses sparse locations.
+ */
+export interface SearchLootTable {
+  readonly minRolls: number;
+  readonly maxRolls: number;
+  readonly entries: readonly WeightedEntry<SearchLoot>[];
+}
+
 /** Starting statistics for a survivor. Values come from game-data. */
 export interface SurvivorDefinition {
   readonly maxHealth: number;

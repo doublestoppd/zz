@@ -5,6 +5,7 @@ export type {
   MoveCommand,
   PickUpCommand,
   ReloadCommand,
+  SearchCommand,
   UseItemCommand,
   PlayerCommand,
   ServerCommand,

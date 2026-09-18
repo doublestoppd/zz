@@ -109,6 +109,17 @@ own layout in `testing/makeTestState.ts`.
    `state/definitions.ts`; `applyUseItem` in `commands/applyCommand.ts` and
    `validateUseItem` in `rules/items.ts` switch on it and will not compile until handled.
 
+## Add a loot table or container category
+
+1. `packages/game-core/src/state/types.ts`: add the name to `CONTAINER_CATEGORIES`.
+2. `packages/game-data/src/containers.ts`: the compiler demands a `SearchLootTable` for it
+   (`minRolls`, `maxRolls`, weighted entries; use `"nothing"` entries for sparse places).
+3. `packages/map-generation/src/templates/buildings.ts`: give a template that category, and
+   mark container cells with `c` in its rows. The generator collects them; nothing else
+   changes. Hand-authored maps use `C` (always "home").
+4. Tune search cost with `searchActionPointCost` in `packages/game-data/src/rules.ts`.
+5. Tests: `rules/search.test.ts` rolls from every category; add a case for the new one.
+
 ## Change where loot appears
 
 `placeLoot` in `packages/map-generation/src/city.ts` chooses spawn tiles;

@@ -20,6 +20,15 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return `Zombie ${event.entityId} is destroyed`;
     case "item_picked_up":
       return `${nameOf(state, event.playerId)} picks up a ${event.itemType.replace("_", " ")}`;
+    case "container_searched": {
+      const found =
+        event.found.length === 0
+          ? "finds nothing"
+          : `finds ${event.found.map((i) => i.replace("_", " ")).join(", ")}`;
+      const dropped =
+        event.dropped.length === 0 ? "" : ` (${event.dropped.length} left on the floor)`;
+      return `${nameOf(state, event.playerId)} searches a ${event.category} cabinet and ${found}${dropped}`;
+    }
     case "item_used":
       return `${nameOf(state, event.playerId)} uses a ${event.itemType.replace("_", " ")}`;
     case "player_healed":

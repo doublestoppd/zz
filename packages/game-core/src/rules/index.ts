@@ -39,3 +39,11 @@ export {
   type UseItemRejectionReason,
   type UseItemValidation,
 } from "./items.js";
+export {
+  rollSearchLoot,
+  SEARCH_REACH,
+  searchableContainersInReach,
+  validateSearch,
+  type SearchRejectionReason,
+  type SearchValidation,
+} from "./search.js";

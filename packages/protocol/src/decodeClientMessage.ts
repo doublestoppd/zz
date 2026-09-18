@@ -1,4 +1,4 @@
-import { ITEM_TYPES, itemId, zombieId, type ItemType } from "@zombie/game-core";
+import { containerId, ITEM_TYPES, itemId, zombieId, type ItemType } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
   PLAYER_NAME_MAX_LENGTH,
@@ -113,6 +113,9 @@ function decodeClientCommand(value: unknown): DecodeResult<ClientCommand> {
     case "use_item":
       if (!isItemType(value.itemType)) return fail("use_item.itemType must be a known item type");
       return { ok: true, value: { type: "use_item", itemType: value.itemType } };
+    case "search":
+      if (!isString(value.containerId)) return fail("search.containerId must be a string");
+      return { ok: true, value: { type: "search", containerId: containerId(value.containerId) } };
     case "end_turn":
       return { ok: true, value: { type: "end_turn" } };
     default:

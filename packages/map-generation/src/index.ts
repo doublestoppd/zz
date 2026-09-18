@@ -9,4 +9,4 @@ export {
   type LayoutExpectations,
   type ValidationResult,
 } from "./validate/validateLayout.js";
-export { BUILDING_TEMPLATES } from "./templates/buildings.js";
+export { BUILDING_TEMPLATES, type BuildingTemplate } from "./templates/buildings.js";

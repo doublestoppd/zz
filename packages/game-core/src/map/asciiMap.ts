@@ -1,4 +1,11 @@
+import type { ContainerCategory } from "../state/types.js";
 import { TILE_DEFINITIONS, type GameMap, type Position, type Tile } from "./types.js";
+
+/** Where a searchable container stands and what kind of place it is in. */
+export interface ContainerSpawn {
+  readonly position: Position;
+  readonly category: ContainerCategory;
+}
 
 /**
  * A map plus the marker positions a scenario needs. Produced by `parseAsciiMap`;
@@ -14,12 +21,15 @@ export interface MapLayout {
   readonly zombieSpawns: readonly Position[];
   /** Where ground items are placed; the item type is rolled at match creation. */
   readonly lootSpawns: readonly Position[];
+  /** Searchable containers, in id order. */
+  readonly containers: readonly ContainerSpawn[];
 }
 
 /**
  * Legend for hand-authored maps:
  *   `#` wall   `.` floor   `=` road   `+` door   `S` floor + survivor spawn
  *   `E` floor + extraction zone   `Z` floor + zombie spawn   `L` floor + loot spawn
+ *   `C` floor + searchable container (category "home")
  */
 export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const height = rows.length;
@@ -32,6 +42,7 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const extractionZone: Position[] = [];
   const zombieSpawns: Position[] = [];
   const lootSpawns: Position[] = [];
+  const containers: ContainerSpawn[] = [];
   const tiles: Tile[][] = [];
 
   rows.forEach((row, y) => {
@@ -70,6 +81,10 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
           tileRow.push(TILE_DEFINITIONS.floor);
           lootSpawns.push({ x, y });
           break;
+        case "C":
+          tileRow.push(TILE_DEFINITIONS.floor);
+          containers.push({ position: { x, y }, category: "home" });
+          break;
         default:
           throw new Error(`parseAsciiMap: unknown symbol '${symbol}' at (${x}, ${y})`);
       }
@@ -83,5 +98,6 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
     extractionZone,
     zombieSpawns,
     lootSpawns,
+    containers,
   };
 }

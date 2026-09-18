@@ -88,6 +88,9 @@ export function planAnimations(
       case "item_picked_up":
         steps.push({ kind: "sound", name: "pickup" }, { kind: "vanish", entityId: event.itemId });
         break;
+      case "container_searched":
+        steps.push({ kind: "sound", name: event.found.length === 0 ? "step" : "pickup" });
+        break;
       case "weapon_reloaded":
       case "ammo_gained":
         steps.push({ kind: "sound", name: "reload" });

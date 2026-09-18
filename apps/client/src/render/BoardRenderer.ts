@@ -3,12 +3,15 @@ import {
   legalFireTargets,
   legalMoveDestinations,
   objectiveZoneTiles,
+  searchableContainersInReach,
   type GameEvent,
   type GameMap,
   type GameState,
   type ItemId,
+  type ContainerId,
   type ItemType,
   type PlayerId,
+  type SearchableContainer,
   type PlayerState,
   type Position,
   type TileType,
@@ -36,6 +39,9 @@ const COLOURS = {
   hover: 0xffffff,
   target: 0xff5252,
   item: 0xe9c46a,
+  container: 0x8d6e63,
+  containerSearched: 0x4e4e4e,
+  containerReachable: 0xffd54f,
   activeRing: 0xffffff,
   absent: 0x777777,
   down: 0x5a5a5a,
@@ -56,7 +62,11 @@ const TILE_COLOURS: Readonly<Record<TileType, number>> = {
   wall: COLOURS.wall,
 };
 
-const ITEM_LABELS: Readonly<Record<ItemType, string>> = { medkit: "+", ammo_box: "A" };
+const ITEM_LABELS: Readonly<Record<ItemType, string>> = {
+  bandage: "b",
+  medkit: "+",
+  ammo_box: "A",
+};
 
 interface EntitySprite {
   readonly container: Phaser.GameObjects.Container;
@@ -69,6 +79,12 @@ interface EntitySprite {
 
 interface ItemSprite {
   readonly container: Phaser.GameObjects.Container;
+}
+
+interface ContainerSprite {
+  readonly container: Phaser.GameObjects.Container;
+  readonly body: Phaser.GameObjects.Rectangle;
+  readonly label: Phaser.GameObjects.Text;
 }
 
 /**
@@ -85,6 +101,7 @@ export class BoardRenderer implements AnimationStage {
   private readonly players = new Map<PlayerId, EntitySprite>();
   private readonly zombies = new Map<ZombieId, EntitySprite>();
   private readonly items = new Map<ItemId, ItemSprite>();
+  private readonly containers = new Map<ContainerId, ContainerSprite>();
   private drawnMap: GameMap | undefined;
   private shownState: GameState | undefined;
   private readonly animation = new AnimationPlayer(this);
@@ -113,6 +130,7 @@ export class BoardRenderer implements AnimationStage {
       if (!completed) return;
       this.shownState = state;
       this.drawHighlights(state, me);
+      this.reconcileContainers(state);
       this.reconcileItems(state);
       this.reconcilePlayers(state);
       this.reconcileZombies(state);
@@ -233,6 +251,46 @@ export class BoardRenderer implements AnimationStage {
       const { x, y } = tileToPixel(z.position);
       g.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     }
+    g.lineStyle(3, COLOURS.containerReachable);
+    for (const c of searchableContainersInReach(state, player)) {
+      const { x, y } = tileToPixel(c.position);
+      g.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    }
+  }
+
+  private reconcileContainers(state: GameState): void {
+    const seen = new Set<ContainerId>();
+    for (const container of state.containers) {
+      seen.add(container.id);
+      const sprite = this.containers.get(container.id) ?? this.createContainerSprite(container);
+      const { x, y } = tileCenter(container.position);
+      sprite.container.setPosition(x, y);
+      sprite.body.setFillStyle(container.searched ? COLOURS.containerSearched : COLOURS.container);
+      sprite.label.setText(container.searched ? "-" : "?");
+    }
+    for (const [id, sprite] of this.containers) {
+      if (!seen.has(id)) {
+        sprite.container.destroy();
+        this.containers.delete(id);
+      }
+    }
+  }
+
+  private createContainerSprite(container: SearchableContainer): ContainerSprite {
+    const body = this.scene.add.rectangle(
+      0,
+      0,
+      TILE_SIZE * 0.7,
+      TILE_SIZE * 0.5,
+      COLOURS.container,
+    );
+    const label = this.scene.add
+      .text(0, 0, "?", { fontSize: "14px", color: "#ffffff" })
+      .setOrigin(0.5);
+    const group = this.scene.add.container(0, 0, [body, label]).setDepth(-1);
+    const sprite: ContainerSprite = { container: group, body, label };
+    this.containers.set(container.id, sprite);
+    return sprite;
   }
 
   private reconcileItems(state: GameState): void {

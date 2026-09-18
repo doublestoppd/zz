@@ -367,6 +367,18 @@ describe("gameplay", () => {
     expect(await host.next("rejected")).toMatchObject({ seq: 1, reason: "ITEM_NOT_HERE" });
   });
 
+  it("validates searches on the server and never takes loot from the client", async () => {
+    const { host, guest } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    const [first] = await Promise.all([host.next("update"), guest.next("update")]);
+    expect(first.state.containers).toHaveLength(1);
+    const container = first.state.containers[0]!;
+    // The host spawns far from the fixture's container.
+    host.command({ type: "search", containerId: container.id });
+    expect((await host.next("rejected")).reason).toBe("CONTAINER_OUT_OF_REACH");
+    await guest.expectNone("update");
+  });
+
   it("ignores any playerId a client tries to smuggle in", async () => {
     const { host, guest, hostId } = await twoPlayerLobby();
     host.send({ t: "start_match" });

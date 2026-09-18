@@ -24,4 +24,7 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionReason, string>> = {
   INVENTORY_FULL: "You cannot carry any more.",
   ITEM_NOT_CARRIED: "You are not carrying that.",
   HEALTH_ALREADY_FULL: "You are already at full health.",
+  CONTAINER_NOT_FOUND: "There is nothing to search there.",
+  CONTAINER_OUT_OF_REACH: "Stand on or next to it to search.",
+  CONTAINER_ALREADY_SEARCHED: "That has already been searched.",
 };

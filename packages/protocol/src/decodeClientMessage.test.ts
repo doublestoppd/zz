@@ -41,6 +41,10 @@ describe("decodeClientMessage", () => {
       { t: "command", seq: 7, expectedVersion: 7, command: { type: "pick_up", itemId: "i1" } },
     ],
     [
+      '{"t":"command","seq":9,"expectedVersion":7,"command":{"type":"search","containerId":"c1"}}',
+      { t: "command", seq: 9, expectedVersion: 7, command: { type: "search", containerId: "c1" } },
+    ],
+    [
       '{"t":"command","seq":8,"expectedVersion":7,"command":{"type":"use_item","itemType":"medkit"}}',
       {
         t: "command",
@@ -69,6 +73,7 @@ describe("decodeClientMessage", () => {
     '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"use_item"}}',
     '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"use_item","itemType":"rocket"}}',
     '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"pick_up"}}',
+    '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"search"}}',
     '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"move","to":{"x":1.5,"y":2}}}',
     '{"t":"command","seq":1,"expectedVersion":7,"command":{"type":"move","to":[1,2]}}',
   ])("rejects %s", (raw) => {

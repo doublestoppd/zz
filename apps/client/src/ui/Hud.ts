@@ -1,4 +1,9 @@
-import { ITEM_TYPES, itemsUnderPlayer, type ItemType } from "@zombie/game-core";
+import {
+  ITEM_TYPES,
+  itemsUnderPlayer,
+  searchableContainersInReach,
+  type ItemType,
+} from "@zombie/game-core";
 import type { SoundPlayer } from "../audio/SoundPlayer.js";
 import { KEY_HELP } from "../input/keyboard.js";
 import type { CommandSender } from "../net/CommandSender.js";
@@ -14,6 +19,7 @@ const REJECTION_MESSAGE_MS = 3000;
 
 /** Button text per item type; the compiler demands an entry for every `ItemType`. */
 const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
+  bandage: "Use bandage",
   medkit: "Use medkit",
   ammo_box: "Open ammo box",
 };
@@ -31,6 +37,7 @@ export class Hud {
   private readonly weaponLine = el("div");
   private readonly inventoryLine = el("div");
   private readonly pickUpButton: HTMLButtonElement;
+  private readonly searchButton: HTMLButtonElement;
   private readonly useButtons = new Map<ItemType, HTMLButtonElement>();
   private readonly reloadButton: HTMLButtonElement;
   private readonly endTurnButton: HTMLButtonElement;
@@ -60,6 +67,15 @@ export class Hud {
     });
     this.reloadButton = button("Reload", () => {
       sender.send({ type: "reload" });
+    });
+    this.searchButton = button("Search", () => {
+      const client = store.get();
+      const me = client.game?.state.players.find((p) => p.id === client.me?.playerId);
+      const container =
+        me === undefined || client.game === undefined
+          ? undefined
+          : searchableContainersInReach(client.game.state, me)[0];
+      if (container !== undefined) sender.send({ type: "search", containerId: container.id });
     });
     this.pickUpButton = button("Pick up", () => {
       const client = store.get();
@@ -92,6 +108,8 @@ export class Hud {
       this.weaponLine,
       this.inventoryLine,
       el("div", {}, [
+        this.searchButton,
+        " ",
         this.pickUpButton,
         " ",
         ...[...this.useButtons.values()].flatMap((b) => [b, " "]),
@@ -169,6 +187,12 @@ export class Hud {
     const busy = active !== me || state.pendingSeq !== undefined;
     this.reloadButton.disabled = busy;
     this.endTurnButton.disabled = busy;
+    const reachable = mine === undefined ? [] : searchableContainersInReach(game, mine);
+    this.searchButton.disabled = busy || reachable.length === 0;
+    this.searchButton.textContent =
+      reachable.length === 0
+        ? "Search"
+        : `Search ${reachable[0]?.category ?? ""} cabinet (${game.rules.searchActionPointCost} AP)`;
     const underfoot = mine === undefined ? [] : itemsUnderPlayer(game, mine);
     this.pickUpButton.disabled = busy || underfoot.length === 0;
     this.pickUpButton.textContent =

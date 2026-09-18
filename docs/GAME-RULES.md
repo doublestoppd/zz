@@ -22,8 +22,9 @@ that file is named so the rule can be changed in one place.
   (a pistol with a full magazine), 12 rounds of reserve ammunition, and an empty inventory
   with room for 3 items.
 - Each loot spawn on the map holds one ground item whose type is rolled from the weighted
-  loot table in `packages/game-data/src/items.ts` (medkit 1 : ammo box 2) using the `loot`
-  Rng stream, so the same seed always yields the same loot.
+  loot table in `packages/game-data/src/items.ts` (bandage 2 : medkit 1 : ammo box 2) using
+  the `loot` Rng stream, so the same seed always yields the same loot. Most supplies come
+  from searching containers instead (see Scavenging).
 - The match seed is chosen by the server. Gameplay randomness (none consumed yet) comes
   from an Rng whose cursor is stored in `GameState.rngState`.
 
@@ -124,10 +125,29 @@ The first and only scenario. Settings come from `packages/game-data/src/objectiv
 - Defeat (everyone down) is checked before the objective, so a team that all goes down in
   the zone still loses.
 
-## Items and inventory (`rules/items.ts`)
+## Scavenging (`rules/search.ts`)
 
-Item numbers live in `packages/game-data/src/items.ts`: a medkit heals 5, an ammo box adds
-6 rounds to the reserve; using either costs 1 action point, and picking up costs 1.
+Buildings contain searchable containers (cabinets, shelves, lockers) placed by the building
+templates; each has a category (`home`, `clinic`, `police`, `shop`) that decides its loot
+table in `packages/game-data/src/containers.ts`. Searching costs `searchActionPointCost`
+(2 action points).
+
+- **Search** (`search` with a container id). Checked in order: the container exists, it is
+  on the player's tile or an adjacent one (diagonals count), it has not been searched, the
+  player has enough action points.
+- Loot is rolled from the category's table: between `minRolls` and `maxRolls` weighted
+  draws, where a "nothing" draw yields no item. The roll depends only on the match seed and
+  the container's id, so the same seed always puts the same loot in the same cabinet no
+  matter who searches or in what order.
+- Found items go into the searcher's inventory while there is room; anything that does not
+  fit is dropped on the container's tile as an ordinary ground item and can be picked up
+  later by anyone.
+- A container never yields twice. Searched containers stay on the map, greyed out.
+- Searching makes no noise yet (a later milestone).
+
+Item numbers live in `packages/game-data/src/items.ts`: a bandage heals 3, a medkit heals
+5, an ammo box adds 6 rounds to the reserve; using any costs 1 action point, and picking up
+costs 1.
 
 - **Pick up** (`pick_up` with an item id) takes a ground item lying on the player's own
   tile into their inventory. Checked in order: the item exists, it is on the player's tile,

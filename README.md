@@ -48,7 +48,9 @@ server itself speaks plain HTTP and WS. Matches live in memory, so a restart end
 Open `http://localhost:5173` in two browser tabs. In one, enter a name and **Create match**;
 in the other, enter a name and the four-letter code and **Join**. The host presses
 **Start match**. Click a highlighted tile to move or a red-outlined zombie to fire; press
-**Reload** or **End turn** as needed. Get everyone into the green zone and hold it to win.
+**Reload** or **End turn** as needed. Step into buildings and search the cabinets (**Q** or the
+Search button) for bandages, medkits, and ammunition. Get everyone into the green zone and
+hold it to win.
 
 Keyboard: arrows or WASD move one tile, **F** fires at the nearest zombie in range, **R**
 reloads, **P** picks up, **E** ends the turn. Sound effects are synthesized in the browser;

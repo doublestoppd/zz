@@ -1,6 +1,11 @@
-import type { ItemId, MatchId, PlayerId, ZombieId } from "../ids.js";
+import type { ContainerId, ItemId, MatchId, PlayerId, ZombieId } from "../ids.js";
 import type { GameMap, Position } from "../map/types.js";
-import type { ItemDefinition, WeaponDefinition, ZombieDefinition } from "./definitions.js";
+import type {
+  ItemDefinition,
+  SearchLootTable,
+  WeaponDefinition,
+  ZombieDefinition,
+} from "./definitions.js";
 
 /**
  * Authoritative match state. Plain, JSON-serialisable data only: no class instances,
@@ -25,6 +30,8 @@ export interface GameState {
   readonly zombies: readonly ZombieState[];
   /** Items lying on the ground. Picking one up moves it into a survivor's inventory. */
   readonly items: readonly GroundItem[];
+  /** Searchable objects inside buildings. Each yields loot once. */
+  readonly containers: readonly SearchableContainer[];
   readonly objective: ObjectiveState;
 }
 
@@ -52,10 +59,27 @@ export interface GameRules {
   readonly itemDefinitions: Readonly<Record<ItemType, ItemDefinition>>;
   /** Action points to pick an item up from the ground. */
   readonly pickUpActionPointCost: number;
+  /** Action points to search a container. */
+  readonly searchActionPointCost: number;
+  /** What each kind of location yields when searched. */
+  readonly searchLootTables: Readonly<Record<ContainerCategory, SearchLootTable>>;
+}
+
+/** Runtime list of location kinds; loot tables and templates are keyed by it. */
+export const CONTAINER_CATEGORIES = ["home", "clinic", "police", "shop"] as const;
+export type ContainerCategory = (typeof CONTAINER_CATEGORIES)[number];
+
+/** A cabinet, shelf, locker, or similar. Standing on or next to it allows a search. */
+export interface SearchableContainer {
+  readonly id: ContainerId;
+  readonly category: ContainerCategory;
+  readonly position: Position;
+  /** True once looted; a container never yields twice. */
+  readonly searched: boolean;
 }
 
 /** Runtime list of item types; the type is derived from it so decoders and UIs can iterate. */
-export const ITEM_TYPES = ["medkit", "ammo_box"] as const;
+export const ITEM_TYPES = ["bandage", "medkit", "ammo_box"] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
 
 export interface GroundItem {

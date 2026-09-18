@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseAsciiMap } from "@zombie/game-core";
 import { DEFAULT_CITY_OPTIONS, generateCity } from "./city.js";
-import { rotateStamp, templateToStamp } from "./templates/buildings.js";
+import { BUILDING_TEMPLATES, rotateStamp, templateToStamp } from "./templates/buildings.js";
 import { validateLayout } from "./validate/validateLayout.js";
 
-const EXPECT = { survivorSpawns: 4, zombieSpawns: 5, lootSpawns: 6 };
+const EXPECT = { survivorSpawns: 4, zombieSpawns: 5, lootSpawns: 3 };
 
 describe("generateCity", () => {
   it("is deterministic for a seed and differs across seeds", () => {
@@ -25,6 +25,18 @@ describe("generateCity", () => {
       expect(layout.lootSpawns.every((p) => layout.map.tiles[p.y]?.[p.x]?.type === "floor")).toBe(
         true,
       );
+      expect(layout.containers.length).toBeGreaterThan(0);
+      // Containers sit on interior floor: every one has at least one wall neighbour.
+      for (const c of layout.containers) {
+        const { x, y } = c.position;
+        const walls = [
+          layout.map.tiles[y - 1]?.[x],
+          layout.map.tiles[y + 1]?.[x],
+          layout.map.tiles[y]?.[x - 1],
+          layout.map.tiles[y]?.[x + 1],
+        ].filter((t) => t?.type === "wall").length;
+        expect(walls).toBeGreaterThan(0);
+      }
     }
   });
 
@@ -83,12 +95,21 @@ describe("validateLayout", () => {
 });
 
 describe("templates", () => {
+  it("gives every template a category and at least one container", () => {
+    for (const template of BUILDING_TEMPLATES) {
+      expect(template.rows.some((row) => row.includes("c"))).toBe(true);
+      expect(["home", "clinic", "police", "shop"]).toContain(template.category);
+    }
+  });
+
   it("rotates a stamp so the door moves around the footprint", () => {
-    const stamp = templateToStamp(["###", "#.#", "#+#"]);
+    const stamp = templateToStamp(["###", "#c#", "#+#"]);
     expect(stamp.cells[2]?.[1]).toBe("door");
     const once = rotateStamp(stamp, 1);
     expect(once.width).toBe(3);
     expect(once.cells[1]?.[0]).toBe("door");
+    expect(stamp.containers[1]?.[1]).toBe(true);
+    expect(once.containers[1]?.[1]).toBe(true);
     expect(rotateStamp(stamp, 4)).toEqual(stamp);
   });
 });

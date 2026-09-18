@@ -60,4 +60,6 @@ export const RNG_STREAM = {
   mapGeneration: 1,
   loot: 2,
   zombieSpawns: 3,
+  /** Per-container search loot; combined with the container id so search order never matters. */
+  search: 4,
 } as const;

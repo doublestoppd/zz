@@ -3,6 +3,7 @@ import { advanceUntilPlayerInput } from "../turn/phases.js";
 import { applyFireWeapon, applyReload } from "./handlers/combat.js";
 import { applyPickUp, applyUseItem } from "./handlers/items.js";
 import { applyMove } from "./handlers/move.js";
+import { applySearch } from "./handlers/search.js";
 import type { CommandResult } from "./handlers/result.js";
 import { applyEndTurn, applySetPlayerPresence } from "./handlers/turn.js";
 import type { Command } from "./types.js";
@@ -37,6 +38,8 @@ function applyOne(state: GameState, command: Command): CommandResult {
       return applyPickUp(state, command);
     case "use_item":
       return applyUseItem(state, command);
+    case "search":
+      return applySearch(state, command);
     case "end_turn":
       return applyEndTurn(state, command);
     case "set_player_presence":

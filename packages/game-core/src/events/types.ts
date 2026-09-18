@@ -1,6 +1,12 @@
-import type { ItemId, PlayerId, ZombieId } from "../ids.js";
+import type { ContainerId, ItemId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
-import type { GamePhase, ItemType, MatchOutcome, WeaponType } from "../state/types.js";
+import type {
+  ContainerCategory,
+  GamePhase,
+  ItemType,
+  MatchOutcome,
+  WeaponType,
+} from "../state/types.js";
 
 /**
  * What happened, as emitted by the simulation. Clients use events for animation,
@@ -14,6 +20,7 @@ export type GameEvent =
   | EntityDiedEvent
   | ItemPickedUpEvent
   | ItemUsedEvent
+  | ContainerSearchedEvent
   | PlayerHealedEvent
   | AmmoGainedEvent
   | TurnEndedEvent
@@ -63,6 +70,18 @@ export interface ItemPickedUpEvent {
   readonly playerId: PlayerId;
   readonly itemId: ItemId;
   readonly itemType: ItemType;
+  readonly actionPointsSpent: number;
+}
+
+/** A container was looted. `found` = `carried` + `dropped` (dropped items lie on its tile). */
+export interface ContainerSearchedEvent {
+  readonly type: "container_searched";
+  readonly playerId: PlayerId;
+  readonly containerId: ContainerId;
+  readonly category: ContainerCategory;
+  readonly found: readonly ItemType[];
+  readonly carried: readonly ItemType[];
+  readonly dropped: readonly ItemType[];
   readonly actionPointsSpent: number;
 }
 

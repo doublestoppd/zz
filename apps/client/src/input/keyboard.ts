@@ -2,6 +2,7 @@ import {
   chebyshevDistance,
   itemsUnderPlayer,
   legalFireTargets,
+  searchableContainersInReach,
   type GameState,
   type PlayerId,
   type Position,
@@ -26,6 +27,7 @@ export const KEY_HELP: readonly (readonly [string, string])[] = [
   ["F", "fire at the nearest zombie in range"],
   ["R", "reload"],
   ["P", "pick up the item underfoot"],
+  ["Q", "search the nearest container in reach"],
   ["E", "end turn"],
 ];
 
@@ -57,6 +59,10 @@ export function keyToCommand(
     case "p": {
       const item = itemsUnderPlayer(state, player)[0];
       return item === undefined ? undefined : { type: "pick_up", itemId: item.id };
+    }
+    case "q": {
+      const container = searchableContainersInReach(state, player)[0];
+      return container === undefined ? undefined : { type: "search", containerId: container.id };
     }
     case "f": {
       const targets = legalFireTargets(state, player);

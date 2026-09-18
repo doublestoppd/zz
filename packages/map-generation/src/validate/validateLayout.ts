@@ -45,6 +45,7 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
     ["extraction tile", layout.extractionZone],
     ["zombie spawn", layout.zombieSpawns],
     ["loot spawn", layout.lootSpawns],
+    ["container", layout.containers.map((c) => c.position)],
   ];
   const seen = new Set<string>();
   for (const [label, positions] of groups) {
@@ -71,6 +72,18 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
       if (reach.distanceTo(p) === undefined) {
         issues.push(
           `zombie spawn (${p.x}, ${p.y}) unreachable from spawn (${spawn.x}, ${spawn.y})`,
+        );
+      }
+    }
+    for (const p of layout.lootSpawns) {
+      if (reach.distanceTo(p) === undefined) {
+        issues.push(`loot spawn (${p.x}, ${p.y}) unreachable from spawn (${spawn.x}, ${spawn.y})`);
+      }
+    }
+    for (const c of layout.containers) {
+      if (reach.distanceTo(c.position) === undefined) {
+        issues.push(
+          `container (${c.position.x}, ${c.position.y}) unreachable from spawn (${spawn.x}, ${spawn.y})`,
         );
       }
     }

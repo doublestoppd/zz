@@ -1,4 +1,4 @@
-import type { ItemId, PlayerId, ZombieId } from "../ids.js";
+import type { ContainerId, ItemId, PlayerId, ZombieId } from "../ids.js";
 import type { Position } from "../map/types.js";
 import type { ItemType } from "../state/types.js";
 
@@ -7,7 +7,13 @@ import type { ItemType } from "../state/types.js";
  * session; it is never taken from the client payload (docs/NETWORK-PROTOCOL.md).
  */
 export type PlayerCommand =
-  MoveCommand | FireWeaponCommand | ReloadCommand | PickUpCommand | UseItemCommand | EndTurnCommand;
+  | MoveCommand
+  | FireWeaponCommand
+  | ReloadCommand
+  | PickUpCommand
+  | UseItemCommand
+  | SearchCommand
+  | EndTurnCommand;
 
 export interface MoveCommand {
   readonly type: "move";
@@ -41,6 +47,13 @@ export interface UseItemCommand {
   readonly type: "use_item";
   readonly playerId: PlayerId;
   readonly itemType: ItemType;
+}
+
+/** Search a container on the player's tile or an adjacent one. Loot is decided by the server. */
+export interface SearchCommand {
+  readonly type: "search";
+  readonly playerId: PlayerId;
+  readonly containerId: ContainerId;
 }
 
 export interface EndTurnCommand {

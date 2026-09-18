@@ -41,6 +41,7 @@ export interface TestStateOptions {
   readonly holdoutRounds?: number;
   readonly inventoryCapacity?: number;
   readonly zombieMovesPerPhase?: number;
+  readonly searchActionPointCost?: number;
 }
 
 const DEFAULT_PISTOL: WeaponDefinition = {
@@ -67,10 +68,47 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       },
       weaponDefinitions: { pistol: { ...DEFAULT_PISTOL, ...options.pistol } },
       itemDefinitions: {
+        bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
         ammo_box: { effect: { kind: "ammo", rounds: 6 }, useActionPointCost: 1 },
       },
       pickUpActionPointCost: 1,
+      searchActionPointCost: options.searchActionPointCost ?? 2,
+      searchLootTables: {
+        home: {
+          minRolls: 1,
+          maxRolls: 2,
+          entries: [
+            { type: "bandage", weight: 2 },
+            { type: "ammo_box", weight: 1 },
+            { type: "nothing", weight: 1 },
+          ],
+        },
+        clinic: {
+          minRolls: 1,
+          maxRolls: 2,
+          entries: [
+            { type: "medkit", weight: 3 },
+            { type: "bandage", weight: 2 },
+          ],
+        },
+        police: {
+          minRolls: 1,
+          maxRolls: 2,
+          entries: [
+            { type: "ammo_box", weight: 4 },
+            { type: "nothing", weight: 1 },
+          ],
+        },
+        shop: {
+          minRolls: 0,
+          maxRolls: 2,
+          entries: [
+            { type: "bandage", weight: 1 },
+            { type: "nothing", weight: 2 },
+          ],
+        },
+      },
     },
     survivor: {
       maxHealth: 10,

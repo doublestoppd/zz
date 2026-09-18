@@ -1,6 +1,7 @@
 import type { FireRejectionReason, ReloadRejectionReason } from "../rules/combat.js";
 import type { PickUpRejectionReason, UseItemRejectionReason } from "../rules/items.js";
 import type { MoveRejectionReason } from "../rules/movement.js";
+import type { SearchRejectionReason } from "../rules/search.js";
 
 /** Reasons that apply to any player command, checked before command-specific rules. */
 export type TurnRejectionReason =
@@ -16,4 +17,5 @@ export type RejectionReason =
   | FireRejectionReason
   | ReloadRejectionReason
   | PickUpRejectionReason
-  | UseItemRejectionReason;
+  | UseItemRejectionReason
+  | SearchRejectionReason;

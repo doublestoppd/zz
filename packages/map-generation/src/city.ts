@@ -4,6 +4,7 @@ import {
   positionKey,
   RNG_STREAM,
   searchFrom,
+  type ContainerSpawn,
   type MapLayout,
   type Position,
   type Rng,
@@ -13,6 +14,7 @@ import {
   BUILDING_TEMPLATES,
   rotateStamp,
   templateToStamp,
+  type BuildingTemplate,
   type Stamp,
 } from "./templates/buildings.js";
 import { validateLayout } from "./validate/validateLayout.js";
@@ -31,7 +33,7 @@ export const DEFAULT_CITY_OPTIONS: Omit<CityOptions, "seed"> = {
   height: 18,
   survivorSpawns: 4,
   zombieSpawns: 5,
-  lootSpawns: 6,
+  lootSpawns: 3,
 };
 
 /** Generation knobs that are not per-match. Change the city's feel here. */
@@ -53,7 +55,8 @@ const MAX_ATTEMPTS = 12;
  *   3. survivors spawn together on the western road;
  *   4. the extraction zone is a 2x2 walkable area far from the spawn;
  *   5. zombies spawn on reachable tiles well away from the survivors;
- *   6. loot spawns on reachable open ground, preferring building interiors;
+ *   6. every building's `c` cells become searchable containers of the template's category,
+ *      and a few loose items land on reachable open ground;
  *   7. the layout is validated; on failure the next attempt uses a derived seed.
  * Throws only if every attempt fails, which indicates a generator bug, not bad luck.
  */
@@ -98,9 +101,10 @@ function buildCity(rng: Rng, options: CityOptions): MapLayout | undefined {
   for (const x of roadXs) grid.fillRect(x, 1, ROAD_WIDTH, options.height - 2, "road");
   for (const y of roadYs) grid.fillRect(1, y, options.width - 2, ROAD_WIDTH, "road");
 
+  const containers: ContainerSpawn[] = [];
   for (const block of blocksBetween(roadXs, roadYs, options)) {
     for (const lot of splitIntoLots(block)) {
-      if (rng.next() < BUILDING_CHANCE) placeBuilding(grid, rng, lot);
+      if (rng.next() < BUILDING_CHANCE) containers.push(...placeBuilding(grid, rng, lot));
     }
   }
 
@@ -113,14 +117,16 @@ function buildCity(rng: Rng, options: CityOptions): MapLayout | undefined {
 
   const extractionZone = placeExtraction(grid, reach, spawnPositions);
   if (extractionZone === undefined) return undefined;
-  const taken = new Set([...spawnPositions, ...extractionZone].map(positionKey));
+  const taken = new Set(
+    [...spawnPositions, ...extractionZone, ...containers.map((c) => c.position)].map(positionKey),
+  );
   const zombieSpawns = placeZombies(grid, rng, reach, taken, options.zombieSpawns);
   if (zombieSpawns === undefined) return undefined;
   for (const p of zombieSpawns) taken.add(positionKey(p));
   const lootSpawns = placeLoot(grid, rng, reach, taken, options.lootSpawns);
   if (lootSpawns === undefined) return undefined;
 
-  return { map, spawnPositions, extractionZone, zombieSpawns, lootSpawns };
+  return { map, spawnPositions, extractionZone, zombieSpawns, lootSpawns, containers };
 }
 
 /**
@@ -187,26 +193,32 @@ function splitIntoLots(block: Block): Block[] {
  * ground; the right and bottom edges keep a one-tile strip free so neighbouring buildings
  * never seal each other's doors and nothing faces the outer wall.
  */
-function placeBuilding(grid: Grid, rng: Rng, block: Block): void {
+function placeBuilding(grid: Grid, rng: Rng, block: Block): ContainerSpawn[] {
   const usableW = block.w - 1;
   const usableH = block.h - 1;
-  const stamps: Stamp[] = [];
-  for (const rows of BUILDING_TEMPLATES) {
-    const base = templateToStamp(rows);
+  const candidates: { stamp: Stamp; template: BuildingTemplate }[] = [];
+  for (const template of BUILDING_TEMPLATES) {
+    const base = templateToStamp(template.rows);
     for (let turn = 0; turn < 4; turn += 1) {
       const stamp = rotateStamp(base, turn);
-      if (stamp.width <= usableW && stamp.height <= usableH) stamps.push(stamp);
+      if (stamp.width <= usableW && stamp.height <= usableH) candidates.push({ stamp, template });
     }
   }
-  if (stamps.length === 0) return;
-  const stamp = rng.pick(stamps);
+  const chosen = candidates.length === 0 ? undefined : rng.pick(candidates);
+  if (chosen === undefined) return [];
+  const { stamp, template } = chosen;
   const x = block.x + rng.int(0, usableW - stamp.width);
   const y = block.y + rng.int(0, usableH - stamp.height);
+  const containers: ContainerSpawn[] = [];
   stamp.cells.forEach((row, dy) => {
     row.forEach((type, dx) => {
       if (type !== undefined) grid.set({ x: x + dx, y: y + dy }, type);
+      if (stamp.containers[dy]?.[dx] === true) {
+        containers.push({ position: { x: x + dx, y: y + dy }, category: template.category });
+      }
     });
   });
+  return containers;
 }
 
 /** A vertical run of tiles on the westernmost road, at a random height. */
