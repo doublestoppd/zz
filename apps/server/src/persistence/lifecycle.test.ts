@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { SMALL_TEST_MAP } from "@zombie/game-core";
 import { MatchRegistry } from "../lobby/MatchRegistry.js";
 import { ServerMatch, type MatchDependencies } from "../match/ServerMatch.js";
+import { metrics } from "../observability/metrics.js";
 import { verifyJournal } from "../replay/verifier.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import {
@@ -198,6 +199,56 @@ describe("restart recovery", () => {
     fires[0]!();
     expect(registry.get(code)).toBeUndefined();
     expect(store.list()).toEqual([]);
+  });
+});
+
+describe("failure paths", () => {
+  it("keeps the lobby and answers INTERNAL_ERROR when the map generator gives up", () => {
+    const store = new MemoryMatchStore();
+    let attempts = 0;
+    const flaky: MatchDependencies = {
+      ...deps(store),
+      createLayout: (seed, playerCount) => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("generateCity: no layout after 20 attempts");
+        return deps(store).createLayout(seed, playerCount);
+      },
+    };
+    const match = new ServerMatch("GENF", flaky);
+    const a = fakeSession("a");
+    match.join(a, "Ann");
+    expect(match.start(a)).toBe("INTERNAL_ERROR");
+    expect(match.getStatus()).toBe("lobby");
+    expect(match.isStarted()).toBe(false);
+    expect(store.list()).toEqual([]);
+    expect(match.start(a)).toBeUndefined();
+    expect(match.getStatus()).toBe("active");
+  });
+
+  it("keeps a match running in memory when a checkpoint write fails", () => {
+    const failing: MatchStore = {
+      save: () => {
+        throw new Error("ENOSPC");
+      },
+      delete: () => undefined,
+      list: () => [],
+    };
+    const before = metrics.counterValue("zombie_persistence_failures_total");
+    const match = new ServerMatch("DISK", deps(failing));
+    const a = fakeSession("a");
+    match.join(a, "Ann");
+    expect(match.start(a)).toBeUndefined();
+    match.handleCommand(a, {
+      commandId: "c1",
+      baseRevision: 0,
+      command: { type: "move", to: { x: 2, y: 1 } },
+    } as never);
+    const update = a.sent.filter((m) => (m as { t: string }).t === "update").at(-1) as {
+      revision: number;
+      commandId?: string;
+    };
+    expect(update).toMatchObject({ revision: 1, commandId: "c1" });
+    expect(metrics.counterValue("zombie_persistence_failures_total")).toBe(before + 2); // start + command
   });
 });
 

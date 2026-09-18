@@ -1,5 +1,6 @@
 import { MatchRegistry } from "./lobby/MatchRegistry.js";
 import { FileMatchStore } from "./persistence/matchStore.js";
+import { metrics } from "./observability/metrics.js";
 import { GAME_VERSION } from "./version.js";
 import { log } from "./log.js";
 import { startSocketServer } from "./net/socketServer.js";
@@ -23,9 +24,36 @@ function parsePort(raw: string | undefined): number {
   return value;
 }
 
+const adminToken = process.env.ADMIN_TOKEN;
+const diagnostics = registry.diagnostics();
+metrics.set("zombie_process_start_time_seconds", Math.floor(Date.now() / 1000));
+
+// Fail fast on a programming error the handlers did not catch: a corrupt process is worse
+// than a restart, and every active match is checkpointed. The line carries what a log
+// search needs to find the last commands before it.
+process.on("uncaughtException", (error) => {
+  metrics.increment("zombie_uncaught_exceptions_total");
+  log("error", "uncaught exception", {
+    category: "server",
+    error: `${error.name}: ${error.message}`,
+    stack: error.stack ?? null,
+  });
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  metrics.increment("zombie_uncaught_exceptions_total");
+  log("error", "unhandled rejection", { category: "server", reason: String(reason) });
+});
+
 const handle = await startSocketServer({
   port,
   ...(staticDir === undefined ? {} : { staticDir }),
+  http: {
+    metricsText: () => registry.metricsText(),
+    ...(adminToken === undefined || adminToken === "" ? {} : { adminToken }),
+    diagnostics,
+    isReady: diagnostics.isReady,
+  },
   onMessage: (session, message) => {
     handleClientMessage(registry, session, message);
   },
@@ -33,12 +61,14 @@ const handle = await startSocketServer({
     handleDisconnect(registry, session);
   },
   log: (line) => {
-    log("error", line);
+    log("error", line, { category: "server" });
   },
 });
 
 log("info", "server listening", {
+  category: "server",
   port: handle.port,
+  adminEndpoints: adminToken !== undefined && adminToken !== "",
   staticDir: staticDir ?? null,
   stateDir: stateDir ?? null,
   gameVersion: GAME_VERSION,

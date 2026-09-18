@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { decodeClientMessage, encodeMessage, type ClientMessage } from "@zombie/protocol";
 import { sendError } from "../errors.js";
+import { log as logLine } from "../log.js";
+import { metrics } from "../observability/metrics.js";
+import type { HttpOptions } from "./httpServer.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import { createHttpServer } from "./httpServer.js";
 
@@ -27,6 +30,8 @@ export interface SocketServerOptions {
   readonly rateLimit?: { readonly burst: number; readonly perSecond: number };
   /** Serve the built client from this directory on the same port (see net/httpServer.ts). */
   readonly staticDir?: string;
+  /** HTTP-side diagnostics (see net/httpServer.ts); tests pass a registry's diagnostics. */
+  readonly http?: Omit<HttpOptions, "staticDir">;
 }
 
 export interface SocketServerHandle {
@@ -57,7 +62,10 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
   const maxConnections = options.maxConnections ?? DEFAULTS.maxConnections;
   const rateLimit = options.rateLimit ?? DEFAULTS.rateLimit;
   // One listener serves /healthz (and optionally the client) over HTTP and upgrades to WebSocket.
-  const httpOptions = options.staticDir === undefined ? {} : { staticDir: options.staticDir };
+  const httpOptions: HttpOptions = {
+    ...(options.http ?? {}),
+    ...(options.staticDir === undefined ? {} : { staticDir: options.staticDir }),
+  };
   const http = createHttpServer(httpOptions);
   const server = new WebSocketServer({
     server: http,
@@ -79,9 +87,12 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
 
   server.on("connection", (socket) => {
     if (server.clients.size > maxConnections) {
+      metrics.increment("zombie_connections_refused_total");
       socket.close(CLOSE_TRY_AGAIN_LATER, "server full");
       return;
     }
+    metrics.increment("zombie_connections_total");
+    metrics.set("zombie_connected_sockets", server.clients.size);
     alive.set(socket, true);
     socket.on("pong", () => alive.set(socket, true));
 
@@ -115,6 +126,7 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
     socket.on("message", (data, isBinary) => {
       if (!allow()) {
         bucket.dropped += 1;
+        metrics.increment("zombie_messages_rate_limited_total");
         sendError(session, "RATE_LIMITED");
         // A client that keeps flooding after being told is disconnected.
         if (bucket.dropped > rateLimit.burst) socket.close(CLOSE_POLICY_VIOLATION, "rate limit");
@@ -123,6 +135,7 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       const text = isBinary ? "" : rawDataToString(data);
       const decoded = decodeClientMessage(text);
       if (!decoded.ok) {
+        metrics.increment("zombie_messages_malformed_total");
         // A bad command body inside a good envelope is answered per command, so the
         // client can clear that command; anything else is a session-level error.
         if (decoded.commandId !== undefined) {
@@ -139,13 +152,25 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       try {
         options.onMessage(session, decoded.value);
       } catch (error) {
-        // A bug in one handler must not take the whole server down.
-        log(`handler error for session ${session.id}: ${String(error)}`);
+        // A bug in one handler must not take the whole server down. The correlation fields
+        // are enough to find the match journal and the command in the logs.
+        metrics.increment("zombie_handler_exceptions_total");
+        logLine("error", "handler exception", {
+          category: "server",
+          sessionId: session.id,
+          matchCode: session.matchCode ?? null,
+          playerId: session.playerId ?? null,
+          messageType: decoded.value.t,
+          commandId: decoded.value.t === "command" ? decoded.value.commandId : null,
+          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+          stack: error instanceof Error ? (error.stack ?? null) : null,
+        });
         sendError(session, "INTERNAL_ERROR");
       }
     });
 
     socket.on("close", () => {
+      metrics.set("zombie_connected_sockets", Math.max(0, server.clients.size - 1));
       options.onDisconnect(session);
     });
 

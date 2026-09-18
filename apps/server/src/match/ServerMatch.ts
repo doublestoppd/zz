@@ -38,6 +38,7 @@ import {
 } from "@zombie/protocol";
 import { sendError } from "../errors.js";
 import { log } from "../log.js";
+import { metrics } from "../observability/metrics.js";
 import { GAME_VERSION } from "../version.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import type { MatchRecord, MatchStatus, MatchStore } from "../persistence/matchStore.js";
@@ -89,6 +90,24 @@ export interface MatchDependencies {
   readonly onJournal?: (journal: MatchJournal) => void;
   /** Where records are checkpointed after every mutation and restored from after a restart. */
   readonly store?: MatchStore;
+}
+
+/** What `/admin/matches/<code>` returns. */
+export interface MatchDiagnostics {
+  readonly code: string;
+  readonly status: MatchStatus;
+  readonly players: readonly {
+    readonly id: PlayerId;
+    readonly name: string;
+    readonly specialty: SpecialtyType;
+    readonly connected: boolean;
+  }[];
+  readonly revision: number | null;
+  readonly round: number | null;
+  readonly phase: string | null;
+  readonly threat: number | null;
+  readonly journalEntries: number;
+  readonly metadata: JournalMetadata | null;
 }
 
 export interface CreatedLayout {
@@ -260,9 +279,25 @@ export class ServerMatch {
     return match;
   }
 
+  /**
+   * Checkpoints the match. A store failure is logged and counted but does not unwind the
+   * mutation that was already applied: the match keeps running in memory and the next
+   * checkpoint retries the whole record, so nothing is lost while the disk recovers.
+   */
   private persist(): void {
     const record = this.record();
-    if (record !== undefined) this.deps.store?.save(record);
+    if (record === undefined) return;
+    try {
+      this.deps.store?.save(record);
+    } catch (error) {
+      metrics.increment("zombie_persistence_failures_total");
+      log("error", "state not saved", {
+        category: "lifecycle",
+        matchCode: this.code,
+        revision: record.journal.entries.length,
+        error: String(error),
+      });
+    }
   }
 
   /** True when no member is connected. The registry uses this to discard matches. */
@@ -302,9 +337,17 @@ export class ServerMatch {
   }
 
   rejoin(session: ClientSession, rejoinToken: string): ErrorCode | undefined {
-    if (session.matchCode !== undefined) return "ALREADY_IN_MATCH";
+    metrics.increment("zombie_reconnect_attempts_total");
+    if (session.matchCode !== undefined) {
+      metrics.increment("zombie_reconnect_failures_total", { reason: "ALREADY_IN_MATCH" });
+      return "ALREADY_IN_MATCH";
+    }
     const member = this.members.find((m) => m.rejoinToken === rejoinToken);
-    if (member === undefined) return "INVALID_REJOIN_TOKEN";
+    if (member === undefined) {
+      metrics.increment("zombie_reconnect_failures_total", { reason: "INVALID_REJOIN_TOKEN" });
+      return "INVALID_REJOIN_TOKEN";
+    }
+    metrics.increment("zombie_reconnect_successes_total");
 
     // A stale socket for the same slot is superseded by the new one and told so.
     if (member.session !== undefined) {
@@ -317,8 +360,10 @@ export class ServerMatch {
     session.send(this.joinedMessage(member, true));
     this.broadcastLobby();
     log("info", "player rejoined", {
+      category: "session",
       matchCode: this.code,
       playerId: member.playerId,
+      sessionId: session.id,
       started: this.isStarted(),
     });
     if (this.runtime !== undefined) {
@@ -352,7 +397,17 @@ export class ServerMatch {
   /** Applies a mutation through the runtime and, when accepted, appends it to the journal. */
   private mutate(command: Command): CommandResult {
     if (this.runtime === undefined) throw new Error("mutate: match not started");
+    const started = performance.now();
     const result = this.runtime.apply(command);
+    const elapsed = performance.now() - started;
+    // A command that ended the round ran the zombie phase and the end-of-round steps too.
+    const ranZombiePhase =
+      result.ok &&
+      result.events.some((e) => e.type === "phase_changed" && e.phase.kind === "zombie_phase");
+    metrics.observe("zombie_command_duration_ms", elapsed, {
+      kind: ranZombiePhase ? "with_zombie_phase" : "player_only",
+    });
+    if (ranZombiePhase) metrics.observe("zombie_zombie_phase_duration_ms", elapsed);
     if (result.ok) {
       this.journalEntries.push(journalEntry(this.runtime.getRevision(), command, result.state));
       if (result.state.phase.kind === "finished") this.status = "completed";
@@ -360,6 +415,27 @@ export class ServerMatch {
       this.persist();
     }
     return result;
+  }
+
+  /** Operator-facing summary: no tokens, no full state. */
+  describe(): MatchDiagnostics {
+    const state = this.runtime?.getState();
+    return {
+      code: this.code,
+      status: this.status,
+      players: this.members.map((m) => ({
+        id: m.playerId,
+        name: m.name,
+        specialty: m.specialty,
+        connected: m.session !== undefined,
+      })),
+      revision: this.runtime?.getRevision() ?? null,
+      round: state?.round ?? null,
+      phase: state?.phase.kind ?? null,
+      threat: state?.threat ?? null,
+      journalEntries: this.journalEntries.length,
+      metadata: this.journalMetadata ?? null,
+    };
   }
 
   /** Specialties are fixed once the match starts; the lobby list tells everyone the choice. */
@@ -403,7 +479,22 @@ export class ServerMatch {
 
     this.status = "starting";
     const seed = this.deps.createSeed();
-    const created = this.deps.createLayout(seed, this.members.length);
+    let created: CreatedLayout;
+    try {
+      created = this.deps.createLayout(seed, this.members.length);
+    } catch (error) {
+      // The generator gave up on this seed. The lobby stays intact so the host can try again
+      // (a fresh seed is drawn); the client gets the fixed INTERNAL_ERROR text, never the cause.
+      this.status = "lobby";
+      log("error", "map generation failed", {
+        category: "match",
+        matchCode: this.code,
+        seed,
+        playerCount: this.members.length,
+        error: String(error),
+      });
+      return "INTERNAL_ERROR";
+    }
     const initial = createInitialState({
       matchId: matchId(this.code),
       seed,
@@ -430,7 +521,9 @@ export class ServerMatch {
     this.initialCheckpoint = fingerprint(initial);
     this.status = "active";
     this.persist();
+    metrics.increment("zombie_matches_started_total");
     log("info", "match started", {
+      category: "match",
       matchCode: this.code,
       seed,
       scenario,
@@ -465,9 +558,12 @@ export class ServerMatch {
         ...(detail === undefined ? {} : { detail }),
         ...(currentRevision === undefined ? {} : { currentRevision }),
       });
+      metrics.increment("zombie_commands_total", { outcome: "rejected", reason });
       log("info", "command rejected", {
+        category: "command",
         matchCode: this.code,
         playerId: member.playerId,
+        sessionId: session.id,
         commandId,
         type: command.type,
         reason,
@@ -484,9 +580,12 @@ export class ServerMatch {
     const result = this.mutate({ ...command, playerId: member.playerId });
     member.recentCommands.add(commandId);
     if (!result.ok) return reject(categorize(result.reason), result.reason);
+    metrics.increment("zombie_commands_total", { outcome: "accepted" });
     log("info", "command accepted", {
+      category: "command",
       matchCode: this.code,
       playerId: member.playerId,
+      sessionId: session.id,
       commandId,
       type: command.type,
       revision: this.runtime.getRevision(),
@@ -570,6 +669,14 @@ export class ServerMatch {
   }
 
   private broadcast(message: ServerMessage, except?: ClientSession): void {
+    if (message.t === "update") {
+      const bytes = Buffer.byteLength(JSON.stringify(message));
+      metrics.observe("zombie_snapshot_bytes", bytes);
+      const recipients = this.members.filter(
+        (m) => m.session !== undefined && m.session !== except,
+      ).length;
+      metrics.increment("zombie_outbound_bytes_total", {}, bytes * recipients);
+    }
     for (const member of this.members) {
       if (member.session !== undefined && member.session !== except) member.session.send(message);
     }
@@ -601,7 +708,9 @@ export class ServerMatch {
     this.endLogged = true;
     const journal = this.journal();
     if (journal !== undefined) this.deps.onJournal?.(journal);
+    metrics.increment("zombie_matches_completed_total", { outcome: state.phase.outcome });
     log("info", "match ended", {
+      category: "match",
       matchCode: this.code,
       seed: state.seed,
       scenario: state.objective.scenario,

@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { MatchJournal } from "@zombie/game-core";
 import { log } from "../log.js";
+import { metrics } from "../observability/metrics.js";
 import { MemoryMatchStore, type MatchStore } from "../persistence/matchStore.js";
 import { DEFAULT_CITY_OPTIONS, generateCity } from "@zombie/map-generation";
 import { ServerMatch, type MatchDependencies } from "../match/ServerMatch.js";
@@ -55,10 +56,17 @@ const DEFAULT_DEPS: MatchDependencies = {
       zombieSpawns: 3 + playerCount,
       lootSpawns: 2 + playerCount,
     };
-    return {
-      layout: generateCity({ ...options, seed }),
-      source: { kind: "city", options },
-    };
+    try {
+      return {
+        layout: metrics.time("zombie_map_generation_duration_ms", {}, () =>
+          generateCity({ ...options, seed }),
+        ),
+        source: { kind: "city", options },
+      };
+    } catch (error) {
+      metrics.increment("zombie_map_generation_failures_total");
+      throw error;
+    }
   },
   onJournal: writeJournalIfConfigured,
 };
@@ -130,7 +138,9 @@ export class MatchRegistry {
         this.matches.set(match.code, match);
         this.noteMembershipChanged(match);
         restored += 1;
+        metrics.increment("zombie_matches_restored_total");
         log("info", "match restored", {
+          category: "lifecycle",
           matchCode: match.code,
           revision: record.journal.entries.length,
         });
@@ -175,7 +185,49 @@ export class MatchRegistry {
     while (this.matches.has(code)) code = this.randomCode();
     const match = new ServerMatch(code, this.deps);
     this.matches.set(code, match);
+    this.updateGauges();
     return match;
+  }
+
+  /** What the diagnostics endpoints and readiness probe read. */
+  diagnostics(): {
+    listMatches: () => unknown;
+    describeMatch: (code: string) => unknown;
+    isReady: () => boolean;
+  } {
+    return {
+      listMatches: () =>
+        [...this.matches.values()].map((m) => {
+          const { metadata: _metadata, ...summary } = m.describe();
+          return summary;
+        }),
+      describeMatch: (code) => this.get(code)?.describe(),
+      isReady: () => !this.draining,
+    };
+  }
+
+  /**
+   * Metrics text for `/metrics`. Registry gauges (matches, lobbies, connected players) are
+   * derived from the live matches on every scrape rather than kept up to date on every
+   * transition, so a scrape can never observe a stale count.
+   */
+  metricsText(): string {
+    this.updateGauges();
+    return metrics.render();
+  }
+
+  private updateGauges(): void {
+    let active = 0;
+    let lobbies = 0;
+    let connected = 0;
+    for (const match of this.matches.values()) {
+      if (match.isStarted()) active += 1;
+      else lobbies += 1;
+      connected += match.describe().players.filter((p) => p.connected).length;
+    }
+    metrics.set("zombie_active_matches", active);
+    metrics.set("zombie_lobbies", lobbies);
+    metrics.set("zombie_connected_players", connected);
   }
 
   get(code: string): ServerMatch | undefined {
@@ -184,6 +236,7 @@ export class MatchRegistry {
 
   /** Call after any join, rejoin, or disconnect so abandoned matches are cleaned up. */
   noteMembershipChanged(match: ServerMatch): void {
+    this.updateGauges();
     const existingTimer = this.abandonTimers.get(match.code);
     if (existingTimer !== undefined) {
       existingTimer.cancel();
@@ -205,7 +258,9 @@ export class MatchRegistry {
       }
       match.markAbandoned();
       this.matches.delete(match.code);
-      log("info", "match abandoned", { matchCode: match.code });
+      metrics.increment("zombie_matches_abandoned_total");
+      this.updateGauges();
+      log("info", "match abandoned", { category: "lifecycle", matchCode: match.code });
     }, this.abandonedMatchTtlMs);
     this.abandonTimers.set(match.code, timer);
   }

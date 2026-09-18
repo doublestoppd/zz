@@ -192,7 +192,10 @@ client's last applied revision and the server's `currentRevision`. The browser c
 answers it by sending `resync` and rebuilding from the snapshot. `DUPLICATE_COMMAND` means
 the same id was seen within the player's last 256 commands; the client's original outcome
 was already broadcast. Reproduce either with a raw socket: send two `command` messages
-with the same `commandId`, or one whose `baseRevision` is the previous revision.
+with the same `commandId`, or one whose `baseRevision` is the previous revision. On a
+running server, `curl -H "Authorization: Bearer $ADMIN_TOKEN" :8080/admin/matches/<CODE>`
+shows the current revision, round, and phase without touching the match, and
+`curl :8080/metrics | grep zombie_commands_total` shows how often each reason occurs.
 
 ## Add a network message
 

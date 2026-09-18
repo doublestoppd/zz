@@ -54,8 +54,9 @@ so nothing downstream knows which it is playing on. The server injects the layou
 | File                       | Owns                                                                                                                                                      |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `net/socketServer.ts`      | The only file that imports `ws`. Decodes text through protocol, answers malformed input, creates a `ClientSession` per socket, applies the socket limits. |
-| `net/httpServer.ts`        | `/healthz` and optional static serving of the built client on the same port.                                                                              |
-| `errors.ts`, `log.ts`      | Fixed client-facing error texts; JSON-line logging.                                                                                                       |
+| `net/httpServer.ts`        | `/healthz`, `/readyz`, `/metrics`, the token-guarded `/admin/matches` diagnostics, and optional static serving of the built client on the same port.      |
+| `errors.ts`, `log.ts`      | Fixed client-facing error texts; levelled JSON-line logging (`LOG_LEVEL`).                                                                                |
+| `observability/metrics.ts` | Dependency-free counters, gauges, and fixed-bucket histograms rendered in the Prometheus text format. Written to by the socket server, registry, match.   |
 | `session/ClientSession.ts` | Socket ↔ player slot bookkeeping.                                                                                                                         |
 | `lobby/MatchRegistry.ts`   | Match codes, lookup, cleanup of abandoned matches.                                                                                                        |
 | `match/ServerMatch.ts`     | Membership, host, rejoin tokens, presence, start, command handling, broadcasting.                                                                         |

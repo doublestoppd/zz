@@ -470,6 +470,54 @@ describe("http side", () => {
     expect((await fetch(`${base}/..%2F..%2Fetc%2Fpasswd`)).status).not.toBe(200);
   });
 
+  it("exposes metrics and, behind the admin token, match diagnostics without tokens", async () => {
+    const diagnostics = registry.diagnostics();
+    await restartWith({
+      http: {
+        metricsText: () => registry.metricsText(),
+        adminToken: "s3cret",
+        diagnostics,
+        isReady: diagnostics.isReady,
+      },
+    });
+    const { host, guest, code } = await twoPlayerLobby();
+    host.send({ t: "start_match" });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    host.command({ type: "move", to: { x: 2, y: 1 } });
+    await Promise.all([host.next("update"), guest.next("update")]);
+    guest.command({ type: "end_turn" });
+    await guest.next("rejected");
+    const base = `http://127.0.0.1:${handle.port}`;
+    const text = await (await fetch(`${base}/metrics`)).text();
+    expect(text).toContain('zombie_commands_total{outcome="accepted"}');
+    expect(text).toContain('zombie_commands_total{outcome="rejected",reason="INVALID_PHASE"}');
+    expect(text).toContain("zombie_snapshot_bytes_count");
+    expect(text).toContain("zombie_active_matches 1");
+    expect((await fetch(`${base}/readyz`)).status).toBe(200);
+    // No token, wrong token: the endpoints do not exist.
+    expect((await fetch(`${base}/admin/matches`)).status).toBe(404);
+    expect(
+      (await fetch(`${base}/admin/matches`, { headers: { authorization: "Bearer nope" } })).status,
+    ).toBe(404);
+    const auth = { headers: { authorization: "Bearer s3cret" } };
+    const list = (await (await fetch(`${base}/admin/matches`, auth)).json()) as {
+      code: string;
+      revision: number;
+      status: string;
+    }[];
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ code, status: "active", revision: 1 });
+    const detailText = await (await fetch(`${base}/admin/matches/${code}`, auth)).text();
+    expect(detailText).not.toContain("token-");
+    expect(JSON.parse(detailText)).toMatchObject({
+      code,
+      round: 1,
+      phase: "player_turn",
+      journalEntries: 1,
+    });
+    expect((await fetch(`${base}/admin/matches/ZZZZ`, auth)).status).toBe(404);
+  });
+
   it("serves only the health check when no static directory is configured", async () => {
     const base = `http://127.0.0.1:${handle.port}`;
     expect((await fetch(`${base}/healthz`)).status).toBe(200);
