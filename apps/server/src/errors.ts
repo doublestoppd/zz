@@ -12,18 +12,12 @@ const ERROR_TEXT: Readonly<Record<ErrorCode, string>> = {
   ALREADY_IN_MATCH: "You are already in a match.",
   NOT_HOST: "Only the host can do that.",
   INVALID_REJOIN_TOKEN: "That rejoin token is not valid for this match.",
-  DUPLICATE_COMMAND: "That command was already received.",
-  STALE_STATE: "The board changed before your command arrived. Try again.",
   RATE_LIMITED: "Too many messages; slow down.",
   SESSION_REPLACED: "Another connection took over this player.",
   INTERNAL_ERROR: "The server hit a problem handling that message.",
 };
 
-/** Answers the sender with a fixed, non-internal text; `seq` ties the error to a command. */
-export function sendError(session: ClientSession, code: ErrorCode, seq?: number): void {
-  session.send(
-    seq === undefined
-      ? { t: "error", code, message: ERROR_TEXT[code] }
-      : { t: "error", code, message: ERROR_TEXT[code], seq },
-  );
+/** Answers the sender with a fixed, non-internal text. Never includes exception details. */
+export function sendError(session: ClientSession, code: ErrorCode): void {
+  session.send({ t: "error", code, message: ERROR_TEXT[code] });
 }

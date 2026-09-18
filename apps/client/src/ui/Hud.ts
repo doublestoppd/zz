@@ -22,7 +22,7 @@ import { clearIdentity } from "./identityStorage.js";
 import { AMMO_LABELS } from "./eventLog.js";
 import { describeObjective, describeOutcome } from "./objectiveText.js";
 import { button, el, requireElement } from "./dom.js";
-import { REJECTION_MESSAGES } from "./rejectionMessages.js";
+import { describeRejection } from "./rejectionMessages.js";
 
 /** How long a rejection stays on screen before it clears itself. */
 const REJECTION_MESSAGE_MS = 3000;
@@ -262,7 +262,7 @@ export class Hud {
       this.weaponLine.textContent = `${mine.weapon.type}: ${mine.weapon.loadedAmmo}/${firearm.magazineSize} loaded, range ${firearm.range}, ${firearm.attackActionPointCost} AP a shot. ${mine.meleeWeapon}: ${melee.damage} damage, ${melee.attackActionPointCost} AP a strike.`;
       this.ammoLine.textContent = `Reserve: ${AMMO_TYPES.map((t) => `${mine.reserveAmmo[t]} ${AMMO_LABELS[t]}`).join(", ")}`;
     }
-    const busy = active !== me || state.pendingSeq !== undefined;
+    const busy = active !== me || state.pendingCommandId !== undefined;
     this.reloadButton.disabled = busy;
     const meleeTargets = mine === undefined ? [] : legalMeleeTargets(game, mine);
     this.meleeButton.disabled = busy || meleeTargets.length === 0;
@@ -309,7 +309,7 @@ export class Hud {
     }
     this.messageLine.textContent =
       state.lastRejection !== undefined
-        ? REJECTION_MESSAGES[state.lastRejection]
+        ? describeRejection(state.lastRejection)
         : (state.lastError ?? "");
     if (state.lastRejection !== undefined && this.rejectionTimer === undefined) {
       this.rejectionTimer = setTimeout(() => {

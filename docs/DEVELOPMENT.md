@@ -143,6 +143,19 @@ own layout in `testing/makeTestState.ts`.
 `DEFAULT_CITY_OPTIONS.lootSpawns` sets how many. For the test map, add `L` markers in
 `packages/game-core/src/map/testMaps.ts`.
 
+## Diagnose a stale-state or duplicate rejection
+
+Every command answer is logged by the server as one JSON line (`command accepted` or
+`command rejected`) with `matchCode`, `playerId`, `commandId`, `type`, `reason`, `detail`,
+and `revision`; a client bug report only needs the command id. `STALE_REVISION` means the
+client composed the command against a revision the server had already moved past: look
+for the `update` (with its own `commandId`, or none for a presence change) between the
+client's last applied revision and the server's `currentRevision`. The browser client
+answers it by sending `resync` and rebuilding from the snapshot. `DUPLICATE_COMMAND` means
+the same id was seen within the player's last 256 commands; the client's original outcome
+was already broadcast. Reproduce either with a raw socket: send two `command` messages
+with the same `commandId`, or one whose `baseRevision` is the previous revision.
+
 ## Add a network message
 
 1. `packages/protocol/src/messages.ts`: add the interface to `ClientMessage` or `ServerMessage`.

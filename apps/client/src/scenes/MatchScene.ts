@@ -29,8 +29,8 @@ export class MatchScene extends Phaser.Scene {
         return;
       }
       // Only a new snapshot triggers a render; other store changes (pending flags) do not.
-      if (client.game.version === this.lastRenderedVersion) return;
-      this.lastRenderedVersion = client.game.version;
+      if (client.game.revision === this.lastRenderedVersion) return;
+      this.lastRenderedVersion = client.game.revision;
       this.board?.render(client.game.state, client.me?.playerId, client.lastEvents);
     });
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {

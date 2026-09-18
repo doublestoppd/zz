@@ -1,5 +1,5 @@
-import type { GameEvent, GameMap, GameState, PlayerId, RejectionReason } from "@zombie/game-core";
-import type { LobbyMessage, ServerMessage } from "@zombie/protocol";
+import type { GameEvent, GameMap, GameState, PlayerId } from "@zombie/game-core";
+import type { LobbyMessage, RejectedMessage, ServerMessage } from "@zombie/protocol";
 import type { ConnectionStatus } from "../net/GameConnection.js";
 import { describeEvent } from "../ui/eventLog.js";
 
@@ -16,10 +16,11 @@ export interface ClientState {
   readonly lobby: LobbyMessage | undefined;
   /** The board for the current match, received once; `update` snapshots are joined to it. */
   readonly map: GameMap | undefined;
-  readonly game: { readonly version: number; readonly state: GameState } | undefined;
-  /** Sequence number of the command awaiting a server answer, if any. */
-  readonly pendingSeq: number | undefined;
-  readonly lastRejection: RejectionReason | undefined;
+  readonly game: { readonly revision: number; readonly state: GameState } | undefined;
+  /** Id of the command awaiting a server answer, if any. */
+  readonly pendingCommandId: string | undefined;
+  /** The last command rejection: the protocol category and, when given, the rule behind it. */
+  readonly lastRejection: RejectedMessage | undefined;
   readonly lastError: string | undefined;
   readonly log: readonly string[];
   /** Events that produced the current snapshot; the renderer animates them once. */
@@ -34,7 +35,7 @@ const INITIAL: ClientState = {
   lobby: undefined,
   map: undefined,
   game: undefined,
-  pendingSeq: undefined,
+  pendingCommandId: undefined,
   lastRejection: undefined,
   lastError: undefined,
   log: [],
@@ -63,13 +64,13 @@ export class ClientStore {
     this.patch({ connection });
   }
 
-  markPending(seq: number): void {
-    this.patch({ pendingSeq: seq, lastRejection: undefined, lastError: undefined });
+  markPending(commandId: string): void {
+    this.patch({ pendingCommandId: commandId, lastRejection: undefined, lastError: undefined });
   }
 
   /** The socket dropped: keep the match on screen, but no command can be pending any more. */
   markDisconnected(): void {
-    this.patch({ pendingSeq: undefined });
+    this.patch({ pendingCommandId: undefined });
   }
 
   /** Forget the current identity (after leaving a match or a failed rejoin). */
@@ -79,7 +80,7 @@ export class ClientStore {
       lobby: undefined,
       map: undefined,
       game: undefined,
-      pendingSeq: undefined,
+      pendingCommandId: undefined,
       lastEvents: [],
     });
   }
@@ -108,7 +109,7 @@ export class ClientStore {
         this.patch({ map: message.map });
         return;
       case "update": {
-        if (this.state.game !== undefined && message.version < this.state.game.version) return;
+        if (this.state.game !== undefined && message.revision < this.state.game.revision) return;
         const map = this.state.map;
         if (map === undefined) {
           console.warn("update received before the map; ignoring");
@@ -116,21 +117,25 @@ export class ClientStore {
         }
         const state: GameState = { ...message.state, map };
         const lines = message.events.map((e: GameEvent) => describeEvent(e, state));
+        // A snapshot settles the pending command only when it carries its id (or nothing is pending);
+        // a server-originated update in between must not make the client send a second command.
+        const settles =
+          message.commandId === undefined || message.commandId === this.state.pendingCommandId;
         this.patch({
-          game: { version: message.version, state },
-          pendingSeq: undefined,
+          game: { revision: message.revision, state },
+          pendingCommandId: settles ? undefined : this.state.pendingCommandId,
           log: [...this.state.log, ...lines].slice(-MAX_LOG_LINES),
           lastEvents: message.events,
         });
         return;
       }
       case "rejected":
-        if (message.seq === this.state.pendingSeq) {
-          this.patch({ pendingSeq: undefined, lastRejection: message.reason });
+        if (message.commandId === this.state.pendingCommandId) {
+          this.patch({ pendingCommandId: undefined, lastRejection: message });
         }
         return;
       case "error":
-        this.patch({ lastError: message.message, pendingSeq: undefined });
+        this.patch({ lastError: message.message, pendingCommandId: undefined });
         return;
     }
   }

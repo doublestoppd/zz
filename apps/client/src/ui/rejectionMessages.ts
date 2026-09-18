@@ -1,4 +1,5 @@
 import type { RejectionReason } from "@zombie/game-core";
+import type { CommandRejectionReason, RejectedMessage } from "@zombie/protocol";
 
 /** Player-facing text for every rejection the server can send. The union keeps this complete. */
 export const REJECTION_MESSAGES: Readonly<Record<RejectionReason, string>> = {
@@ -39,3 +40,21 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionReason, string>> = {
   DOOR_OBSTRUCTED: "Someone is standing in the doorway.",
   BARRIER_NOT_FORCEABLE: "Nothing to force there; just open it.",
 };
+
+/** Player-facing text for the protocol-level categories, used when no rule detail is given. */
+export const CATEGORY_MESSAGES: Readonly<Record<CommandRejectionReason, string>> = {
+  MALFORMED_COMMAND: "That command could not be understood by the server.",
+  NOT_AUTHORIZED: "You cannot act for that player.",
+  MATCH_NOT_STARTED: "The match has not started yet.",
+  DUPLICATE_COMMAND: "That command was already received.",
+  STALE_REVISION: "The board changed before your command arrived; catching up.",
+  INVALID_PHASE: "You cannot act right now.",
+  INVALID_ACTION: "That action is not allowed.",
+};
+
+/** The most specific text available: the rule behind a rejection when the server named one. */
+export function describeRejection(rejection: RejectedMessage): string {
+  return rejection.detail === undefined
+    ? CATEGORY_MESSAGES[rejection.reason]
+    : REJECTION_MESSAGES[rejection.detail];
+}

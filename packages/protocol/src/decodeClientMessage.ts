@@ -12,6 +12,7 @@ import {
 } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
+  isValidCommandId,
   PLAYER_NAME_MAX_LENGTH,
   PLAYER_NAME_MIN_LENGTH,
   type ClientCommand,
@@ -19,10 +20,16 @@ import {
 } from "./messages.js";
 
 export type DecodeResult<T> =
-  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: string };
+  | { readonly ok: true; readonly value: T }
+  | {
+      readonly ok: false;
+      readonly error: string;
+      /** Set when a `command` envelope was well-formed but its body was not, so the sender can be answered per command. */
+      readonly commandId?: string;
+    };
 
-function fail<T>(error: string): DecodeResult<T> {
-  return { ok: false, error };
+function fail<T>(error: string, commandId?: string): DecodeResult<T> {
+  return commandId === undefined ? { ok: false, error } : { ok: false, error, commandId };
 }
 
 /** Matches ASCII control characters (0x00-0x1f and 0x7f). */
@@ -110,22 +117,27 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
       return { ok: true, value: { t: "leave_match" } };
 
     case "command": {
-      if (!isInteger(parsed.seq)) return fail("command.seq must be an integer");
-      if (!isInteger(parsed.expectedVersion)) {
-        return fail("command.expectedVersion must be an integer");
+      if (!isValidCommandId(parsed.commandId)) {
+        return fail("command.commandId must be 1-64 characters of [A-Za-z0-9_-]");
+      }
+      if (!isInteger(parsed.baseRevision) || parsed.baseRevision < 0) {
+        return fail("command.baseRevision must be a non-negative integer", parsed.commandId);
       }
       const command = decodeClientCommand(parsed.command);
-      if (!command.ok) return fail(command.error);
+      if (!command.ok) return fail(command.error, parsed.commandId);
       return {
         ok: true,
         value: {
           t: "command",
-          seq: parsed.seq,
-          expectedVersion: parsed.expectedVersion,
+          commandId: parsed.commandId,
+          baseRevision: parsed.baseRevision,
           command: command.value,
         },
       };
     }
+
+    case "resync":
+      return { ok: true, value: { t: "resync" } };
 
     default:
       return fail("unknown message type");

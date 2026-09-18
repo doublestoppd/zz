@@ -75,28 +75,34 @@ everyone. Errors: `NOT_IN_MATCH`, `MATCH_ALREADY_STARTED`, `NOT_HOST`.
 ### `command`
 
 ```json
-{ "t": "command", "seq": 12, "expectedVersion": 3, "command": { "type": "move", "to": { "x": 3, "y": 1 } } }
-{ "t": "command", "seq": 13, "expectedVersion": 4, "command": { "type": "fire_weapon", "targetId": "z1" } }
-{ "t": "command", "seq": 22, "expectedVersion": 4, "command": { "type": "melee_attack", "targetId": "z1" } }
-{ "t": "command", "seq": 14, "expectedVersion": 5, "command": { "type": "reload" } }
-{ "t": "command", "seq": 15, "expectedVersion": 6, "command": { "type": "pick_up", "itemId": "i3" } }
-{ "t": "command", "seq": 16, "expectedVersion": 7, "command": { "type": "use_item", "itemType": "medkit" } }
-{ "t": "command", "seq": 18, "expectedVersion": 8, "command": { "type": "search", "containerId": "c4" } }
-{ "t": "command", "seq": 19, "expectedVersion": 9, "command": { "type": "open_door", "barrierId": "b2" } }
-{ "t": "command", "seq": 20, "expectedVersion": 10, "command": { "type": "close_door", "barrierId": "b2" } }
-{ "t": "command", "seq": 21, "expectedVersion": 11, "command": { "type": "force_entry", "barrierId": "b7" } }
-{ "t": "command", "seq": 17, "expectedVersion": 8, "command": { "type": "end_turn" } }
+{ "t": "command", "commandId": "6f1c…", "baseRevision": 3, "command": { "type": "move", "to": { "x": 3, "y": 1 } } }
+{ "t": "command", "commandId": "8a20…", "baseRevision": 4, "command": { "type": "fire_weapon", "targetId": "z1" } }
+{ "t": "command", "commandId": "9b31…", "baseRevision": 4, "command": { "type": "melee_attack", "targetId": "z1" } }
+{ "t": "command", "commandId": "c4d2…", "baseRevision": 5, "command": { "type": "reload" } }
+{ "t": "command", "commandId": "d5e3…", "baseRevision": 6, "command": { "type": "pick_up", "itemId": "i3" } }
+{ "t": "command", "commandId": "e6f4…", "baseRevision": 7, "command": { "type": "use_item", "itemType": "medkit" } }
+{ "t": "command", "commandId": "f7a5…", "baseRevision": 8, "command": { "type": "search", "containerId": "c4" } }
+{ "t": "command", "commandId": "0b86…", "baseRevision": 9, "command": { "type": "open_door", "barrierId": "b2" } }
+{ "t": "command", "commandId": "1c97…", "baseRevision": 10, "command": { "type": "close_door", "barrierId": "b2" } }
+{ "t": "command", "commandId": "2da8…", "baseRevision": 11, "command": { "type": "force_entry", "barrierId": "b7" } }
+{ "t": "command", "commandId": "3eb9…", "baseRevision": 8, "command": { "type": "end_turn" } }
 ```
 
-`seq` is chosen by the client and must increase with every command on the same socket; a
-`seq` at or below the last one the server accepted is answered with `error DUPLICATE_COMMAND`
-(carrying that `seq`) and ignored. The sequence starts over on each new socket, so a rejoin
-begins at 1 again. `expectedVersion` is the `update.version` the client acted on; if the
-server's current version differs, the command is answered with `error STALE_STATE` and
-ignored, and the client should re-read the latest snapshot before acting. Both guards run
-before any game rule. The client keeps at most one command pending. Coordinates must be
-integers. Response: `update` to everyone, or `rejected` to the sender. Errors:
-`NOT_IN_MATCH`, `MATCH_NOT_STARTED`, `DUPLICATE_COMMAND`, `STALE_STATE`.
+`commandId` is chosen by the client, 1 to 64 characters of `[A-Za-z0-9_-]` (the browser
+client uses a UUID), unique per command. `baseRevision` is the `update.revision` the client
+acted on. Response: `update` carrying the `commandId` to everyone, or `rejected` to the
+sender. See "Command reliability" below for the pipeline. Session-level errors:
+`NOT_IN_MATCH` (the socket occupies no player slot).
+
+### `resync`
+
+```json
+{ "t": "resync" }
+```
+
+Ask for a fresh authoritative snapshot: the server answers this socket with `map` and then
+`update` (no `commandId`). The browser client sends it after a `STALE_REVISION` rejection.
+Errors: `NOT_IN_MATCH`, `MATCH_NOT_STARTED`.
 
 ### `leave_match`
 
@@ -114,7 +120,7 @@ next member); in a running match the player is marked absent and may rejoin.
 ```json
 {
   "t": "joined",
-  "protocolVersion": 1,
+  "protocolVersion": 3,
   "matchCode": "QMCN",
   "playerId": "QMCN-p1",
   "rejoinToken": "…"
@@ -132,7 +138,7 @@ Store `rejoinToken`; it is the only credential for `rejoin_match`.
   "hostId": "QMCN-p1",
   "maxPlayers": 4,
   "started": false,
-  "players": [{ "id": "QMCN-p1", "name": "Ann", "present": true }]
+  "players": [{ "id": "QMCN-p1", "name": "Ann", "specialty": "survivor", "present": true }]
 }
 ```
 
@@ -151,39 +157,84 @@ during a match; a client that receives an `update` before a `map` ignores the up
 ### `update`
 
 ```json
-{ "t": "update", "version": 3, "state": { …GameState… }, "events": [ …GameEvent… ] }
+{ "t": "update", "revision": 3, "commandId": "6f1c…", "state": { …GameState… }, "events": [ …GameEvent… ] }
 ```
 
 `state` is the authoritative `GameState` from `packages/game-core` minus its `map`, which the
-client already holds from the `map` message; the client joins the two. `version`
-increases by one per accepted command; discard an update whose version is lower than the
-last one seen. The snapshot is redacted for fog of war: `zombies` holds only the zombies
-inside the team's current view, and zombie events out of view are dropped (see
-`apps/server/src/match/redact.ts`). `events` describe what produced this state (see `events/types.ts`); they
-drive logs and animation and are never required to rebuild the board.
+client already holds from the `map` message; the client joins the two. `revision` is the
+authoritative state revision (see "Command reliability"); discard an update whose revision
+is lower than the last one applied. `commandId` names the accepted command that produced
+the update and is absent for server-originated updates (presence changes, a `resync`
+snapshot, the first snapshot at start). The snapshot is redacted for fog of war: `zombies`
+holds only the zombies inside the team's current view, and zombie events out of view are
+dropped (see `apps/server/src/match/redact.ts`). `events` describe what produced this state
+(see `events/types.ts`); they drive logs and animation and are never required to rebuild the
+board.
 
 ### `rejected`
 
 ```json
-{ "t": "rejected", "seq": 12, "reason": "INSUFFICIENT_ACTION_POINTS" }
+{ "t": "rejected", "commandId": "6f1c…", "reason": "INVALID_ACTION", "detail": "INSUFFICIENT_ACTION_POINTS", "currentRevision": 3 }
+{ "t": "rejected", "commandId": "8a20…", "reason": "STALE_REVISION", "currentRevision": 5 }
+{ "t": "rejected", "commandId": "9b31…", "reason": "MALFORMED_COMMAND" }
 ```
 
-`reason` is a `RejectionReason` from game-core. Sent to the sender only.
+The typed outcome of a command that was not executed; sent to the sender only. `reason` is
+one of the closed set `MALFORMED_COMMAND`, `NOT_AUTHORIZED`, `MATCH_NOT_STARTED`,
+`DUPLICATE_COMMAND`, `STALE_REVISION`, `INVALID_PHASE`, `INVALID_ACTION`. For the last two,
+`detail` carries the game-core `RejectionReason` (`NOT_YOUR_TURN`, `MAGAZINE_FULL`, …) so the
+client can word it. `currentRevision` is the server's revision when it answered; it is
+absent only for `MALFORMED_COMMAND`, which is answered before any match is looked up.
 
 ### `error`
 
 ```json
 { "t": "error", "code": "NOT_HOST", "message": "Only the host can do that." }
-{ "t": "error", "code": "STALE_STATE", "message": "The board changed before your command arrived. Try again.", "seq": 12 }
 ```
 
-Codes: `MALFORMED_MESSAGE`, `INVALID_PLAYER_NAME`, `MATCH_NOT_FOUND`, `MATCH_FULL`,
-`MATCH_ALREADY_STARTED`, `MATCH_NOT_STARTED`, `NOT_IN_MATCH`, `ALREADY_IN_MATCH`, `NOT_HOST`,
-`INVALID_REJOIN_TOKEN`, `DUPLICATE_COMMAND`, `STALE_STATE`, `RATE_LIMITED`,
-`SESSION_REPLACED`, `INTERNAL_ERROR` (a handler threw; the message was not applied). `seq` is
-present
-when the error answers a specific command. `MALFORMED_MESSAGE` covers invalid JSON, unknown
-`t`, unknown command types, and wrong field types; the connection stays open.
+Session-level problems, never the outcome of a gameplay command. Codes: `MALFORMED_MESSAGE`,
+`INVALID_PLAYER_NAME`, `MATCH_NOT_FOUND`, `MATCH_FULL`, `MATCH_ALREADY_STARTED`,
+`MATCH_NOT_STARTED`, `NOT_IN_MATCH`, `ALREADY_IN_MATCH`, `NOT_HOST`, `INVALID_REJOIN_TOKEN`,
+`RATE_LIMITED`, `SESSION_REPLACED`, `INTERNAL_ERROR` (a handler threw; the message was not
+applied; nothing about the exception is sent). `MALFORMED_MESSAGE` covers invalid JSON,
+unknown `t`, and wrong field types in the envelope; a well-formed `command` envelope with a
+bad body is answered with `rejected MALFORMED_COMMAND` instead. `message` is fixed text per
+code, safe to show.
+
+## Command reliability
+
+Every gameplay command passes through the same pipeline, in this order, and every step
+either forwards it or answers the sender with a typed outcome:
+
+```
+socket text
+  -> runtime validation          protocol.decodeClientMessage: MALFORMED_MESSAGE / rejected MALFORMED_COMMAND
+  -> rate limit                  error RATE_LIMITED (socket layer, before decoding)
+  -> session / ownership         error NOT_IN_MATCH; the playerId is stamped from the session, never read from the payload
+  -> match started               rejected MATCH_NOT_STARTED
+  -> duplicate commandId         rejected DUPLICATE_COMMAND (the command is not executed again)
+  -> baseRevision check          rejected STALE_REVISION with currentRevision
+  -> game rules                  rejected INVALID_PHASE / INVALID_ACTION / NOT_AUTHORIZED with detail
+  -> authoritative mutation      revision += 1
+  -> update { revision, commandId, state, events } to everyone
+```
+
+**Revision rule.** The revision is 0 when the match starts and increases by exactly one for
+every accepted mutation of the authoritative state, whether a player command or a server
+command (a presence change on connect or disconnect). Nothing else changes it. A rejected
+command never changes it.
+
+**Duplicates.** The server keeps the last 256 command ids per player, with the player and
+not the socket, so a retransmission after a reconnect is still recognised. A duplicate is
+answered but never executed; the client treats the answer as settled because the original
+outcome already arrived as an `update` (or will, in order).
+
+**Stale commands and resynchronisation.** A command whose `baseRevision` is not the
+server's current revision is refused as `STALE_REVISION`. The client then sends `resync`
+and rebuilds from the snapshot it gets back. Because every `update` is a complete snapshot,
+a client that missed one is behind only until the next update or resync; it is never
+inconsistent. The client keeps at most one command pending, so it never sends a command
+against a revision it has not seen.
 
 ## Limits
 

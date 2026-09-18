@@ -59,7 +59,7 @@ so nothing downstream knows which it is playing on. The server injects the layou
 | `session/ClientSession.ts` | Socket ↔ player slot bookkeeping.                                                                                                                         |
 | `lobby/MatchRegistry.ts`   | Match codes, lookup, cleanup of abandoned matches.                                                                                                        |
 | `match/ServerMatch.ts`     | Membership, host, rejoin tokens, presence, start, command handling, broadcasting.                                                                         |
-| `match/MatchRuntime.ts`    | The single mutable reference to a `GameState` plus its version counter.                                                                                   |
+| `match/MatchRuntime.ts`    | The single mutable reference to a `GameState` plus its revision counter.                                                                                  |
 | `router.ts`                | Maps each `ClientMessage` to the registry or match method that owns it.                                                                                   |
 
 ### `apps/client`
@@ -67,7 +67,7 @@ so nothing downstream knows which it is playing on. The server injects the layou
 | Directory | Owns                                                                                                                                 |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `net/`    | WebSocket wrapper with automatic reconnect; `CommandSender` (one pending command at a time). No Phaser.                              |
-| `state/`  | `ClientStore`: latest snapshot, the events that produced it, identity, pending seq, log. No Phaser.                                  |
+| `state/`  | `ClientStore`: latest snapshot and revision, the events that produced it, identity, pending command id, log. No Phaser.              |
 | `ui/`     | DOM lobby and HUD (buttons, inventory, mute, keyboard help, live regions), objective and outcome wording, rejection and log text.    |
 | `render/` | Tile geometry; `planAnimations` (pure: events → steps); `BoardRenderer` playing steps as tweens, then reconciling Phaser objects.    |
 | `input/`  | Pure intent functions: `decideClickIntent`, `decideMoveIntent`, `keyToCommand`.                                                      |
@@ -110,25 +110,37 @@ action-point balance, or any other outcome. See [ADR 0001](adr/0001-server-autho
 
 ```
 socket text
-  -> protocol.decodeClientMessage      shape only; MALFORMED_MESSAGE on failure
-  -> server.router                     which lobby/match owns this?
-  -> ServerMatch.handleCommand         stamp playerId from session
+  -> protocol.decodeClientMessage      shape only; error MALFORMED_MESSAGE or rejected MALFORMED_COMMAND
+  -> server.router                     which lobby/match owns this socket? (error NOT_IN_MATCH)
+  -> ServerMatch.handleCommand         match started? duplicate commandId? baseRevision current?
+                                       stamp playerId from the session
   -> MatchRuntime.apply
        -> game-core.applyCommand       turn checks -> rule validation -> new state + events
                                        -> advanceUntilPlayerInput (zombie phase, end of round)
-  -> broadcast { t: "update", version, state, events }    or   send { t: "rejected", seq, reason }
+       -> revision += 1 on success
+  -> broadcast { t: "update", revision, commandId, state, events }
+     or send { t: "rejected", commandId, reason, detail?, currentRevision }
 ```
 
 `applyCommand` is pure. It returns a `CommandResult` value: either `{ ok, state, events }` or
 `{ ok: false, reason }`. Rejection reasons form a closed union so both the compiler and the
-client can enumerate them.
+client can enumerate them. On the wire the server maps them onto the protocol's closed set
+of categories (`INVALID_PHASE`, `INVALID_ACTION`, `NOT_AUTHORIZED`) and keeps the game-core
+reason as `detail`; the protocol adds its own categories for what game-core never sees
+(`MALFORMED_COMMAND`, `MATCH_NOT_STARTED`, `DUPLICATE_COMMAND`, `STALE_REVISION`).
+
+Command identity and revisions live in the protocol and the server, never in game-core:
+`ServerMatch` keeps the last 256 command ids per player (with the player, so they survive a
+reconnect) and `MatchRuntime` owns the revision. The full pipeline and the revision rule are
+in [NETWORK-PROTOCOL.md](NETWORK-PROTOCOL.md), "Command reliability".
 
 ## State synchronisation
 
 Full snapshot per update ([ADR 0002](adr/0002-plain-data-state-and-snapshot-sync.md)). The
 static map is sent once per socket and each update carries the remaining state (about
-2 KB), which changes at human speed. `version` orders updates; a client
-ignores anything older than what it has. Reconnection is "send the latest snapshot".
+2 KB), which changes at human speed. `revision` orders updates; a client ignores anything
+older than what it has and asks for a `resync` when a command of its comes back
+`STALE_REVISION`. Reconnection is "send the latest snapshot".
 
 `game-core` has no notion of clients or sockets; `MatchRuntime` is the only mutable holder of
 state on the server and `ServerMatch` the only broadcaster. On the client, rendering is a

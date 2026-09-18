@@ -5,9 +5,14 @@ import { ClientStore } from "./ClientStore.js";
 
 const full = makeClientTestState();
 const { map, ...wire } = full;
-const update = (version: number, events: UpdateMessage["events"] = []): UpdateMessage => ({
+const update = (
+  revision: number,
+  events: UpdateMessage["events"] = [],
+  commandId?: string,
+): UpdateMessage => ({
   t: "update",
-  version,
+  revision,
+  ...(commandId === undefined ? {} : { commandId }),
   state: wire,
   events,
 });
@@ -22,26 +27,47 @@ describe("ClientStore", () => {
     expect(store.get().game?.state).toEqual(full);
   });
 
-  it("discards updates older than the latest and clears the pending command", () => {
+  it("discards updates older than the latest and settles the pending command by id", () => {
     const store = new ClientStore();
     store.applyServerMessage({ t: "map", map });
     store.applyServerMessage(update(3));
-    store.markPending(7);
+    store.markPending("mine");
     store.applyServerMessage(update(2));
-    expect(store.get().game?.version).toBe(3);
-    expect(store.get().pendingSeq).toBe(7);
-    store.applyServerMessage(update(4, [{ type: "turn_started", playerId: P1, round: 1 }]));
-    expect(store.get().pendingSeq).toBeUndefined();
+    expect(store.get().game?.revision).toBe(3);
+    expect(store.get().pendingCommandId).toBe("mine");
+    // Someone else's accepted command arrives first: still waiting for ours.
+    store.applyServerMessage(update(4, [], "theirs"));
+    expect(store.get().pendingCommandId).toBe("mine");
+    store.applyServerMessage(update(5, [{ type: "turn_started", playerId: P1, round: 1 }], "mine"));
+    expect(store.get().pendingCommandId).toBeUndefined();
     expect(store.get().log).toEqual(["one's turn"]);
+    // A server-originated update (no command id) never leaves a command stuck pending.
+    store.markPending("next");
+    store.applyServerMessage(update(6));
+    expect(store.get().pendingCommandId).toBeUndefined();
   });
 
-  it("matches rejections to the pending seq and clears identity on demand", () => {
+  it("matches rejections to the pending command id and clears identity on demand", () => {
     const store = new ClientStore();
-    store.markPending(2);
-    store.applyServerMessage({ t: "rejected", seq: 1, reason: "NOT_YOUR_TURN" });
-    expect(store.get().pendingSeq).toBe(2);
-    store.applyServerMessage({ t: "rejected", seq: 2, reason: "NOT_YOUR_TURN" });
-    expect(store.get()).toMatchObject({ pendingSeq: undefined, lastRejection: "NOT_YOUR_TURN" });
+    store.markPending("b");
+    store.applyServerMessage({
+      t: "rejected",
+      commandId: "a",
+      reason: "INVALID_PHASE",
+      detail: "NOT_YOUR_TURN",
+    });
+    expect(store.get().pendingCommandId).toBe("b");
+    store.applyServerMessage({
+      t: "rejected",
+      commandId: "b",
+      reason: "INVALID_PHASE",
+      detail: "NOT_YOUR_TURN",
+      currentRevision: 3,
+    });
+    expect(store.get()).toMatchObject({
+      pendingCommandId: undefined,
+      lastRejection: { reason: "INVALID_PHASE", detail: "NOT_YOUR_TURN" },
+    });
     store.applyServerMessage({ t: "map", map });
     store.clearIdentity();
     expect(store.get().map).toBeUndefined();

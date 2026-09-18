@@ -121,7 +121,17 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       const text = isBinary ? "" : rawDataToString(data);
       const decoded = decodeClientMessage(text);
       if (!decoded.ok) {
-        sendError(session, "MALFORMED_MESSAGE");
+        // A bad command body inside a good envelope is answered per command, so the
+        // client can clear that command; anything else is a session-level error.
+        if (decoded.commandId !== undefined) {
+          session.send({
+            t: "rejected",
+            commandId: decoded.commandId,
+            reason: "MALFORMED_COMMAND",
+          });
+        } else {
+          sendError(session, "MALFORMED_MESSAGE");
+        }
         return;
       }
       try {

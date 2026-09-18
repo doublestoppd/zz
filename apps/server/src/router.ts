@@ -77,6 +77,16 @@ export function handleClientMessage(
       if (error !== undefined) sendError(session, error);
       return;
     }
+    case "resync": {
+      const match = currentMatch(registry, session);
+      if (match === undefined) {
+        sendError(session, "NOT_IN_MATCH");
+        return;
+      }
+      const error = match.resync(session);
+      if (error !== undefined) sendError(session, error);
+      return;
+    }
     case "leave_match": {
       handleDisconnect(registry, session);
       return;

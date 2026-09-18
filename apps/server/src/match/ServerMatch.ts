@@ -5,6 +5,7 @@ import {
   type GameEvent,
   type MapLayout,
   type PlayerId,
+  type RejectionReason,
   type ScenarioType,
   type SpecialtyType,
 } from "@zombie/game-core";
@@ -19,7 +20,8 @@ import {
   MAX_PLAYERS,
   PROTOCOL_VERSION,
   isValidPlayerName,
-  type ClientCommand,
+  type CommandMessage,
+  type CommandRejectionReason,
   type ErrorCode,
   type LobbyMessage,
   type ServerMessage,
@@ -79,8 +81,44 @@ interface Member {
   readonly rejoinToken: string;
   /** Undefined while the player is disconnected. */
   session: ClientSession | undefined;
-  /** Highest command `seq` accepted on the current socket; reset when a new socket attaches. */
-  lastSeq: number;
+  /** Ids of recent commands, kept with the player (not the socket) so a retransmission after a reconnect is still a duplicate. */
+  readonly recentCommands: RecentCommandIds;
+}
+
+/** A bounded first-in, first-out memory of command ids. */
+export class RecentCommandIds {
+  private readonly order: string[] = [];
+  private readonly known = new Set<string>();
+
+  constructor(private readonly capacity = 256) {}
+
+  has(id: string): boolean {
+    return this.known.has(id);
+  }
+
+  add(id: string): void {
+    if (this.known.has(id)) return;
+    this.known.add(id);
+    this.order.push(id);
+    while (this.order.length > this.capacity) {
+      const oldest = this.order.shift();
+      if (oldest !== undefined) this.known.delete(oldest);
+    }
+  }
+}
+
+/** Game-core reasons that are about who may act now rather than about the action itself. */
+const PHASE_REASONS: ReadonlySet<RejectionReason> = new Set<RejectionReason>([
+  "MATCH_FINISHED",
+  "WRONG_PHASE",
+  "NOT_YOUR_TURN",
+  "PLAYER_NOT_ACTIVE",
+]);
+
+/** Maps a game-core reason onto the protocol's closed set of command rejection categories. */
+export function categorize(reason: RejectionReason): CommandRejectionReason {
+  if (reason === "UNKNOWN_PLAYER") return "NOT_AUTHORIZED";
+  return PHASE_REASONS.has(reason) ? "INVALID_PHASE" : "INVALID_ACTION";
 }
 
 /**
@@ -133,7 +171,7 @@ export class ServerMatch {
       specialty,
       rejoinToken: this.deps.createRejoinToken(),
       session,
-      lastSeq: 0,
+      recentCommands: new RecentCommandIds(),
     };
     this.nextPlayerNumber += 1;
     this.members.push(member);
@@ -238,47 +276,71 @@ export class ServerMatch {
   }
 
   /**
-   * Applies one gameplay command. Besides membership, two sequencing guards run before the
-   * rules: a `seq` at or below the last accepted one is a duplicate delivery, and an
-   * `expectedVersion` other than the current snapshot version means the client composed
-   * the command against a board that has since changed. Both are answered with an `error`
-   * carrying the `seq`, and neither touches the state.
+   * Applies one gameplay command through the documented pipeline: membership, match
+   * started, duplicate id, base revision, then the rules. Every outcome is answered: an
+   * `update` carrying the command id to everyone, or a typed `rejected` to the sender.
+   * Nothing but an accepted command touches the state.
    */
-  handleCommand(
-    session: ClientSession,
-    message: {
-      readonly seq: number;
-      readonly expectedVersion: number;
-      readonly command: ClientCommand;
-    },
-  ): ErrorCode | undefined {
+  handleCommand(session: ClientSession, message: CommandMessage): ErrorCode | undefined {
     const member = this.members.find((m) => m.session === session);
     if (member === undefined) return "NOT_IN_MATCH";
-    if (this.runtime === undefined) return "MATCH_NOT_STARTED";
-    const { seq, expectedVersion, command } = message;
-    if (seq <= member.lastSeq) {
-      sendError(session, "DUPLICATE_COMMAND", seq);
+    const { commandId, baseRevision, command } = message;
+    const reject = (
+      reason: CommandRejectionReason,
+      detail?: RejectionReason,
+    ): ErrorCode | undefined => {
+      const currentRevision = this.runtime?.getRevision();
+      session.send({
+        t: "rejected",
+        commandId,
+        reason,
+        ...(detail === undefined ? {} : { detail }),
+        ...(currentRevision === undefined ? {} : { currentRevision }),
+      });
+      log("info", "command rejected", {
+        matchCode: this.code,
+        playerId: member.playerId,
+        commandId,
+        type: command.type,
+        reason,
+        detail: detail ?? null,
+        revision: currentRevision ?? null,
+      });
       return undefined;
-    }
-    member.lastSeq = seq;
-    if (expectedVersion !== this.runtime.getVersion()) {
-      sendError(session, "STALE_STATE", seq);
-      return undefined;
-    }
+    };
+    if (this.runtime === undefined) return reject("MATCH_NOT_STARTED");
+    if (member.recentCommands.has(commandId)) return reject("DUPLICATE_COMMAND");
+    if (baseRevision !== this.runtime.getRevision()) return reject("STALE_REVISION");
 
     // The player id comes from the session, never from the payload.
     const result = this.runtime.apply({ ...command, playerId: member.playerId });
-    if (!result.ok) {
-      session.send({ t: "rejected", seq, reason: result.reason });
-      return undefined;
-    }
-    this.broadcastUpdate(result.events);
+    member.recentCommands.add(commandId);
+    if (!result.ok) return reject(categorize(result.reason), result.reason);
+    log("info", "command accepted", {
+      matchCode: this.code,
+      playerId: member.playerId,
+      commandId,
+      type: command.type,
+      revision: this.runtime.getRevision(),
+      round: result.state.round,
+      phase: result.state.phase.kind,
+    });
+    this.broadcastUpdate(result.events, undefined, commandId);
+    return undefined;
+  }
+
+  /** Sends this socket the board and the latest snapshot again (the client fell out of sync). */
+  resync(session: ClientSession): ErrorCode | undefined {
+    const member = this.members.find((m) => m.session === session);
+    if (member === undefined) return "NOT_IN_MATCH";
+    if (this.runtime === undefined) return "MATCH_NOT_STARTED";
+    session.send(this.mapMessage());
+    session.send(this.updateMessage([]));
     return undefined;
   }
 
   private attach(session: ClientSession, member: Member): void {
     member.session = session;
-    member.lastSeq = 0;
     session.matchCode = this.code;
     session.playerId = member.playerId;
   }
@@ -325,12 +387,13 @@ export class ServerMatch {
    * The snapshot without its map (every socket received it once in `mapMessage`) and
    * without anything the team cannot currently see (`redact.ts`).
    */
-  private updateMessage(events: readonly GameEvent[]): ServerMessage {
+  private updateMessage(events: readonly GameEvent[], commandId?: string): ServerMessage {
     if (this.runtime === undefined) throw new Error("updateMessage: match not started");
     const state = this.runtime.getState();
     return {
       t: "update",
-      version: this.runtime.getVersion(),
+      revision: this.runtime.getRevision(),
+      ...(commandId === undefined ? {} : { commandId }),
       state: redactState(state),
       events: redactEvents(events, state),
     };
@@ -346,9 +409,13 @@ export class ServerMatch {
     this.broadcast(this.lobbyMessage());
   }
 
-  private broadcastUpdate(events: readonly GameEvent[], except?: ClientSession): void {
+  private broadcastUpdate(
+    events: readonly GameEvent[],
+    except?: ClientSession,
+    commandId?: string,
+  ): void {
     this.recordForPlaytest(events);
-    this.broadcast(this.updateMessage(events), except);
+    this.broadcast(this.updateMessage(events, commandId), except);
   }
 
   /**
