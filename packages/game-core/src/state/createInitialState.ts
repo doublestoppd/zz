@@ -149,6 +149,10 @@ export function createInitialState(setup: MatchSetup): GameState {
     barriers,
     noises: [],
     noiseCounter: 0,
+    zombieCounter: zombies.length,
+    threat: 0,
+    heat: 0,
+    reinforcementSpawns: layout.zombieSpawns,
     objective: createObjective(layout, setup.scenario),
   };
 

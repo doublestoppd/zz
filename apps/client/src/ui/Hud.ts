@@ -43,6 +43,15 @@ const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
   bat: "Bat",
 };
 
+/** One phrase per threat level, from quiet to desperate. */
+const THREAT_LABELS: readonly string[] = [
+  "Quiet streets",
+  "Stirring",
+  "Restless",
+  "Swarming",
+  "Overrun",
+];
+
 /** Item types whose button never shows: they act through another command. */
 function isPassiveItem(game: GameState, type: ItemType): boolean {
   const kind = game.rules.itemDefinitions[type].effect.kind;
@@ -54,6 +63,7 @@ export class Hud {
   private readonly root = requireElement("hud");
   private readonly matchSection = requireElement("match");
   private readonly roundLine = el("div");
+  private readonly threatLine = el("div");
   private readonly turnLine = el("div");
   private readonly objectiveLine = el("div");
   private readonly outcomeBanner = el("div", { className: "outcome" });
@@ -153,6 +163,7 @@ export class Hud {
     this.root.append(
       this.outcomeBanner,
       this.roundLine,
+      this.threatLine,
       this.turnLine,
       this.objectiveLine,
       this.playerList,
@@ -215,6 +226,7 @@ export class Hud {
     this.objectiveLine.textContent = finished ? "" : describeObjective(game);
 
     this.roundLine.textContent = `Round ${game.round}`;
+    this.threatLine.textContent = `${THREAT_LABELS[game.threat] ?? "Threat"} (level ${game.threat}/${game.rules.threat.maxLevel}): rises every ${game.rules.threat.roundsPerLevel} rounds, with noise, and with each objective step`;
     const myTurn = active === me && !finished;
     this.turnLine.classList.toggle("your-turn", myTurn);
     if (myTurn && !this.wasMyTurn) {

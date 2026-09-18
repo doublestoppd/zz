@@ -138,6 +138,26 @@ export interface ZombieDefinition {
 /** Relative chance of each zombie type appearing at a zombie spawn. */
 export type ZombieSpawnTableEntry = WeightedEntry<ZombieType>;
 
+/**
+ * How pressure rises over a match (rules/threat.ts). Levels run from 0 to `maxLevel`; the
+ * per-level arrays must have `maxLevel + 1` entries.
+ */
+export interface ThreatRules {
+  /** Rounds elapsed per level gained from time alone. */
+  readonly roundsPerLevel: number;
+  /** Accumulated noise intensity per level gained from noise. */
+  readonly heatPerLevel: number;
+  readonly maxLevel: number;
+  /** Zombies spawned per reinforcement wave, by level. */
+  readonly reinforcementCount: readonly number[];
+  /** Rounds between waves, by level; 0 means no waves at that level. */
+  readonly reinforcementInterval: readonly number[];
+  /** Which types a wave rolls, by level. */
+  readonly spawnTables: readonly (readonly ZombieSpawnTableEntry[])[];
+  /** A wave never spawns within this Chebyshev distance of a standing survivor. */
+  readonly spawnMinDistance: number;
+}
+
 /** A place a scenario can name; resolved to tiles against the layout at match creation. */
 export type LocationRef = "extraction" | "safehouse";
 

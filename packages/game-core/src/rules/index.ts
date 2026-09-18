@@ -55,6 +55,7 @@ export {
 } from "./search.js";
 export { canHear, decayNoises, makeNoise, noiseScore, type NoiseOutcome } from "./noise.js";
 export { discounted, modifiersOf, NO_MODIFIERS } from "./specialties.js";
+export { applyThreat, computeThreat, type ThreatOutcome } from "./threat.js";
 export {
   BARRIER_REACH,
   barrierAt,

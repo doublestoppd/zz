@@ -13,6 +13,7 @@ import type {
   LocationRef,
   SearchLootTable,
   SpecialtyDefinition,
+  ThreatRules,
   WeaponDefinition,
   ZombieDefinition,
 } from "./definitions.js";
@@ -48,6 +49,14 @@ export interface GameState {
   readonly noises: readonly NoiseEvent[];
   /** Counter behind noise ids, so ids are unique and creation order is recoverable. */
   readonly noiseCounter: number;
+  /** Counter behind zombie ids; reinforcements continue the sequence. */
+  readonly zombieCounter: number;
+  /** Current threat level, 0 to `rules.threat.maxLevel`; recomputed at every end of round. */
+  readonly threat: number;
+  /** Sum of every noise intensity made so far; one of the threat inputs. */
+  readonly heat: number;
+  /** Where reinforcement waves may appear (the layout's zombie spawns). */
+  readonly reinforcementSpawns: readonly Position[];
   readonly objective: ObjectiveState;
 }
 
@@ -93,6 +102,8 @@ export interface GameRules {
   readonly searchLootTables: Readonly<Record<ContainerCategory, SearchLootTable>>;
   /** What each specialty changes. Adding a `SpecialtyType` without an entry fails to compile. */
   readonly specialtyDefinitions: Readonly<Record<SpecialtyType, SpecialtyDefinition>>;
+  /** How pressure escalates over the match. */
+  readonly threat: ThreatRules;
 }
 
 /** Runtime list of location kinds; loot tables and templates are keyed by it. */

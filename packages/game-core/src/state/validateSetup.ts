@@ -1,6 +1,7 @@
 import { isInBounds, positionKey, tileAt } from "../map/position.js";
 import type { GameMap, Position } from "../map/types.js";
 import type { BarrierSpawn, MapLayout } from "../map/asciiMap.js";
+import type { GameRules } from "./types.js";
 import type { MatchSetup } from "./createInitialState.js";
 import type { SpecialtyModifiers, WeaponDefinition } from "./definitions.js";
 import { AMMO_TYPES } from "./types.js";
@@ -151,6 +152,7 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
     );
   }
   checkScenario(issues, setup, layout);
+  checkThreat(issues, rules);
 
   if (layout.zombieSpawns.length > 0) {
     if (setup.zombieSpawnTable.length === 0)
@@ -212,6 +214,43 @@ function checkScenario(issues: string[], setup: MatchSetup, layout: MapLayout): 
   });
   checkPositions(issues, layout.map, "safehouse tile", layout.safehouse);
   checkPositions(issues, layout.map, "objective spawn", layout.objectiveSpawns);
+}
+
+function checkThreat(issues: string[], rules: GameRules): void {
+  const t = rules.threat;
+  positiveInteger(issues, "rules.threat.roundsPerLevel", t.roundsPerLevel, 1);
+  positiveInteger(issues, "rules.threat.heatPerLevel", t.heatPerLevel, 1);
+  positiveInteger(issues, "rules.threat.maxLevel", t.maxLevel, 0);
+  positiveInteger(issues, "rules.threat.spawnMinDistance", t.spawnMinDistance, 0);
+  const levels = t.maxLevel + 1;
+  for (const [name, list] of [
+    ["reinforcementCount", t.reinforcementCount],
+    ["reinforcementInterval", t.reinforcementInterval],
+    ["spawnTables", t.spawnTables],
+  ] as const) {
+    if (list.length !== levels) {
+      issues.push(`rules.threat.${name} must have ${levels} entries, got ${list.length}`);
+    }
+  }
+  t.reinforcementCount.forEach((n, i) => {
+    positiveInteger(issues, `rules.threat.reinforcementCount[${i}]`, n, 0);
+  });
+  t.reinforcementInterval.forEach((n, i) => {
+    positiveInteger(issues, `rules.threat.reinforcementInterval[${i}]`, n, 0);
+  });
+  t.spawnTables.forEach((table, i) => {
+    for (const entry of table) {
+      positiveInteger(
+        issues,
+        `rules.threat.spawnTables[${i}] weight for ${entry.type}`,
+        entry.weight,
+        1,
+      );
+      if (!(entry.type in rules.zombieDefinitions)) {
+        issues.push(`rules.threat.spawnTables[${i}] type "${entry.type}" has no definition`);
+      }
+    }
+  });
 }
 
 function checkPositions(

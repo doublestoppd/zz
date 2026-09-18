@@ -38,6 +38,28 @@ that file is named so the rule can be changed in one place.
 - The match seed is chosen by the server. Gameplay randomness (none consumed yet) comes
   from an Rng whose cursor is stored in `GameState.rngState`.
 
+## Threat and pacing (`rules/threat.ts`)
+
+Pressure rises on a schedule everyone can read. At the end of every round, after the
+objective is judged, the threat level is recomputed as the sum of three whole numbers,
+capped at `maxLevel` (4):
+
+- **time**: `floor(round / roundsPerLevel)`, so with `roundsPerLevel` 4 the first four
+  rounds are level 0 from time alone;
+- **noise**: `floor(heat / heatPerLevel)`, where `heat` is the sum of every noise
+  intensity made so far (40 per level: five pistol shots, or a shotgun blast plus a
+  forced window);
+- **objective**: one level per completed scenario step.
+
+A change emits `threat_changed` and the HUD names the level (quiet streets, stirring,
+restless, swarming, overrun). At level 1 and above, reinforcement waves arrive:
+`reinforcementCount[level]` zombies every `reinforcementInterval[level]` rounds (level 1:
+one every 3 rounds; 2: one every 2; 3: two every 2; 4: two every round), each rolled from
+the level's own spawn table (runners and brutes grow more common) and placed on a free
+zombie spawn at least `spawnMinDistance` (4) tiles from every standing survivor. A wave
+draws from the gameplay RNG, so it replays; it is judged after the objective, so it can
+never spoil a win. Numbers live in `packages/game-data/src/threat.ts`.
+
 ## Specialties (`rules/specialties.ts`)
 
 Each player picks a specialty in the lobby (default `survivor`, no bonus). A specialty is

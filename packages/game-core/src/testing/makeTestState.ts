@@ -7,6 +7,7 @@ import type {
   ItemDefinition,
   ScenarioDefinition,
   SpecialtyDefinition,
+  ThreatRules,
   WeaponDefinition,
   ZombieSpawnTableEntry,
 } from "../state/definitions.js";
@@ -63,6 +64,8 @@ export interface TestStateOptions {
   readonly specialty?: SpecialtyType;
   /** Replaces the default extraction scenario. */
   readonly scenario?: ScenarioDefinition;
+  /** Overrides for the slow default escalation. */
+  readonly threat?: Partial<ThreatRules>;
 }
 
 const DEFAULT_PISTOL: FirearmDefinition = {
@@ -133,6 +136,23 @@ export const TEST_SPECIALTIES: Readonly<Record<SpecialtyType, SpecialtyDefinitio
   },
 };
 
+/** Slow, quiet escalation so ordinary tests never see a wave unless they ask for one. */
+export const TEST_THREAT: ThreatRules = {
+  roundsPerLevel: 100,
+  heatPerLevel: 1000,
+  maxLevel: 4,
+  reinforcementCount: [0, 1, 1, 2, 2],
+  reinforcementInterval: [0, 3, 2, 2, 1],
+  spawnTables: [
+    [{ type: "walker", weight: 1 }],
+    [{ type: "walker", weight: 1 }],
+    [{ type: "runner", weight: 1 }],
+    [{ type: "runner", weight: 1 }],
+    [{ type: "brute", weight: 1 }],
+  ],
+  spawnMinDistance: 3,
+};
+
 export const TEST_ITEMS: Readonly<Record<ItemType, ItemDefinition>> = {
   bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
   medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },
@@ -198,6 +218,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       ),
       itemDefinitions: TEST_ITEMS,
       specialtyDefinitions: TEST_SPECIALTIES,
+      threat: { ...TEST_THREAT, ...options.threat },
       pickUpActionPointCost: 1,
       searchActionPointCost: options.searchActionPointCost ?? 2,
       searchNoise: options.searchNoise ?? 2,

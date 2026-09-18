@@ -48,6 +48,7 @@ export type {
   SearchLootTable,
   SpecialtyDefinition,
   SpecialtyModifiers,
+  ThreatRules,
   SurvivorDefinition,
   ZombieSpawnTableEntry,
   WeaponDefinition,

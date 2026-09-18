@@ -9,6 +9,7 @@ import type {
   MatchOutcome,
   NoiseSourceType,
   WeaponType,
+  ZombieType,
 } from "../state/types.js";
 
 /**
@@ -43,6 +44,8 @@ export type GameEvent =
   | ZombieAttackedEvent
   | EntityDamagedEvent
   | PlayerDownedEvent
+  | ThreatChangedEvent
+  | ZombieSpawnedEvent
   | ObjectiveProgressEvent
   | ObjectiveStepCompletedEvent
   | ObjectiveStepStartedEvent
@@ -246,6 +249,21 @@ export interface EntityDamagedEvent {
 export interface PlayerDownedEvent {
   readonly type: "player_downed";
   readonly playerId: PlayerId;
+}
+
+/** The threat level was recomputed at the end of a round and differs from before. */
+export interface ThreatChangedEvent {
+  readonly type: "threat_changed";
+  readonly level: number;
+  readonly previous: number;
+}
+
+/** A reinforcement zombie appeared at a spawn out of sight. */
+export interface ZombieSpawnedEvent {
+  readonly type: "zombie_spawned";
+  readonly zombieId: ZombieId;
+  readonly zombieType: ZombieType;
+  readonly position: Position;
 }
 
 /** A counted step advanced or reset: rounds held in a zone, or rounds survived. */

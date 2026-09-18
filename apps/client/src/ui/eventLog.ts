@@ -97,6 +97,12 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return `${nameOf(state, event.entityId)} has ${event.remainingHealth} HP left`;
     case "player_downed":
       return `${nameOf(state, event.playerId)} is down!`;
+    case "threat_changed":
+      return event.level > event.previous
+        ? `Threat rises to level ${event.level}`
+        : `Threat falls to level ${event.level}`;
+    case "zombie_spawned":
+      return `A ${event.zombieType} (${event.zombieId}) arrives at (${event.position.x}, ${event.position.y})`;
     case "objective_progress":
       return event.held === 0
         ? `Objective step ${event.stepIndex + 1}: progress lost, back to 0/${event.needed}`

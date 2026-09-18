@@ -4,6 +4,7 @@ import { createRng, type Rng } from "../random/rng.js";
 import type { GamePhase, GameState, MatchOutcome } from "../state/types.js";
 import { evaluateObjective } from "../objectives/objective.js";
 import { decayNoises } from "../rules/noise.js";
+import { applyThreat } from "../rules/threat.js";
 import { runZombiePhase } from "../zombies/zombiePhase.js";
 import {
   firstEligiblePlayer,
@@ -86,11 +87,15 @@ export function resolveEndOfRound(state: GameState): Transition {
   if (objective.outcome !== undefined) {
     return finishMatch(evaluated, objective.outcome, objective.events);
   }
+  // Pressure rises after the objective is judged, so a wave never spoils a win already earned.
+  const threatRng = createRng(evaluated.rngState);
+  const threat = applyThreat(evaluated, threatRng);
+  const pressured: GameState = { ...threat.state, rngState: threatRng.getState() };
   const nextRound = state.round + 1;
   const refilled: GameState = {
-    ...evaluated,
+    ...pressured,
     round: nextRound,
-    players: evaluated.players.map((p) => ({ ...p, actionPoints: p.maxActionPoints })),
+    players: pressured.players.map((p) => ({ ...p, actionPoints: p.maxActionPoints })),
   };
   const roundStarted: GameEvent = { type: "round_started", round: nextRound };
   // Nobody present: pause on the first standing survivor (never a down one, so the active
@@ -100,7 +105,10 @@ export function resolveEndOfRound(state: GameState): Transition {
   const active = firstEligiblePlayer(refilled) ?? firstStandingPlayer(refilled);
   if (active === undefined) throw new Error("resolveEndOfRound: no standing survivor");
   const turn = startPlayerTurn(refilled, active);
-  return { state: turn.state, events: [...objective.events, roundStarted, ...turn.events] };
+  return {
+    state: turn.state,
+    events: [...objective.events, ...threat.events, roundStarted, ...turn.events],
+  };
 }
 
 function finishMatch(

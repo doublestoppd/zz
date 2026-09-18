@@ -20,6 +20,7 @@ export type {
   PlayerMovedEvent,
   PlayerPresenceChangedEvent,
   RoundStartedEvent,
+  ThreatChangedEvent,
   TurnEndedEvent,
   TurnStartedEvent,
   WeaponEquippedEvent,
@@ -30,4 +31,5 @@ export type {
   ZombieAttackedEvent,
   ZombieInvestigatingEvent,
   ZombieMovedEvent,
+  ZombieSpawnedEvent,
 } from "./types.js";

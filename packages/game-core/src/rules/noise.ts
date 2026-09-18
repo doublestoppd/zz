@@ -30,7 +30,12 @@ export function makeNoise(
     sourceType,
   };
   return {
-    state: { ...state, noises: [...state.noises, noise], noiseCounter: counter },
+    state: {
+      ...state,
+      noises: [...state.noises, noise],
+      noiseCounter: counter,
+      heat: state.heat + intensity,
+    },
     events: [{ type: "noise_made", noiseId: noise.id, position, intensity, sourceType }],
   };
 }

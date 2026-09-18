@@ -127,6 +127,10 @@ export function planAnimations(
       case "player_presence_changed":
       case "objective_progress":
       case "objective_step_completed":
+      case "threat_changed":
+        break;
+      case "zombie_spawned":
+        steps.push({ kind: "sound", name: "zombie" });
         break;
       case "objective_step_started":
         steps.push({ kind: "sound", name: "your_turn" });

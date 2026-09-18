@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TEST_SPECIALTIES } from "../testing/makeTestState.js";
+import { TEST_SPECIALTIES, TEST_THREAT } from "../testing/makeTestState.js";
 import { matchId, playerId } from "../ids.js";
 import { parseAsciiMap } from "../map/asciiMap.js";
 import { createInitialState, type MatchSetup } from "./createInitialState.js";
@@ -112,6 +112,7 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
         },
       },
       specialtyDefinitions: TEST_SPECIALTIES,
+      threat: TEST_THREAT,
       itemDefinitions: {
         bandage: { effect: { kind: "heal", amount: 3 }, useActionPointCost: 1 },
         medkit: { effect: { kind: "heal", amount: 5 }, useActionPointCost: 1 },

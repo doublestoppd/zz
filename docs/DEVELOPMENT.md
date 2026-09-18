@@ -202,6 +202,16 @@ own layout in `testing/makeTestState.ts`.
 5. Tests: `rules/barriers.test.ts` covers movement, sight, pathfinding, locked-state
    rejections, and action point costs with one-row corridors.
 
+## Change how pressure escalates
+
+Everything is in `packages/game-data/src/threat.ts`: rounds and heat per level, the wave
+size and interval per level, the spawn table per level, and the keep-away distance. A new
+threat input is one more term in `computeThreat` (`rules/threat.ts`); a new effect of a
+level belongs next to `applyThreat`, reading existing systems (spawning, noise) rather
+than inventing a penalty. `setup validation` checks the per-level arrays have
+`maxLevel + 1` entries. Tests in `rules/threat.test.ts` use `makeTestState({ threat })` to
+override the slow test defaults.
+
 ## Add a specialty or a new specialty effect
 
 1. A new specialty that only combines existing modifiers is data: add the name to
