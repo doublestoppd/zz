@@ -55,7 +55,7 @@ export function validateUseItem(
 ): UseItemValidation {
   if (!player.inventory.includes(itemType)) return { ok: false, reason: "ITEM_NOT_CARRIED" };
   const definition = state.rules.itemDefinitions[itemType];
-  if (definition.effect.kind === "key" || definition.effect.kind === "weapon") {
+  if (definition.effect.kind !== "heal" && definition.effect.kind !== "ammo") {
     return { ok: false, reason: "ITEM_NOT_USABLE" };
   }
   if (definition.effect.kind === "heal" && player.health >= player.maxHealth) {

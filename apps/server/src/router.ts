@@ -63,7 +63,7 @@ export function handleClientMessage(
         sendError(session, "NOT_IN_MATCH");
         return;
       }
-      const error = match.start(session);
+      const error = match.start(session, message.scenario);
       if (error !== undefined) sendError(session, error);
       return;
     }

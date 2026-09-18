@@ -49,6 +49,7 @@ describe("decodeClientMessage", () => {
       { t: "create_match", playerName: "Ann", specialty: "paramedic" },
     ],
     ['{"t":"set_specialty","specialty":"athlete"}', { t: "set_specialty", specialty: "athlete" }],
+    ['{"t":"start_match","scenario":"retrieval"}', { t: "start_match", scenario: "retrieval" }],
     [
       '{"t":"command","seq":6,"expectedVersion":7,"command":{"type":"reload"}}',
       { t: "command", seq: 6, expectedVersion: 7, command: { type: "reload" } },
@@ -109,6 +110,7 @@ describe("decodeClientMessage", () => {
     '{"t":"create_match"}',
     '{"t":"create_match","playerName":"Ann","specialty":"wizard"}',
     '{"t":"set_specialty"}',
+    '{"t":"start_match","scenario":"heist"}',
     '{"t":"join_match","matchCode":5,"playerName":"x"}',
     '{"t":"command","seq":"1","command":{"type":"end_turn"}}',
     '{"t":"command","seq":1}',

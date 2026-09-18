@@ -125,7 +125,11 @@ export function planAnimations(
       case "round_started":
       case "phase_changed":
       case "player_presence_changed":
-      case "extraction_progress":
+      case "objective_progress":
+      case "objective_step_completed":
+        break;
+      case "objective_step_started":
+        steps.push({ kind: "sound", name: "your_turn" });
         break;
     }
   }

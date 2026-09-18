@@ -43,7 +43,9 @@ export type GameEvent =
   | ZombieAttackedEvent
   | EntityDamagedEvent
   | PlayerDownedEvent
-  | ExtractionProgressEvent
+  | ObjectiveProgressEvent
+  | ObjectiveStepCompletedEvent
+  | ObjectiveStepStartedEvent
   | MatchEndedEvent;
 
 export interface PlayerMovedEvent {
@@ -246,11 +248,23 @@ export interface PlayerDownedEvent {
   readonly playerId: PlayerId;
 }
 
-/** Emitted at end of round whenever the extraction hold count changes. */
-export interface ExtractionProgressEvent {
-  readonly type: "extraction_progress";
-  readonly roundsHeld: number;
-  readonly holdoutRounds: number;
+/** A counted step advanced or reset: rounds held in a zone, or rounds survived. */
+export interface ObjectiveProgressEvent {
+  readonly type: "objective_progress";
+  readonly stepIndex: number;
+  readonly held: number;
+  readonly needed: number;
+}
+
+export interface ObjectiveStepCompletedEvent {
+  readonly type: "objective_step_completed";
+  readonly stepIndex: number;
+}
+
+/** The next step of the scenario is now the one to work on. */
+export interface ObjectiveStepStartedEvent {
+  readonly type: "objective_step_started";
+  readonly stepIndex: number;
 }
 
 export interface MatchEndedEvent {

@@ -1,8 +1,11 @@
-export { evaluateExtraction, isInExtractionZone, type ObjectiveEvaluation } from "./extraction.js";
-export { createObjective } from "./createObjective.js";
 export {
+  createObjective,
+  currentStep,
   evaluateObjective,
   objectiveProgress,
   objectiveZoneTiles,
+  resolveLocation,
+  type ObjectiveEvaluation,
   type ObjectiveProgress,
-} from "./evaluate.js";
+} from "./objective.js";
+export { evaluateStep, stepZone, type StepEvaluation } from "./steps.js";

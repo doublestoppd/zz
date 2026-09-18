@@ -47,6 +47,7 @@ export function makeClientTestState(
           useActionPointCost: 1,
         },
         key: { effect: { kind: "key" }, useActionPointCost: 0 },
+        radio_parts: { effect: { kind: "objective" }, useActionPointCost: 0 },
         pistol: { effect: { kind: "weapon", weaponType: "pistol" }, useActionPointCost: 0 },
         shotgun: { effect: { kind: "weapon", weaponType: "shotgun" }, useActionPointCost: 0 },
         rifle: { effect: { kind: "weapon", weaponType: "rifle" }, useActionPointCost: 0 },
@@ -148,7 +149,12 @@ export function makeClientTestState(
     },
     lootTable: [{ type: "medkit", weight: 1 }],
     zombieSpawnTable: [{ type: "walker", weight: 1 }],
-    objective: { kind: "extraction", holdoutRounds: 0 },
+    scenario: {
+      type: "extraction",
+      name: "Extraction",
+      description: "",
+      steps: [{ kind: "reach_location", location: "extraction", holdRounds: 0 }],
+    },
     layout: parseAsciiMap(rows),
     players: [
       { id: P1, name: "one" },

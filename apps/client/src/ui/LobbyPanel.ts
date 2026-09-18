@@ -1,5 +1,10 @@
-import { SPECIALTY_TYPES, type SpecialtyType } from "@zombie/game-core";
-import { SPECIALTY_DEFINITIONS } from "@zombie/game-data";
+import {
+  SCENARIO_TYPES,
+  SPECIALTY_TYPES,
+  type ScenarioType,
+  type SpecialtyType,
+} from "@zombie/game-core";
+import { SCENARIOS, SPECIALTY_DEFINITIONS } from "@zombie/game-data";
 import { isValidPlayerName } from "@zombie/protocol";
 import type { GameConnection } from "../net/GameConnection.js";
 import type { ClientState, ClientStore } from "../state/ClientStore.js";
@@ -16,6 +21,9 @@ export class LobbyPanel {
   private readonly codeInput = el("input");
   private readonly specialtySelect = el("select");
   private readonly specialtyHelp = el("div", { className: "help" });
+  private readonly scenarioSelect = el("select");
+  private readonly scenarioRow = el("div", { id: "scenario-choice" });
+  private readonly scenarioHelp = el("div", { className: "help" });
   private readonly errorLine = el("div", { className: "error" });
   private readonly playerList = el("ul", { className: "players" });
   private readonly startButton: HTMLButtonElement;
@@ -43,8 +51,19 @@ export class LobbyPanel {
       }
     });
     this.specialtyHelp.textContent = SPECIALTY_DEFINITIONS.survivor.description;
+    this.scenarioSelect.setAttribute("aria-label", "Scenario");
+    for (const type of SCENARIO_TYPES) {
+      const option = el("option", { textContent: SCENARIOS[type].name });
+      option.value = type;
+      this.scenarioSelect.append(option);
+    }
+    this.scenarioSelect.addEventListener("change", () => {
+      this.scenarioHelp.textContent = SCENARIOS[this.scenario()].description;
+    });
+    this.scenarioHelp.textContent = SCENARIOS.extraction.description;
+    this.scenarioRow.append(el("label", { textContent: "Scenario: " }), this.scenarioSelect);
     this.startButton = button("Start match", () => {
-      connection.send({ t: "start_match" });
+      connection.send({ t: "start_match", scenario: this.scenario() });
     });
     this.rejoinButton = button("Rejoin previous match", () => {
       this.rejoin();
@@ -68,6 +87,8 @@ export class LobbyPanel {
       this.rejoinButton,
       this.errorLine,
       this.playerList,
+      this.scenarioRow,
+      this.scenarioHelp,
       this.startButton,
       button("Leave", () => {
         connection.send({ t: "leave_match" });
@@ -97,6 +118,13 @@ export class LobbyPanel {
       return;
     }
     this.connection.send({ t: "join_match", matchCode, playerName, specialty: this.specialty() });
+  }
+
+  private scenario(): ScenarioType {
+    const value = this.scenarioSelect.value;
+    return (SCENARIO_TYPES as readonly string[]).includes(value)
+      ? (value as ScenarioType)
+      : "extraction";
   }
 
   private specialty(): SpecialtyType {
@@ -142,5 +170,7 @@ export class LobbyPanel {
     }
     const isHost = state.lobby !== undefined && state.lobby.hostId === state.me?.playerId;
     this.startButton.hidden = !isHost || started;
+    this.scenarioRow.hidden = !isHost || started;
+    this.scenarioHelp.hidden = !isHost || started;
   }
 }

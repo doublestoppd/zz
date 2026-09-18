@@ -29,6 +29,8 @@ export interface CityOptions {
   readonly survivorSpawns: number;
   readonly zombieSpawns: number;
   readonly lootSpawns: number;
+  /** Places for scenario items, far from the survivors and indoors where possible. */
+  readonly objectiveSpawns: number;
 }
 
 export const DEFAULT_CITY_OPTIONS: Omit<CityOptions, "seed"> = {
@@ -37,6 +39,7 @@ export const DEFAULT_CITY_OPTIONS: Omit<CityOptions, "seed"> = {
   survivorSpawns: 4,
   zombieSpawns: 5,
   lootSpawns: 3,
+  objectiveSpawns: 1,
 };
 
 /** Generation knobs that are not per-match. Change the city's feel here. */
@@ -79,6 +82,7 @@ export function generateCity(options: CityOptions): MapLayout {
       survivorSpawns: options.survivorSpawns,
       zombieSpawns: options.zombieSpawns,
       lootSpawns: options.lootSpawns,
+      objectiveSpawns: options.objectiveSpawns,
     });
     if (result.ok) return layout;
     failures.push(`attempt ${attempt}: ${result.issues.join("; ")}`);
@@ -142,8 +146,72 @@ function buildCity(rng: Rng, options: CityOptions): MapLayout | undefined {
   for (const p of zombieSpawns) taken.add(positionKey(p));
   const lootSpawns = placeLoot(grid, rng, reach, taken, options.lootSpawns);
   if (lootSpawns === undefined) return undefined;
+  for (const p of lootSpawns) taken.add(positionKey(p));
+  const objectiveSpawns = placeObjectiveSpawns(grid, reach, taken, options.objectiveSpawns);
+  if (objectiveSpawns === undefined) return undefined;
+  const safehouse = safehouseAround(grid, spawnPositions);
 
-  return { map, spawnPositions, extractionZone, zombieSpawns, lootSpawns, containers, barriers };
+  return {
+    map,
+    spawnPositions,
+    extractionZone,
+    zombieSpawns,
+    lootSpawns,
+    containers,
+    barriers,
+    safehouse,
+    objectiveSpawns,
+  };
+}
+
+/**
+ * The 2x2 of road around the survivor spawns: the top-left spawn and its right and lower
+ * neighbours. Every tile is road by construction of `placeSurvivorSpawns`.
+ */
+function safehouseAround(grid: Grid, spawns: readonly Position[]): Position[] {
+  const origin = spawns[0];
+  if (origin === undefined) return [];
+  const tiles = [
+    origin,
+    { x: origin.x + 1, y: origin.y },
+    { x: origin.x, y: origin.y + 1 },
+    { x: origin.x + 1, y: origin.y + 1 },
+  ];
+  return tiles.filter((p) => grid.get(p) === "road");
+}
+
+/**
+ * Scenario item spots: the farthest reachable interior floor tiles from the survivors, in
+ * path-length order, so a retrieval always means crossing the city. Deterministic, no
+ * randomness: the seed already shaped the city.
+ */
+function placeObjectiveSpawns(
+  grid: Grid,
+  reach: ReturnType<typeof searchFrom>,
+  taken: ReadonlySet<string>,
+  count: number,
+): Position[] | undefined {
+  const candidates: { p: Position; d: number; inside: boolean }[] = [];
+  for (let y = 1; y < grid.height - 1; y += 1) {
+    for (let x = 1; x < grid.width - 1; x += 1) {
+      const p = { x, y };
+      if (grid.get(p) !== "floor" || taken.has(positionKey(p))) continue;
+      const d = reach.distanceTo(p);
+      if (d === undefined) continue;
+      const walls = [
+        { x: x - 1, y },
+        { x: x + 1, y },
+        { x, y: y - 1 },
+        { x, y: y + 1 },
+      ].filter((n) => grid.get(n) === "wall").length;
+      candidates.push({ p, d, inside: walls >= 2 });
+    }
+  }
+  candidates.sort(
+    (a, b) => Number(b.inside) - Number(a.inside) || b.d - a.d || a.p.y - b.p.y || a.p.x - b.p.x,
+  );
+  const chosen = candidates.slice(0, count).map((c) => c.p);
+  return chosen.length === count ? chosen : undefined;
 }
 
 /** A door or window tile: passable in principle, but a barrier stands in it. */

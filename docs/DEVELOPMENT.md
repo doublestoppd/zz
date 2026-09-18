@@ -152,21 +152,25 @@ own layout in `testing/makeTestState.ts`.
 4. `apps/client/src/state/ClientStore.ts`: handle it in `applyServerMessage`.
 5. NETWORK-PROTOCOL.md: document direction, payload, validation, and responses.
 
-## Add a game mode or change the objective
+## Add a scenario or an objective primitive
 
-1. `packages/game-core/src/state/types.ts`: add a member to the `ObjectiveState` union, and
-   `state/definitions.ts`: a matching `ObjectiveSettings` member.
-2. `packages/game-core/src/objectives/`: a pure `evaluate<Mode>(state)` returning the new
-   objective state, an optional outcome, and events (see `extraction.ts`).
-3. The exhaustive switches in `objectives/createObjective.ts` and `objectives/evaluate.ts`
-   (`evaluateObjective`, `objectiveZoneTiles`, `objectiveProgress`) will not compile until the
-   new mode is handled; `turn/phases.ts` needs no change.
-4. `packages/game-data/src/objectives.ts`: settings (`DEFAULT_OBJECTIVE` picks the mode).
-5. `apps/client/src/ui/objectiveText.ts`: wording for the objective line and the outcome.
-6. Tests in `objectives/*.test.ts`; GAME-RULES.md.
-
-Do not build a generic quest or scripting engine for this; one function per mode is the
-intended shape until a third mode proves otherwise.
+1. A scenario that only sequences existing primitives is data: add the name to
+   `SCENARIO_TYPES` in `packages/game-core/src/state/types.ts`; the compiler demands an
+   entry in `packages/game-data/src/scenarios.ts` (name, description, steps) and a line in
+   the client's `describeOutcome`. The lobby select and the protocol decoder derive from
+   the list. If it needs an item, give it an `objective` effect in `items.ts`; the map
+   generator already places one item per `acquire_item` step at its objective spawns
+   (raise `objectiveSpawns` in `DEFAULT_CITY_OPTIONS` for more).
+2. A new primitive is a member of `ObjectiveStepSettings` (`state/definitions.ts`) and of
+   the runtime `ObjectiveStep` (`state/types.ts`), a case in `createStep`
+   (`objectives/objective.ts`) and in `evaluateStep` and `stepZone` (`objectives/steps.ts`),
+   a check in `validateSetup.ts`, and a line in `apps/client/src/ui/objectiveText.ts`.
+   The exhaustive switches list every other place.
+3. A new location reference extends `LocationRef` and `resolveLocation`; the layout must
+   provide its tiles (`map/asciiMap.ts` legend, `map-generation/src/city.ts`) and the
+   layout validator must check they are reachable.
+4. Tests in `objectives/objectives.test.ts`: sequence progression, wrong order, completion,
+   and a layout that cannot host the scenario.
 
 ## Animate or voice a new event
 

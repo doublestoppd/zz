@@ -4,7 +4,7 @@ import { DEFAULT_CITY_OPTIONS, generateCity } from "./city.js";
 import { BUILDING_TEMPLATES, rotateStamp, templateToStamp } from "./templates/buildings.js";
 import { validateLayout } from "./validate/validateLayout.js";
 
-const EXPECT = { survivorSpawns: 4, zombieSpawns: 5, lootSpawns: 3 };
+const EXPECT = { survivorSpawns: 4, zombieSpawns: 5, lootSpawns: 3, objectiveSpawns: 1 };
 
 describe("generateCity", () => {
   it("is deterministic for a seed and differs across seeds", () => {
@@ -27,6 +27,8 @@ describe("generateCity", () => {
       );
       expect(layout.containers.length).toBeGreaterThan(0);
       expect(layout.barriers.length).toBeGreaterThan(0);
+      expect(layout.safehouse).toHaveLength(4);
+      expect(layout.objectiveSpawns).toHaveLength(1);
       // Zombies and the extraction zone are outdoors: reachable without passing a door or window.
       const outdoors = searchFrom(layout.map, layout.spawnPositions[0]!, 10_000, (p) => {
         const type = layout.map.tiles[p.y]?.[p.x]?.type;
@@ -59,6 +61,16 @@ describe("generateCity", () => {
     );
   });
 
+  it("places the scenario item deterministically, far from the safehouse", () => {
+    const a = generateCity({ ...DEFAULT_CITY_OPTIONS, seed: 11 });
+    const b = generateCity({ ...DEFAULT_CITY_OPTIONS, seed: 11 });
+    expect(a.objectiveSpawns).toEqual(b.objectiveSpawns);
+    const spot = a.objectiveSpawns[0]!;
+    const home = a.safehouse[0]!;
+    expect(Math.abs(spot.x - home.x) + Math.abs(spot.y - home.y)).toBeGreaterThan(8);
+    expect(a.map.tiles[spot.y]?.[spot.x]?.type).toBe("floor");
+  });
+
   it("places the extraction zone far from the survivors", () => {
     const layout = generateCity({ ...DEFAULT_CITY_OPTIONS, seed: 11 });
     const spawn = layout.spawnPositions[0]!;
@@ -74,10 +86,16 @@ describe("generateCity", () => {
       survivorSpawns: 2,
       zombieSpawns: 3,
       lootSpawns: 2,
+      objectiveSpawns: 1,
     });
-    expect(validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 3, lootSpawns: 2 }).ok).toBe(
-      true,
-    );
+    expect(
+      validateLayout(layout, {
+        survivorSpawns: 2,
+        zombieSpawns: 3,
+        lootSpawns: 2,
+        objectiveSpawns: 1,
+      }).ok,
+    ).toBe(true);
     expect(layout.map.height).toBe(14);
   });
 });
@@ -85,18 +103,35 @@ describe("generateCity", () => {
 describe("validateLayout", () => {
   it("reports unreachable markers and bad counts", () => {
     const layout = parseAsciiMap(["#######", "#S.#E.#", "#S.#Z.#", "#######"]);
-    const result = validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 1, lootSpawns: 0 });
+    const result = validateLayout(layout, {
+      survivorSpawns: 2,
+      zombieSpawns: 1,
+      lootSpawns: 0,
+      objectiveSpawns: 0,
+    });
     expect(result.ok).toBe(false);
     expect(result.issues.join("\n")).toMatch(/extraction tile \(4, 1\) unreachable/);
     expect(result.issues.join("\n")).toMatch(/zombie spawn \(4, 2\) unreachable/);
     expect(
-      validateLayout(layout, { survivorSpawns: 3, zombieSpawns: 1, lootSpawns: 0 }).issues[0],
+      validateLayout(layout, {
+        survivorSpawns: 3,
+        zombieSpawns: 1,
+        lootSpawns: 0,
+        objectiveSpawns: 0,
+      }).issues[0],
     ).toMatch(/expected 3/);
   });
 
   it("accepts the hand-authored fixture", () => {
     const layout = parseAsciiMap(["######", "#S.E.#", "#SLEZ#", "######"]);
-    expect(validateLayout(layout, { survivorSpawns: 2, zombieSpawns: 1, lootSpawns: 1 })).toEqual({
+    expect(
+      validateLayout(layout, {
+        survivorSpawns: 2,
+        zombieSpawns: 1,
+        lootSpawns: 1,
+        objectiveSpawns: 0,
+      }),
+    ).toEqual({
       ok: true,
       issues: [],
     });

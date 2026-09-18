@@ -5,6 +5,7 @@ import type {
   PlayerCommand,
   PlayerId,
   RejectionReason,
+  ScenarioType,
   SpecialtyType,
 } from "@zombie/game-core";
 
@@ -69,9 +70,10 @@ export interface RejoinMatchMessage {
   readonly rejoinToken: string;
 }
 
-/** Host only. Starts the match. Response: `update` to everyone. */
+/** Host only. Starts the match on a scenario (default `extraction`). Response: `map` then `update` to everyone. */
 export interface StartMatchMessage {
   readonly t: "start_match";
+  readonly scenario?: ScenarioType;
 }
 
 /** A gameplay intent. Response: `update` to everyone, or `rejected` to the sender only. */

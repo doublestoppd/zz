@@ -10,6 +10,7 @@ import type {
 import type { GameMap, Position } from "../map/types.js";
 import type {
   ItemDefinition,
+  LocationRef,
   SearchLootTable,
   SpecialtyDefinition,
   WeaponDefinition,
@@ -132,6 +133,7 @@ export const ITEM_TYPES = [
   "shell_box",
   "rifle_clip",
   "key",
+  "radio_parts",
   "pistol",
   "shotgun",
   "rifle",
@@ -234,19 +236,32 @@ export interface NoiseEvent {
   readonly sourceType: NoiseSourceType;
 }
 
-/** Discriminated union so a second game mode can be added as another member. */
-export type ObjectiveState = ExtractionObjectiveState;
+/** Runtime list of scenarios; the lobby offers them and decoders check them. */
+export const SCENARIO_TYPES = ["extraction", "retrieval"] as const;
+export type ScenarioType = (typeof SCENARIO_TYPES)[number];
 
 /**
- * Extraction: every standing survivor must be inside the zone at the end of a round, and
- * stay there for `holdoutRounds` further end-of-round checks (objectives/extraction.ts).
+ * One objective primitive with its progress. Settings live in `ScenarioDefinition`; the
+ * runtime copy carries resolved tiles and counters so the snapshot is self-contained.
  */
-export interface ExtractionObjectiveState {
-  readonly kind: "extraction";
-  readonly extractionZone: readonly Position[];
-  /** Additional consecutive end-of-round checks the survivors must hold the zone for. */
-  readonly holdoutRounds: number;
-  /** Consecutive end-of-round checks passed so far. Resets when anyone leaves the zone. */
-  readonly roundsHeld: number;
+export type ObjectiveStep =
+  | {
+      readonly kind: "reach_location";
+      readonly location: LocationRef;
+      readonly zone: readonly Position[];
+      readonly holdRounds: number;
+      /** Consecutive end-of-round checks passed so far. Resets when the condition breaks. */
+      readonly roundsHeld: number;
+      readonly requireItem?: ItemType;
+    }
+  | { readonly kind: "acquire_item"; readonly itemType: ItemType }
+  | { readonly kind: "survive_rounds"; readonly rounds: number; readonly roundsSurvived: number };
+
+/** The scenario's steps in order and which one is active (objectives/objective.ts). */
+export interface ObjectiveState {
+  readonly scenario: ScenarioType;
+  readonly steps: readonly ObjectiveStep[];
+  /** Index of the active step; equal to `steps.length` once complete. */
+  readonly current: number;
   readonly status: "in_progress" | "complete" | "failed";
 }

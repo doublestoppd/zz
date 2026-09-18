@@ -35,6 +35,7 @@ const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
   shell_box: "Open box of shells",
   rifle_clip: "Load rifle clip into reserve",
   key: "Use key",
+  radio_parts: "Radio parts",
   pistol: "Pistol",
   shotgun: "Shotgun",
   rifle: "Rifle",
@@ -45,7 +46,7 @@ const ITEM_USE_LABELS: Readonly<Record<ItemType, string>> = {
 /** Item types whose button never shows: they act through another command. */
 function isPassiveItem(game: GameState, type: ItemType): boolean {
   const kind = game.rules.itemDefinitions[type].effect.kind;
-  return kind === "key" || kind === "weapon";
+  return kind !== "heal" && kind !== "ammo";
 }
 
 /** Round, turn, action points, end-turn control, and the event log. */

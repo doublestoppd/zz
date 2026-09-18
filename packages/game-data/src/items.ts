@@ -15,6 +15,8 @@ export const ITEM_DEFINITIONS: Readonly<Record<ItemType, ItemDefinition>> = {
   },
   /** Spent by opening a locked door; never used directly, so the cost is moot. */
   key: { effect: { kind: "key" }, useActionPointCost: 0 },
+  /** The retrieval scenario's prize: carried back to the safehouse, never used. */
+  radio_parts: { effect: { kind: "objective" }, useActionPointCost: 0 },
   /** Weapons are equipped by picking them up; they never sit in the inventory. */
   pistol: { effect: { kind: "weapon", weaponType: "pistol" }, useActionPointCost: 0 },
   shotgun: { effect: { kind: "weapon", weaponType: "shotgun" }, useActionPointCost: 0 },

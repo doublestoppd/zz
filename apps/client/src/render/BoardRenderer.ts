@@ -94,6 +94,7 @@ const ITEM_LABELS: Readonly<Record<ItemType, string>> = {
   shell_box: "S",
   rifle_clip: "R",
   key: "k",
+  radio_parts: "!",
   pistol: "p",
   shotgun: "g",
   rifle: "r",

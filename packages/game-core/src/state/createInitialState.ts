@@ -3,10 +3,10 @@ import type { MapLayout } from "../map/asciiMap.js";
 import { createRng, deriveSeed, RNG_STREAM } from "../random/rng.js";
 import { pickWeighted } from "../random/weighted.js";
 import { firstEligiblePlayer } from "../turn/turnOrder.js";
-import { createObjective } from "../objectives/createObjective.js";
+import { createObjective } from "../objectives/objective.js";
 import type {
   LootTableEntry,
-  ObjectiveSettings,
+  ScenarioDefinition,
   SurvivorDefinition,
   ZombieSpawnTableEntry,
 } from "./definitions.js";
@@ -28,7 +28,8 @@ export interface MatchSetup {
   readonly seed: number;
   readonly rules: GameRules;
   readonly survivor: SurvivorDefinition;
-  readonly objective: ObjectiveSettings;
+  /** Which scenario the match plays; its items are placed at the layout's objective spawns. */
+  readonly scenario: ScenarioDefinition;
   /** Weighted item types rolled for each loot spawn on the layout. Empty means no loot. */
   readonly lootTable: readonly LootTableEntry[];
   /** Weighted zombie types rolled for each zombie spawn on the layout. */
@@ -107,6 +108,18 @@ export function createInitialState(setup: MatchSetup): GameState {
     position,
   }));
 
+  // One scenario item per acquire step, at the layout's objective spawns in order.
+  const scenarioItems: GroundItem[] = setup.scenario.steps
+    .filter(
+      (step): step is Extract<typeof step, { kind: "acquire_item" }> =>
+        step.kind === "acquire_item",
+    )
+    .map((step, index) => ({
+      id: itemId(`o${index + 1}`),
+      type: step.itemType,
+      position: layout.objectiveSpawns[index] ?? { x: -1, y: -1 },
+    }));
+
   const containers: SearchableContainer[] = layout.containers.map((spawn, index) => ({
     id: containerId(`c${index + 1}`),
     category: spawn.category,
@@ -131,12 +144,12 @@ export function createInitialState(setup: MatchSetup): GameState {
     map: layout.map,
     players: playerStates,
     zombies,
-    items,
+    items: [...items, ...scenarioItems],
     containers,
     barriers,
     noises: [],
     noiseCounter: 0,
-    objective: createObjective(layout, setup.objective),
+    objective: createObjective(layout, setup.scenario),
   };
 
   // Every player is present at creation, so an eligible player always exists here.

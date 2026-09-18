@@ -32,6 +32,10 @@ export interface MapLayout {
   readonly containers: readonly ContainerSpawn[];
   /** Doors and windows, in id order. Every `door` and `window` tile has exactly one. */
   readonly barriers: readonly BarrierSpawn[];
+  /** Tiles that count as "home" for scenarios that return there; empty means the spawn tiles. */
+  readonly safehouse: readonly Position[];
+  /** Where scenario items (one per `acquire_item` step, in order) are placed. */
+  readonly objectiveSpawns: readonly Position[];
 }
 
 /**
@@ -40,6 +44,7 @@ export interface MapLayout {
  *   `E` floor + extraction zone   `Z` floor + zombie spawn   `L` floor + loot spawn
  *   `C` floor + searchable container (category "home")
  *   `+` closed door   `O` open door   `K` locked door   `W` window (intact)
+ *   `H` floor + safehouse tile   `R` floor + scenario item spawn
  */
 export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const height = rows.length;
@@ -54,6 +59,8 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
   const lootSpawns: Position[] = [];
   const containers: ContainerSpawn[] = [];
   const barriers: BarrierSpawn[] = [];
+  const safehouse: Position[] = [];
+  const objectiveSpawns: Position[] = [];
   const tiles: Tile[][] = [];
 
   rows.forEach((row, y) => {
@@ -88,6 +95,14 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
         case "W":
           tileRow.push(TILE_DEFINITIONS.window);
           barriers.push({ position: { x, y }, kind: "window", state: "closed" });
+          break;
+        case "H":
+          tileRow.push(TILE_DEFINITIONS.floor);
+          safehouse.push({ x, y });
+          break;
+        case "R":
+          tileRow.push(TILE_DEFINITIONS.floor);
+          objectiveSpawns.push({ x, y });
           break;
         case "S":
           tileRow.push(TILE_DEFINITIONS.floor);
@@ -124,5 +139,7 @@ export function parseAsciiMap(rows: readonly string[]): MapLayout {
     lootSpawns,
     containers,
     barriers,
+    safehouse,
+    objectiveSpawns,
   };
 }

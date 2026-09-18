@@ -5,7 +5,7 @@
 export { DEFAULT_GAME_RULES } from "./rules.js";
 export { SEARCH_LOOT_TABLES } from "./containers.js";
 export { ITEM_DEFINITIONS, LOOT_TABLE } from "./items.js";
-export { DEFAULT_OBJECTIVE } from "./objectives.js";
+export { DEFAULT_SCENARIO, SCENARIOS } from "./scenarios.js";
 export { DEFAULT_SURVIVOR } from "./survivors.js";
 export { SPECIALTY_DEFINITIONS } from "./specialties.js";
 export { WEAPON_DEFINITIONS } from "./weapons.js";

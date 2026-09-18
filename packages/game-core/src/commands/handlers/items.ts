@@ -148,7 +148,8 @@ export function applyUseItem(state: GameState, command: UseItemCommand): Command
     }
     case "key":
     case "weapon":
-      // Unreachable: validateUseItem refuses both. Kept so the switch stays exhaustive.
+    case "objective":
+      // Unreachable: validateUseItem refuses these. Kept so the switch stays exhaustive.
       return { ok: false, reason: "ITEM_NOT_USABLE" };
   }
 }

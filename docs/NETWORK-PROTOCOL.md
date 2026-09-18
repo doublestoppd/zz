@@ -62,6 +62,9 @@ everyone). Errors: `MATCH_NOT_FOUND`, `INVALID_REJOIN_TOKEN`, `ALREADY_IN_MATCH`
 
 ### `start_match`
 
+Host only. `scenario` (optional, default `extraction`) picks the scenario from the
+known list.
+
 ```json
 { "t": "start_match" }
 ```

@@ -97,10 +97,14 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return `${nameOf(state, event.entityId)} has ${event.remainingHealth} HP left`;
     case "player_downed":
       return `${nameOf(state, event.playerId)} is down!`;
-    case "extraction_progress":
-      return event.roundsHeld === 0
-        ? "Extraction zone abandoned; hold count reset"
-        : `Holding the extraction zone (${event.roundsHeld}/${event.holdoutRounds + 1})`;
+    case "objective_progress":
+      return event.held === 0
+        ? `Objective step ${event.stepIndex + 1}: progress lost, back to 0/${event.needed}`
+        : `Objective step ${event.stepIndex + 1}: ${event.held}/${event.needed}`;
+    case "objective_step_completed":
+      return `Objective step ${event.stepIndex + 1} complete`;
+    case "objective_step_started":
+      return `New objective: step ${event.stepIndex + 1}`;
     case "match_ended":
       return event.outcome === "victory" ? "Victory!" : "Defeat.";
   }

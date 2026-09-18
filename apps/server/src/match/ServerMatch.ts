@@ -5,13 +5,14 @@ import {
   type GameEvent,
   type MapLayout,
   type PlayerId,
+  type ScenarioType,
   type SpecialtyType,
 } from "@zombie/game-core";
 import {
-  DEFAULT_OBJECTIVE,
   DEFAULT_GAME_RULES,
   DEFAULT_SURVIVOR,
   LOOT_TABLE,
+  SCENARIOS,
   ZOMBIE_SPAWN_TABLE,
 } from "@zombie/game-data";
 import {
@@ -166,7 +167,7 @@ export class ServerMatch {
     if (presence.ok) this.broadcastUpdate(presence.events);
   }
 
-  start(session: ClientSession): ErrorCode | undefined {
+  start(session: ClientSession, scenario: ScenarioType = "extraction"): ErrorCode | undefined {
     const member = this.members.find((m) => m.session === session);
     if (member === undefined) return "NOT_IN_MATCH";
     if (this.isStarted()) return "MATCH_ALREADY_STARTED";
@@ -178,7 +179,7 @@ export class ServerMatch {
       seed,
       rules: DEFAULT_GAME_RULES,
       survivor: DEFAULT_SURVIVOR,
-      objective: DEFAULT_OBJECTIVE,
+      scenario: SCENARIOS[scenario],
       lootTable: LOOT_TABLE,
       zombieSpawnTable: ZOMBIE_SPAWN_TABLE,
       layout: this.deps.createLayout(seed, this.members.length),

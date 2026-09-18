@@ -4,6 +4,7 @@ export interface LayoutExpectations {
   readonly survivorSpawns: number;
   readonly zombieSpawns: number;
   readonly lootSpawns: number;
+  readonly objectiveSpawns: number;
 }
 
 export interface ValidationResult {
@@ -39,6 +40,11 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
     issues.push(`expected ${expected.lootSpawns} loot spawns, got ${layout.lootSpawns.length}`);
   }
   if (layout.extractionZone.length === 0) issues.push("extraction zone is empty");
+  if (layout.objectiveSpawns.length !== expected.objectiveSpawns) {
+    issues.push(
+      `expected ${expected.objectiveSpawns} objective spawns, got ${layout.objectiveSpawns.length}`,
+    );
+  }
 
   const walkable = (p: Position): boolean => tileAt(map, p)?.walkable ?? false;
   const groups: [string, readonly Position[]][] = [
@@ -48,7 +54,11 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
     ["loot spawn", layout.lootSpawns],
     ["container", layout.containers.map((c) => c.position)],
     ["barrier", layout.barriers.map((b) => b.position)],
+    ["objective spawn", layout.objectiveSpawns],
   ];
+  for (const p of layout.safehouse) {
+    if (!walkable(p)) issues.push(`safehouse tile at (${p.x}, ${p.y}) is not walkable`);
+  }
   const seen = new Set<string>();
   for (const [label, positions] of groups) {
     for (const p of positions) {
@@ -98,6 +108,13 @@ export function validateLayout(layout: MapLayout, expected: LayoutExpectations):
     for (const p of layout.lootSpawns) {
       if (reach.distanceTo(p) === undefined) {
         issues.push(`loot spawn (${p.x}, ${p.y}) unreachable from spawn (${spawn.x}, ${spawn.y})`);
+      }
+    }
+    for (const p of [...layout.objectiveSpawns, ...layout.safehouse]) {
+      if (reach.distanceTo(p) === undefined) {
+        issues.push(
+          `scenario tile (${p.x}, ${p.y}) unreachable from spawn (${spawn.x}, ${spawn.y})`,
+        );
       }
     }
     for (const c of layout.containers) {

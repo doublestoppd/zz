@@ -3,9 +3,11 @@ import {
   containerId,
   ITEM_TYPES,
   itemId,
+  SCENARIO_TYPES,
   SPECIALTY_TYPES,
   zombieId,
   type ItemType,
+  type ScenarioType,
   type SpecialtyType,
 } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
@@ -93,8 +95,16 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
         value: { t: "rejoin_match", matchCode: parsed.matchCode, rejoinToken: parsed.rejoinToken },
       };
 
-    case "start_match":
-      return { ok: true, value: { t: "start_match" } };
+    case "start_match": {
+      if (parsed.scenario === undefined) return { ok: true, value: { t: "start_match" } };
+      if (
+        !isString(parsed.scenario) ||
+        !(SCENARIO_TYPES as readonly string[]).includes(parsed.scenario)
+      ) {
+        return fail("start_match.scenario must be one of " + SCENARIO_TYPES.join(", "));
+      }
+      return { ok: true, value: { t: "start_match", scenario: parsed.scenario as ScenarioType } };
+    }
 
     case "leave_match":
       return { ok: true, value: { t: "leave_match" } };

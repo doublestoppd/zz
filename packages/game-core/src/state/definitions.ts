@@ -1,5 +1,5 @@
 import type { WeightedEntry } from "../random/weighted.js";
-import type { AmmoType, ItemType, WeaponType, ZombieType } from "./types.js";
+import type { AmmoType, ItemType, ScenarioType, WeaponType, ZombieType } from "./types.js";
 
 /** One roll of a search: an item, or nothing. */
 export type SearchLoot = ItemType | "nothing";
@@ -63,6 +63,8 @@ export type ItemEffect =
   | { readonly kind: "ammo"; readonly ammoType: AmmoType; readonly rounds: number }
   /** Not usable on its own: spent by `open_door` on a locked door (rules/barriers.ts). */
   | { readonly kind: "key" }
+  /** Not usable: carried for a scenario step that asks for it (objectives/steps.ts). */
+  | { readonly kind: "objective" }
   /** Not usable on its own: picking the item up equips the weapon (rules/items.ts). */
   | { readonly kind: "weapon"; readonly weaponType: WeaponType };
 
@@ -136,11 +138,29 @@ export interface ZombieDefinition {
 /** Relative chance of each zombie type appearing at a zombie spawn. */
 export type ZombieSpawnTableEntry = WeightedEntry<ZombieType>;
 
-/** Settings for the extraction game mode. Values come from game-data. */
-export interface ExtractionSettings {
-  readonly kind: "extraction";
-  readonly holdoutRounds: number;
-}
+/** A place a scenario can name; resolved to tiles against the layout at match creation. */
+export type LocationRef = "extraction" | "safehouse";
 
-/** Which game mode a match plays and its settings. One member per mode. */
-export type ObjectiveSettings = ExtractionSettings;
+/**
+ * Reusable objective primitives. A scenario is an ordered list of these; each is checked
+ * at the end of a round while it is the current step (objectives/steps.ts).
+ */
+export type ObjectiveStepSettings =
+  | {
+      readonly kind: "reach_location";
+      readonly location: LocationRef;
+      /** Further end-of-round checks everyone must stay for after first arriving. */
+      readonly holdRounds: number;
+      /** When set, a standing survivor inside the zone must carry this item. */
+      readonly requireItem?: ItemType;
+    }
+  | { readonly kind: "acquire_item"; readonly itemType: ItemType }
+  | { readonly kind: "survive_rounds"; readonly rounds: number };
+
+/** A playable scenario: a name for the lobby and the steps that make it up. */
+export interface ScenarioDefinition {
+  readonly type: ScenarioType;
+  readonly name: string;
+  readonly description: string;
+  readonly steps: readonly ObjectiveStepSettings[];
+}

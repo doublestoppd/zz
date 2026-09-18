@@ -5,6 +5,7 @@ import { NO_MODIFIERS } from "../rules/specialties.js";
 import type {
   FirearmDefinition,
   ItemDefinition,
+  ScenarioDefinition,
   SpecialtyDefinition,
   WeaponDefinition,
   ZombieSpawnTableEntry,
@@ -60,6 +61,8 @@ export interface TestStateOptions {
   readonly zombieSpawnTable?: readonly ZombieSpawnTableEntry[];
   /** Specialty for every player (all the same); `survivor` by default. */
   readonly specialty?: SpecialtyType;
+  /** Replaces the default extraction scenario. */
+  readonly scenario?: ScenarioDefinition;
 }
 
 const DEFAULT_PISTOL: FirearmDefinition = {
@@ -143,6 +146,7 @@ export const TEST_ITEMS: Readonly<Record<ItemType, ItemDefinition>> = {
     useActionPointCost: 1,
   },
   key: { effect: { kind: "key" }, useActionPointCost: 0 },
+  radio_parts: { effect: { kind: "objective" }, useActionPointCost: 0 },
   pistol: { effect: { kind: "weapon", weaponType: "pistol" }, useActionPointCost: 0 },
   shotgun: { effect: { kind: "weapon", weaponType: "shotgun" }, useActionPointCost: 0 },
   rifle: { effect: { kind: "weapon", weaponType: "rifle" }, useActionPointCost: 0 },
@@ -252,7 +256,14 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
     },
     lootTable: [{ type: "medkit", weight: 1 }],
     zombieSpawnTable: options.zombieSpawnTable ?? [{ type: "walker", weight: 1 }],
-    objective: { kind: "extraction", holdoutRounds: options.holdoutRounds ?? 0 },
+    scenario: options.scenario ?? {
+      type: "extraction",
+      name: "Extraction",
+      description: "",
+      steps: [
+        { kind: "reach_location", location: "extraction", holdRounds: options.holdoutRounds ?? 0 },
+      ],
+    },
     layout: options.layout ?? TEST_LAYOUT,
     players: players.map((id) => ({ id, name: id, specialty: options.specialty ?? "survivor" })),
   });

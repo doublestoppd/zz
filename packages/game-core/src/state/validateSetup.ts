@@ -1,6 +1,6 @@
 import { isInBounds, positionKey, tileAt } from "../map/position.js";
 import type { GameMap, Position } from "../map/types.js";
-import type { BarrierSpawn } from "../map/asciiMap.js";
+import type { BarrierSpawn, MapLayout } from "../map/asciiMap.js";
 import type { MatchSetup } from "./createInitialState.js";
 import type { SpecialtyModifiers, WeaponDefinition } from "./definitions.js";
 import { AMMO_TYPES } from "./types.js";
@@ -150,11 +150,7 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
       `survivor.startingMeleeWeapon "${survivor.startingMeleeWeapon}" is not a melee weapon`,
     );
   }
-  switch (setup.objective.kind) {
-    case "extraction":
-      positiveInteger(issues, "objective.holdoutRounds", setup.objective.holdoutRounds, 0);
-      break;
-  }
+  checkScenario(issues, setup, layout);
 
   if (layout.zombieSpawns.length > 0) {
     if (setup.zombieSpawnTable.length === 0)
@@ -174,6 +170,48 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
     }
   }
   return issues;
+}
+
+/**
+ * A scenario must be playable on this layout: every step's numbers are sane, every item it
+ * names exists, every place it names has tiles, and each `acquire_item` step has a spawn
+ * to put its item on (in step order).
+ */
+function checkScenario(issues: string[], setup: MatchSetup, layout: MapLayout): void {
+  const { scenario, rules } = setup;
+  if (scenario.steps.length === 0) issues.push(`scenario ${scenario.type} has no steps`);
+  let acquires = 0;
+  scenario.steps.forEach((step, i) => {
+    switch (step.kind) {
+      case "reach_location": {
+        positiveInteger(issues, `scenario step ${i} holdRounds`, step.holdRounds, 0);
+        if (step.requireItem !== undefined && !(step.requireItem in rules.itemDefinitions)) {
+          issues.push(
+            `scenario step ${i} requires item "${step.requireItem}" which has no definition`,
+          );
+        }
+        break;
+      }
+      case "acquire_item":
+        if (!(step.itemType in rules.itemDefinitions)) {
+          issues.push(
+            `scenario step ${i} acquires item "${step.itemType}" which has no definition`,
+          );
+        }
+        if (layout.objectiveSpawns[acquires] === undefined) {
+          issues.push(
+            `scenario step ${i} needs objective spawn ${acquires + 1} but the layout has ${layout.objectiveSpawns.length}`,
+          );
+        }
+        acquires += 1;
+        break;
+      case "survive_rounds":
+        positiveInteger(issues, `scenario step ${i} rounds`, step.rounds, 1);
+        break;
+    }
+  });
+  checkPositions(issues, layout.map, "safehouse tile", layout.safehouse);
+  checkPositions(issues, layout.map, "objective spawn", layout.objectiveSpawns);
 }
 
 function checkPositions(

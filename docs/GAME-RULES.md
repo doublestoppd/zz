@@ -73,7 +73,7 @@ round N+1: ...
 - After the last eligible player, the zombie phase runs (`turn/phases.ts`, see below).
 - End of round, in this order:
   1. If every survivor is down the match ends in **defeat**.
-  2. The extraction objective is evaluated (below) and may end the match in **victory**.
+  2. The scenario's current objective step is evaluated (below) and may end the match in **victory**.
   3. Otherwise the round counter increases, every player's action points are refilled to
      their maximum, and the first eligible player in turn order becomes active.
 - In the `finished` phase no further commands are accepted.
@@ -206,23 +206,44 @@ noise, not just damage:
 - A zombie at zero health dies and is removed from the board (`entity_died`).
 - Survivors cannot be attacked by other survivors.
 
-## Extraction objective (`objectives/extraction.ts`)
+## Scenarios and objectives (`objectives/`)
 
-The first and only scenario. Settings come from `packages/game-data/src/objectives.ts`
-(`holdoutRounds`: 1).
+A match plays a scenario: an ordered list of objective primitives from
+`packages/game-data/src/scenarios.ts`. The host picks the scenario in the lobby. The match
+loop knows nothing about scenarios; it evaluates the current step once per end of round,
+after the zombie phase, and only ever looks at `state.objective`.
 
-- The extraction zone is the set of `E` tiles on the map (green on the client).
-- At each end of round, after the zombie phase, the objective checks whether **every
-  standing survivor** (status `active`) is inside the zone. Down survivors are left behind
-  and do not count, but at least one survivor must be standing.
-- The first passing check sets `roundsHeld` to 1. The zone must then be held for
-  `holdoutRounds` further consecutive checks; the match is won when
-  `roundsHeld > holdoutRounds`. With the default of 1, survivors must be in the zone at two
-  consecutive ends of round, surviving one zombie phase in between.
-- If anyone standing is outside the zone at a check, `roundsHeld` resets to 0.
-- Every change to `roundsHeld` emits `extraction_progress`. Victory emits `match_ended`.
-- Defeat (everyone down) is checked before the objective, so a team that all goes down in
-  the zone still loses.
+| Primitive        | Complete when                                                                                                                                                   | Progress events                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `reach_location` | every standing survivor is in the zone (and, with `requireItem`, one of them in the zone carries it), for `holdRounds` further checks; leaving resets the count | `objective_progress` (held/needed) |
+| `acquire_item`   | any standing survivor carries the item                                                                                                                          | none                               |
+| `survive_rounds` | `rounds` end-of-round checks have passed since the step began                                                                                                   | `objective_progress`               |
+
+- Completing a step emits `objective_step_completed`; the next step becomes current and
+  emits `objective_step_started`; completing the last step wins (`match_ended` victory).
+  One step is checked per round, so a two-step scenario needs at least two rounds.
+- Locations: `extraction` is the `E` tiles (green on the client, a 2x2 far from the spawn
+  in generated cities); `safehouse` is the `H` tiles (the 2x2 of road the survivors start
+  on in generated cities; hand-authored maps without `H` use the spawn tiles).
+- Items a step asks for are placed at the layout's objective spawns (`R` tiles; in
+  generated cities the farthest reachable interior floor tile from the survivors, chosen
+  without randomness). They are ordinary ground items: pick them up, carry them, drop
+  never (there is no drop yet), and they cannot be used.
+- Down survivors are left behind and do not count for `reach_location`; at least one
+  standing survivor is needed.
+- Defeat (everyone down) is checked before the objective, so it wins ties.
+- Setup validation refuses a scenario the layout cannot host: a missing objective spawn
+  for an `acquire_item` step, an unknown item, or no steps at all. Generated cities are
+  further checked by the layout validator (`packages/map-generation`): the extraction zone,
+  the safehouse, and every objective spawn must exist and be reachable from every spawn.
+  A hand-authored map without the tiles a step names simply never completes that step.
+
+Scenarios shipped:
+
+| Scenario     | Steps                                                  |
+| ------------ | ------------------------------------------------------ |
+| `extraction` | reach `extraction`, hold 1 more round                  |
+| `retrieval`  | acquire `radio_parts`; reach `safehouse` carrying them |
 
 ## Doors and windows (`rules/barriers.ts`)
 

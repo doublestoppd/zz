@@ -2,7 +2,7 @@ import type { GameEvent } from "../events/types.js";
 import type { PlayerId } from "../ids.js";
 import { createRng, type Rng } from "../random/rng.js";
 import type { GamePhase, GameState, MatchOutcome } from "../state/types.js";
-import { evaluateObjective } from "../objectives/evaluate.js";
+import { evaluateObjective } from "../objectives/objective.js";
 import { decayNoises } from "../rules/noise.js";
 import { runZombiePhase } from "../zombies/zombiePhase.js";
 import {
