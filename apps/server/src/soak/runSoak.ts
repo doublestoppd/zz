@@ -342,6 +342,7 @@ class Bot {
         return undefined;
       case "lobby":
       case "joined":
+      case "welcome":
         return undefined;
       case "error":
         return this.fail({ reason: "SERVER_ERROR", detail: `${message.code}: ${message.message}` });

@@ -16,6 +16,7 @@ const ERROR_TEXT: Readonly<Record<ErrorCode, string>> = {
   SESSION_REPLACED: "Another connection took over this player.",
   SHUTTING_DOWN: "The server is restarting; try again in a moment.",
   SERVER_FULL: "The server is at capacity; try again later.",
+  VERSION_MISMATCH: "The game has been updated. Refresh to continue.",
   INTERNAL_ERROR: "The server hit a problem handling that message.",
 };
 

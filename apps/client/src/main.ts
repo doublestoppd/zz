@@ -8,6 +8,7 @@ import { requireElement } from "./ui/dom.js";
 import { Hud } from "./ui/Hud.js";
 import { clearIdentity, loadIdentity, saveIdentity } from "./ui/identityStorage.js";
 import { LobbyPanel } from "./ui/LobbyPanel.js";
+import { GAME_VERSION } from "./version.js";
 
 /**
  * Where the game server is. Explicit VITE_SERVER_URL wins; the Vite dev server talks to the
@@ -20,7 +21,7 @@ const serverUrl: string =
     : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`);
 
 const store = new ClientStore();
-const connection = new GameConnection(serverUrl);
+const connection = new GameConnection(serverUrl, GAME_VERSION);
 const sender = new CommandSender(connection, store);
 const sounds = new SoundPlayer();
 
@@ -48,6 +49,12 @@ connection.onMessage((message) => {
         rejoinToken: message.rejoinToken,
       },
     );
+  if (message.t === "error" && message.code === "VERSION_MISMATCH") {
+    // This build cannot talk to the server any more; reconnecting would only repeat the
+    // refusal. The status line tells the player to refresh.
+    connection.stop();
+    return;
+  }
   if (
     message.t === "error" &&
     (message.code === "MATCH_NOT_FOUND" ||
@@ -62,9 +69,13 @@ connection.onMessage((message) => {
 
 const statusLine = requireElement("status");
 store.subscribe((state) => {
-  statusLine.textContent =
-    state.connection === "open"
-      ? `Connected to ${serverUrl}`
+  statusLine.textContent = state.versionMismatch
+    ? "The game has been updated. Refresh to continue."
+    : state.connection === "open"
+      ? `Connected to ${serverUrl}` +
+        (state.server === undefined
+          ? ""
+          : ` (server ${state.server.gameVersion}, client ${GAME_VERSION})`)
       : state.connection === "connecting"
         ? "Connecting..."
         : "Disconnected. Reconnecting...";

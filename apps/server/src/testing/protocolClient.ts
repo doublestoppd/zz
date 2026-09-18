@@ -2,6 +2,7 @@ import { WebSocket } from "ws";
 import {
   decodeServerMessage,
   encodeMessage,
+  PROTOCOL_VERSION,
   type ClientCommand,
   type ClientMessage,
   type ServerMessage,
@@ -39,9 +40,18 @@ export class ProtocolClient {
     });
   }
 
+  /**
+   * Opens a socket and, unless `handshake` is false, sends `hello` with this build's
+   * versions (or `protocolVersion` when given) and waits for the `welcome`.
+   */
   static connect(
     port: number,
-    options: { timeoutMs?: number; headers?: Record<string, string> } = {},
+    options: {
+      timeoutMs?: number;
+      headers?: Record<string, string>;
+      handshake?: boolean;
+      protocolVersion?: number;
+    } = {},
   ): Promise<ProtocolClient> {
     return new Promise((resolve, reject) => {
       const socket = new WebSocket(`ws://127.0.0.1:${port}`, { headers: options.headers ?? {} });
@@ -55,7 +65,21 @@ export class ProtocolClient {
         client.deliver(decoded.value);
       });
       socket.once("open", () => {
-        resolve(client);
+        if (options.handshake === false) {
+          resolve(client);
+          return;
+        }
+        client.send({
+          t: "hello",
+          protocolVersion: options.protocolVersion ?? PROTOCOL_VERSION,
+          gameVersion: "test",
+        });
+        client
+          .next("welcome")
+          .then(() => {
+            resolve(client);
+          })
+          .catch(reject);
       });
       socket.once("error", reject);
     });

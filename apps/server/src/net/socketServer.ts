@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
-import { decodeClientMessage, encodeMessage, type ClientMessage } from "@zombie/protocol";
+import { SIMULATION_VERSION } from "@zombie/game-core";
+import {
+  decodeClientMessage,
+  encodeMessage,
+  PROTOCOL_VERSION,
+  type ClientMessage,
+} from "@zombie/protocol";
+import { GAME_VERSION } from "../version.js";
 import { sendError } from "../errors.js";
 import { log as logLine } from "../log.js";
 import { metrics } from "../observability/metrics.js";
@@ -146,8 +153,26 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
       },
       close(reason = "replaced") {
         if (reason === "going_away") socket.close(CLOSE_GOING_AWAY, "server restarting");
+        else if (reason === "version_mismatch")
+          socket.close(CLOSE_POLICY_VIOLATION, "version mismatch");
         else socket.close(CLOSE_POLICY_VIOLATION, "session replaced");
       },
+    };
+
+    // The handshake: nothing but `hello` is accepted until the versions have been checked.
+    let greeted = false;
+    const refuseVersion = (announced: number | null, gameVersion: string | null): void => {
+      metrics.increment("zombie_handshakes_total", { outcome: "mismatch" });
+      logLine("info", "version mismatch", {
+        category: "session",
+        sessionId: session.id,
+        address,
+        clientProtocolVersion: announced,
+        clientGameVersion: gameVersion,
+        serverProtocolVersion: PROTOCOL_VERSION,
+      });
+      sendError(session, "VERSION_MISMATCH");
+      session.close("version_mismatch");
     };
 
     const bucket = { tokens: rateLimit.burst, last: Date.now(), dropped: 0 };
@@ -188,6 +213,26 @@ export function startSocketServer(options: SocketServerOptions): Promise<SocketS
         } else {
           sendError(session, "MALFORMED_MESSAGE");
         }
+        return;
+      }
+      if (decoded.value.t === "hello") {
+        if (decoded.value.protocolVersion !== PROTOCOL_VERSION) {
+          refuseVersion(decoded.value.protocolVersion, decoded.value.gameVersion);
+          return;
+        }
+        greeted = true;
+        metrics.increment("zombie_handshakes_total", { outcome: "accepted" });
+        session.send({
+          t: "welcome",
+          protocolVersion: PROTOCOL_VERSION,
+          gameVersion: GAME_VERSION,
+          simulationVersion: SIMULATION_VERSION,
+        });
+        return;
+      }
+      if (!greeted) {
+        // A client that speaks before saying hello predates the handshake: same answer.
+        refuseVersion(null, null);
         return;
       }
       try {

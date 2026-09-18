@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ServerMessage } from "@zombie/protocol";
+import { PROTOCOL_VERSION, type ServerMessage } from "@zombie/protocol";
 import { GameConnection, type ConnectionStatus } from "./GameConnection.js";
 
 /** Minimal stand-in for the browser WebSocket: tests open, close, and deliver by hand. */
@@ -53,7 +53,7 @@ afterEach(() => {
 
 describe("GameConnection", () => {
   it("reports status, sends only while open, and decodes incoming messages", () => {
-    const connection = new GameConnection("ws://test");
+    const connection = new GameConnection("ws://test", "test");
     const statuses: ConnectionStatus[] = [];
     const messages: ServerMessage[] = [];
     connection.onStatus((s) => statuses.push(s));
@@ -64,14 +64,18 @@ describe("GameConnection", () => {
     expect(socket.sent).toEqual([]); // not open yet
     socket.open();
     connection.send({ t: "start_match" });
-    expect(socket.sent).toEqual(['{"t":"start_match"}']);
+    // The handshake goes out on open, before anything the app sends.
+    expect(socket.sent).toEqual([
+      JSON.stringify({ t: "hello", protocolVersion: PROTOCOL_VERSION, gameVersion: "test" }),
+      '{"t":"start_match"}',
+    ]);
     socket.deliver({ t: "error", code: "NOT_HOST", message: "no" });
     expect(messages).toEqual([{ t: "error", code: "NOT_HOST", message: "no" }]);
     expect(statuses).toEqual(["connecting", "open"]);
   });
 
   it("reconnects after a drop with growing delays and resets the delay once open", () => {
-    const connection = new GameConnection("ws://test");
+    const connection = new GameConnection("ws://test", "test");
     connection.connect();
     FakeWebSocket.instances[0]!.open();
     FakeWebSocket.instances[0]!.drop();
@@ -90,7 +94,7 @@ describe("GameConnection", () => {
   });
 
   it("ignores a close from a socket it has already replaced", () => {
-    const connection = new GameConnection("ws://test");
+    const connection = new GameConnection("ws://test", "test");
     connection.connect();
     const first = FakeWebSocket.instances[0]!;
     connection.connect();

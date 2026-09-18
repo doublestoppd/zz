@@ -3,6 +3,7 @@ import { isRecord } from "./guards.js";
 import type { ServerMessage } from "./messages.js";
 
 const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set<ServerMessage["t"]>([
+  "welcome",
   "joined",
   "lobby",
   "map",

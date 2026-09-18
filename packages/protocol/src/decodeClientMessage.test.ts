@@ -231,3 +231,22 @@ describe("length caps on client-supplied identifiers", () => {
     ).toMatchObject({ ok: true });
   });
 });
+
+describe("hello", () => {
+  it("decodes a well-formed hello and refuses bad versions", () => {
+    expect(
+      decodeClientMessage(JSON.stringify({ t: "hello", protocolVersion: 5, gameVersion: "1.0.0" })),
+    ).toEqual({ ok: true, value: { t: "hello", protocolVersion: 5, gameVersion: "1.0.0" } });
+    expect(
+      decodeClientMessage(JSON.stringify({ t: "hello", protocolVersion: "5", gameVersion: "1" })),
+    ).toMatchObject({ ok: false });
+    expect(
+      decodeClientMessage(JSON.stringify({ t: "hello", protocolVersion: -1, gameVersion: "1" })),
+    ).toMatchObject({ ok: false });
+    expect(
+      decodeClientMessage(
+        JSON.stringify({ t: "hello", protocolVersion: 5, gameVersion: "v".repeat(65) }),
+      ),
+    ).toMatchObject({ ok: false });
+  });
+});

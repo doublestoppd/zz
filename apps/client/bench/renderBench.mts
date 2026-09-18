@@ -176,6 +176,17 @@ for (const count of ZOMBIE_COUNTS) {
           : Buffer.from(data as Buffer).toString();
         const decoded = decodeClientMessage(text);
         if (!decoded.ok) return;
+        if (decoded.value.t === "hello") {
+          socket.send(
+            encodeMessage({
+              t: "welcome",
+              protocolVersion: PROTOCOL_VERSION,
+              gameVersion: "bench",
+              simulationVersion: 0,
+            }),
+          );
+          return;
+        }
         if (decoded.value.t === "create_match") {
           socket.send(
             encodeMessage({

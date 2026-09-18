@@ -14,6 +14,9 @@ export function handleClientMessage(
   message: ClientMessage,
 ): void {
   switch (message.t) {
+    case "hello":
+      // Answered by the socket layer before any message reaches the router.
+      return;
     case "create_match": {
       if (session.matchCode !== undefined) {
         sendError(session, "ALREADY_IN_MATCH");

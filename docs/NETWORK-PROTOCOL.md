@@ -2,7 +2,7 @@
 
 Transport: one WebSocket per client, text frames containing JSON. Types live in
 `packages/protocol/src/messages.ts`; that file is the source of truth and this document
-follows its order. `PROTOCOL_VERSION` is 4.
+follows its order. `PROTOCOL_VERSION` is 5.
 
 Principles:
 
@@ -14,7 +14,30 @@ Principles:
 - Session-level problems are `error`; gameplay problems are `rejected`. A client can tell
   them apart by `t`.
 
+## Handshake
+
+The first message on every socket is `hello`; the server answers `welcome` or refuses.
+
+```json
+{ "t": "hello", "protocolVersion": 5, "gameVersion": "0.8.2" }
+{ "t": "welcome", "protocolVersion": 5, "gameVersion": "0.8.2", "simulationVersion": 1 }
+```
+
+Compatibility is protocol-version equality, nothing else: `gameVersion` is a build label
+for logs and the status line, and `simulationVersion` says which deterministic rules the
+server runs (journals record it; replays of another version are refused). A different
+`protocolVersion`, or any other message before `hello` (a client loaded before the
+handshake existed), is answered with `error VERSION_MISMATCH` ("The game has been
+updated. Refresh to continue.") and the socket closes with code 1008. The client then
+stops reconnecting and shows that text; a reload loads the current build. Historical
+client versions are not supported on purpose ([ADR 0015](adr/0015-versioning.md)).
+
 ## Client → server
+
+### `hello`
+
+See the handshake above. `protocolVersion` is a non-negative integer, `gameVersion` at
+most 64 characters. Sending it again after `welcome` is answered with another `welcome`.
 
 ### `create_match`
 
@@ -123,7 +146,7 @@ next member); in a running match the player is marked absent and may rejoin.
 ```json
 {
   "t": "joined",
-  "protocolVersion": 4,
+  "protocolVersion": 5,
   "matchCode": "QMCN",
   "playerId": "QMCN-p1",
   "rejoinToken": "…",
@@ -203,6 +226,7 @@ absent only for `MALFORMED_COMMAND`, which is answered before any match is looke
 Session-level problems, never the outcome of a gameplay command. Codes: `MALFORMED_MESSAGE`,
 `INVALID_PLAYER_NAME`, `MATCH_NOT_FOUND`, `MATCH_FULL`, `MATCH_ALREADY_STARTED`,
 `MATCH_NOT_STARTED`, `NOT_IN_MATCH`, `ALREADY_IN_MATCH`, `NOT_HOST`, `INVALID_REJOIN_TOKEN`,
+`VERSION_MISMATCH` (see the handshake; the socket closes after it),
 `RATE_LIMITED` (also answered to a join or rejoin from an address that made too many
 failed lookups in the last minute), `SESSION_REPLACED`, `SHUTTING_DOWN` (the server is
 draining: no lobby can be created or joined; connected players receive it just before their

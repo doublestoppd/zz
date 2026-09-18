@@ -12,6 +12,7 @@ import {
 } from "@zombie/game-core";
 import { isInteger, isPosition, isRecord, isString } from "./guards.js";
 import {
+  GAME_VERSION_MAX_LENGTH,
   ID_MAX_LENGTH,
   isValidCommandId,
   MATCH_CODE_MAX_LENGTH,
@@ -71,6 +72,22 @@ export function decodeClientMessage(raw: string): DecodeResult<ClientMessage> {
   if (!isRecord(parsed)) return fail("message must be an object");
 
   switch (parsed.t) {
+    case "hello": {
+      if (!isInteger(parsed.protocolVersion) || parsed.protocolVersion < 0) {
+        return fail("hello.protocolVersion must be a non-negative integer");
+      }
+      if (!isBoundedString(parsed.gameVersion, GAME_VERSION_MAX_LENGTH)) {
+        return fail("hello.gameVersion must be a string of at most 64 characters");
+      }
+      return {
+        ok: true,
+        value: {
+          t: "hello",
+          protocolVersion: parsed.protocolVersion,
+          gameVersion: parsed.gameVersion,
+        },
+      };
+    }
     case "create_match": {
       if (!isBoundedString(parsed.playerName, PLAYER_NAME_RAW_MAX_LENGTH)) {
         return fail("create_match.playerName must be a string of at most 200 characters");

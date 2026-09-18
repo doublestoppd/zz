@@ -22,6 +22,10 @@ export interface ClientState {
   /** The last command rejection: the protocol category and, when given, the rule behind it. */
   readonly lastRejection: RejectedMessage | undefined;
   readonly lastError: string | undefined;
+  /** What the server runs, from `welcome`; shown in the status line and useful in bug reports. */
+  readonly server: { readonly gameVersion: string; readonly simulationVersion: number } | undefined;
+  /** Set once the server refused this build; the only way out is a reload. */
+  readonly versionMismatch: boolean;
   readonly log: readonly string[];
   /** Events that produced the current snapshot; the renderer animates them once. */
   readonly lastEvents: readonly GameEvent[];
@@ -38,6 +42,8 @@ const INITIAL: ClientState = {
   pendingCommandId: undefined,
   lastRejection: undefined,
   lastError: undefined,
+  server: undefined,
+  versionMismatch: false,
   log: [],
   lastEvents: [],
 };
@@ -92,6 +98,14 @@ export class ClientStore {
 
   applyServerMessage(message: ServerMessage): void {
     switch (message.t) {
+      case "welcome":
+        this.patch({
+          server: {
+            gameVersion: message.gameVersion,
+            simulationVersion: message.simulationVersion,
+          },
+        });
+        return;
       case "joined":
         // A rejoin is followed by a fresh map and snapshot: nothing shown before it is
         // trusted, so no command stays pending and no old events get animated again.
@@ -140,7 +154,11 @@ export class ClientStore {
         }
         return;
       case "error":
-        this.patch({ lastError: message.message, pendingCommandId: undefined });
+        this.patch({
+          lastError: message.message,
+          pendingCommandId: undefined,
+          ...(message.code === "VERSION_MISMATCH" ? { versionMismatch: true } : {}),
+        });
         return;
     }
   }

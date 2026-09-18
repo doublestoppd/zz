@@ -1,6 +1,7 @@
 import {
   decodeServerMessage,
   encodeMessage,
+  PROTOCOL_VERSION,
   type ClientMessage,
   type ServerMessage,
 } from "@zombie/protocol";
@@ -22,7 +23,10 @@ export class GameConnection {
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private autoReconnect = true;
 
-  constructor(private readonly url: string) {}
+  constructor(
+    private readonly url: string,
+    private readonly gameVersion: string,
+  ) {}
 
   /** Opens the socket. After an unexpected close it reconnects with growing delays. */
   connect(): void {
@@ -33,6 +37,14 @@ export class GameConnection {
     this.emitStatus("connecting");
     socket.addEventListener("open", () => {
       this.reconnectDelay = RECONNECT_MIN_MS;
+      // The handshake is the first message on every socket, before anyone else may send.
+      socket.send(
+        encodeMessage({
+          t: "hello",
+          protocolVersion: PROTOCOL_VERSION,
+          gameVersion: this.gameVersion,
+        }),
+      );
       this.emitStatus("open");
     });
     socket.addEventListener("close", () => {
@@ -51,6 +63,13 @@ export class GameConnection {
       }
       for (const listener of this.messageListeners) listener(decoded.value);
     });
+  }
+
+  /** Stops reconnecting and closes: the server said this build is too old to talk to. */
+  stop(): void {
+    this.autoReconnect = false;
+    clearTimeout(this.reconnectTimer);
+    this.socket?.close();
   }
 
   send(message: ClientMessage): void {

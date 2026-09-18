@@ -197,6 +197,15 @@ stored in `GameState.rngState`, so a snapshot plus the commands that follow it r
 exactly ([ADR 0005](adr/0005-seeded-rng-carried-in-state.md)). The match seed derives
 independent streams for gameplay and map generation.
 
+## Versioning
+
+`PROTOCOL_VERSION` gates the socket: the first message is `hello` and a client from
+another protocol version is refused with `VERSION_MISMATCH` and told to refresh.
+`SIMULATION_VERSION` names the deterministic rules; it is recorded in every journal and
+replays of another version are refused. `GAME_VERSION` is the build label both sides
+announce (`hello`, `welcome`, journals, the startup log). The bump rules are in
+[DEVELOPMENT.md](DEVELOPMENT.md) and the decision in [ADR 0015](adr/0015-versioning.md).
+
 ## State invariants
 
 `checkInvariants(state, level)` (`packages/game-core/src/state/invariants.ts`) lists every

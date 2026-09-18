@@ -73,3 +73,28 @@ describe("ClientStore", () => {
     expect(store.get().map).toBeUndefined();
   });
 });
+
+describe("ClientStore versions", () => {
+  it("remembers the server's versions from welcome and flags a version mismatch", () => {
+    const store = new ClientStore();
+    store.applyServerMessage({
+      t: "welcome",
+      protocolVersion: 5,
+      gameVersion: "1.2.3",
+      simulationVersion: 4,
+    });
+    expect(store.get().server).toEqual({ gameVersion: "1.2.3", simulationVersion: 4 });
+    expect(store.get().versionMismatch).toBe(false);
+    store.applyServerMessage({
+      t: "error",
+      code: "VERSION_MISMATCH",
+      message: "The game has been updated. Refresh to continue.",
+    });
+    expect(store.get().versionMismatch).toBe(true);
+    expect(store.get().lastError).toBe("The game has been updated. Refresh to continue.");
+    // Other errors never set the flag.
+    const fresh = new ClientStore();
+    fresh.applyServerMessage({ t: "error", code: "NOT_HOST", message: "no" });
+    expect(fresh.get().versionMismatch).toBe(false);
+  });
+});

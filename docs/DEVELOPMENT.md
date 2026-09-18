@@ -201,15 +201,27 @@ rebuilds the initial state from the journal's metadata and this build's rule tab
 
 ## Version bump rules
 
-- `SIMULATION_VERSION` (`packages/game-core/src/version.ts`): bump when a change alters
-  what a recorded command sequence does: a rule, RNG consumption, phase order, tie-break,
-  generation, or setup. Not for presentation, logging, or protocol changes. Journals from
-  other versions are refused, never replayed.
-- `PROTOCOL_VERSION` (`packages/protocol/src/messages.ts`): bump on any change to a
-  message contract an already-loaded client could get wrong. A protocol bump does not
-  imply a simulation bump, nor the reverse.
-- `GAME_VERSION` (`apps/server/src/version.ts`, from the `GAME_VERSION` environment
-  variable at build or start): the human-facing release label; recorded in journals.
+Three numbers, three purposes; each moves on its own.
+
+| Version              | Where                                             | Purpose                                              | Bump when                                                                                                                                                                     |
+| -------------------- | ------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SIMULATION_VERSION` | `packages/game-core/src/version.ts`               | Which deterministic rules produced a match or replay | a change alters what a recorded command sequence does: a rule, RNG consumption, phase order, tie-break, generation, or setup. Not presentation, logging, or protocol changes. |
+| `PROTOCOL_VERSION`   | `packages/protocol/src/messages.ts`               | Whether a loaded client and the server can talk      | any change to a message contract an already-loaded client could get wrong: a new or removed message, field, enum member, or a changed meaning.                                |
+| `GAME_VERSION`       | `GAME_VERSION` / `VITE_GAME_VERSION` env at build | Human-facing release label                           | every release; the build injects it (docs/OPERATIONS.md).                                                                                                                     |
+
+- A protocol bump does not imply a simulation bump, nor the reverse. Adding `SERVER_FULL`
+  was protocol only; the BFS rewrite was neither (same states); a rule tweak is simulation
+  only.
+- Not sure whether a change is a simulation change? Run the playtest matrix
+  (`docs/BALANCE.md`) and the replay tests: if any recorded outcome moves, it is.
+- Every journal records all three; the replay verifier refuses another simulation version
+  before touching state; the handshake refuses another protocol version before any other
+  message ([docs/NETWORK-PROTOCOL.md](NETWORK-PROTOCOL.md), "Handshake"). The server logs
+  `version mismatch` with the client's announced versions and counts
+  `zombie_handshakes_total{outcome}`.
+- The client shows "The game has been updated. Refresh to continue." and stops
+  reconnecting; the server keeps serving current clients. Old clients are never supported
+  side by side: a deploy is a refresh.
 
 ## Diagnose a stale-state or duplicate rejection
 

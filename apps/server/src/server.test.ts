@@ -2,7 +2,10 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SMALL_TEST_MAP, zombieId } from "@zombie/game-core";
-import { encodeMessage } from "@zombie/protocol";
+import { encodeMessage, PROTOCOL_VERSION } from "@zombie/protocol";
+import { SIMULATION_VERSION } from "@zombie/game-core";
+import { GAME_VERSION } from "./version.js";
+import { ProtocolClient } from "./testing/protocolClient.js";
 import { describe, expect, it } from "vitest";
 import { createServerHarness } from "./testing/harness.js";
 
@@ -602,5 +605,38 @@ describe("presence", () => {
       fire();
     });
     expect(harness.registry.size()).toBe(0);
+  });
+});
+
+describe("version handshake", () => {
+  it("welcomes a client with the same protocol version and reports the server's versions", async () => {
+    const raw = await ProtocolClient.connect(harness.handle.port, { handshake: false });
+    raw.send({ t: "hello", protocolVersion: PROTOCOL_VERSION, gameVersion: "test-build" });
+    expect(await raw.next("welcome")).toEqual({
+      t: "welcome",
+      protocolVersion: PROTOCOL_VERSION,
+      gameVersion: GAME_VERSION,
+      simulationVersion: SIMULATION_VERSION,
+    });
+    raw.send({ t: "create_match", playerName: "Ann" });
+    expect((await raw.next("joined")).matchCode).toHaveLength(4);
+    await raw.close();
+  });
+
+  it("refuses another protocol version with the refresh text and closes the socket", async () => {
+    const old = await ProtocolClient.connect(harness.handle.port, { handshake: false });
+    old.send({ t: "hello", protocolVersion: PROTOCOL_VERSION - 1, gameVersion: "0.0.1" });
+    const error = await old.next("error");
+    expect(error.code).toBe("VERSION_MISMATCH");
+    expect(error.message).toBe("The game has been updated. Refresh to continue.");
+    expect(await old.closed).toBe(1008);
+  });
+
+  it("treats any message before hello as a client from before the handshake", async () => {
+    const legacy = await ProtocolClient.connect(harness.handle.port, { handshake: false });
+    legacy.send({ t: "create_match", playerName: "Old" });
+    expect((await legacy.next("error")).code).toBe("VERSION_MISMATCH");
+    expect(await legacy.closed).toBe(1008);
+    await legacy.expectNone("joined").catch(() => undefined);
   });
 });

@@ -10,7 +10,10 @@ import type {
 } from "@zombie/game-core";
 
 /** Bumped on any incompatible change. The server sends it in `joined`; clients compare. */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
+
+/** Longest `gameVersion` label a client may announce in `hello`. */
+export const GAME_VERSION_MAX_LENGTH = 64;
 
 /** Lobby limits shared by both sides so the client can validate before sending. */
 export const PLAYER_NAME_MIN_LENGTH = 1;
@@ -32,6 +35,7 @@ export type ClientCommand = PlayerCommand extends infer C
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
+  | HelloMessage
   | CreateMatchMessage
   | JoinMatchMessage
   | RejoinMatchMessage
@@ -40,6 +44,19 @@ export type ClientMessage =
   | CommandMessage
   | ResyncMessage
   | LeaveMatchMessage;
+
+/**
+ * The first message on every socket: the client's protocol and build versions. The server
+ * answers `welcome` when the protocol versions are equal, otherwise `error VERSION_MISMATCH`
+ * and closes the socket (code 1008). Any other message before `hello` gets the same
+ * answer, which is how a client from before this handshake is told to refresh.
+ */
+export interface HelloMessage {
+  readonly t: "hello";
+  readonly protocolVersion: number;
+  /** Informational: the client build, for logs and diagnostics. Never a compatibility input. */
+  readonly gameVersion: string;
+}
 
 /** Create a new lobby; the sender becomes host. Response: `joined` then `lobby`. */
 export interface CreateMatchMessage {
@@ -127,7 +144,21 @@ export interface LeaveMatchMessage {
 // ---------------------------------------------------------------------------
 
 export type ServerMessage =
-  JoinedMessage | LobbyMessage | MapMessage | UpdateMessage | RejectedMessage | ErrorMessage;
+  | WelcomeMessage
+  | JoinedMessage
+  | LobbyMessage
+  | MapMessage
+  | UpdateMessage
+  | RejectedMessage
+  | ErrorMessage;
+
+/** The server's answer to a compatible `hello`: what it runs, for the client's status line and bug reports. */
+export interface WelcomeMessage {
+  readonly t: "welcome";
+  readonly protocolVersion: number;
+  readonly gameVersion: string;
+  readonly simulationVersion: number;
+}
 
 export interface JoinedMessage {
   readonly t: "joined";
@@ -228,6 +259,7 @@ export type ErrorCode =
   | "SESSION_REPLACED"
   | "SHUTTING_DOWN"
   | "SERVER_FULL"
+  | "VERSION_MISMATCH"
   | "INTERNAL_ERROR";
 
 /** Session-level problems (never the outcome of a gameplay command). Sent to the sender only. */

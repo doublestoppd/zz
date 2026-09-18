@@ -72,6 +72,7 @@ Lines to alert on:
 | `map generation failed`    | error | The generator gave up for a seed; the lobby stays; the host got `INTERNAL_ERROR`.                                                             |
 | `state not saved`          | error | A checkpoint write failed; the match keeps running in memory only.                                                                            |
 | `state invariant violated` | error | A command produced a state that breaks a rule; it was discarded and the sender told `INTERNAL_ERROR`. A bug: report the seed and the command. |
+| `version mismatch`         | info  | A client announced another protocol version (or none) and was told to refresh; expected right after a deploy.                                 |
 
 ## Health and readiness
 
@@ -85,35 +86,36 @@ Lines to alert on:
 `GET /metrics` renders the Prometheus text format (no dependency; the exporter is
 `observability/metrics.ts`). Registry gauges are recomputed on every scrape.
 
-| Metric                                    | Type      | Labels              | Meaning                                                                                          |
-| ----------------------------------------- | --------- | ------------------- | ------------------------------------------------------------------------------------------------ |
-| `zombie_process_start_time_seconds`       | gauge     |                     | Process start, for uptime.                                                                       |
-| `zombie_connections_total`                | counter   |                     | Sockets accepted.                                                                                |
-| `zombie_connections_refused_total`        | counter   | `reason`            | Upgrades refused: `server full`, `too many connections from this address`, `origin not allowed`. |
-| `zombie_matches_refused_total`            | counter   |                     | `create_match` refused at the room limit.                                                        |
-| `zombie_connected_sockets`                | gauge     |                     | Open sockets right now.                                                                          |
-| `zombie_messages_rate_limited_total`      | counter   |                     | Messages dropped by the per-socket rate limit.                                                   |
-| `zombie_messages_malformed_total`         | counter   |                     | Messages that failed protocol decoding.                                                          |
-| `zombie_handler_exceptions_total`         | counter   |                     | Handler exceptions (each is an error log line).                                                  |
-| `zombie_uncaught_exceptions_total`        | counter   |                     | Fatal process errors (the process exits after).                                                  |
-| `zombie_active_matches`, `zombie_lobbies` | gauge     |                     | Started matches / lobbies held in memory.                                                        |
-| `zombie_connected_players`                | gauge     |                     | Player slots with a live socket.                                                                 |
-| `zombie_matches_started_total`            | counter   |                     | Matches started.                                                                                 |
-| `zombie_matches_completed_total`          | counter   | `outcome`           | `victory` or `defeat`.                                                                           |
-| `zombie_matches_abandoned_total`          | counter   |                     | Matches dropped after the empty grace period.                                                    |
-| `zombie_matches_restored_total`           | counter   |                     | Matches restored from `STATE_DIR` at startup.                                                    |
-| `zombie_commands_total`                   | counter   | `outcome`, `reason` | Accepted, or rejected with its `CommandRejectionReason`.                                         |
-| `zombie_command_duration_ms`              | histogram | `kind`              | Simulation time per accepted command (`player_only` or `with_zombie_phase`).                     |
-| `zombie_zombie_phase_duration_ms`         | histogram |                     | Simulation time of commands that ran a zombie phase.                                             |
-| `zombie_map_generation_duration_ms`       | histogram |                     | City generation time per `start_match`.                                                          |
-| `zombie_map_generation_failures_total`    | counter   |                     | Generator gave up (the host saw `INTERNAL_ERROR`).                                               |
-| `zombie_persistence_failures_total`       | counter   |                     | Checkpoint writes to `STATE_DIR` that failed.                                                    |
-| `zombie_invariant_violations_total`       | counter   | `code`              | Mutations discarded because the resulting state broke an invariant. Alert on any.                |
-| `zombie_snapshot_bytes`                   | histogram |                     | Size of one redacted `update` payload.                                                           |
-| `zombie_outbound_bytes_total`             | counter   |                     | Bytes of `update` broadcast (payload × recipients).                                              |
-| `zombie_reconnect_attempts_total`         | counter   |                     | `rejoin` messages received.                                                                      |
-| `zombie_reconnect_successes_total`        | counter   |                     | Rejoins that resumed a slot.                                                                     |
-| `zombie_reconnect_failures_total`         | counter   | `reason`            | Rejoins refused, by error code.                                                                  |
+| Metric                                    | Type      | Labels              | Meaning                                                                                                                                   |
+| ----------------------------------------- | --------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `zombie_process_start_time_seconds`       | gauge     |                     | Process start, for uptime.                                                                                                                |
+| `zombie_connections_total`                | counter   |                     | Sockets accepted.                                                                                                                         |
+| `zombie_connections_refused_total`        | counter   | `reason`            | Upgrades refused: `server full`, `too many connections from this address`, `origin not allowed`.                                          |
+| `zombie_matches_refused_total`            | counter   |                     | `create_match` refused at the room limit.                                                                                                 |
+| `zombie_handshakes_total`                 | counter   | `outcome`           | `accepted` or `mismatch` (a client from another protocol version, told to refresh). A burst of mismatches right after a deploy is normal. |
+| `zombie_connected_sockets`                | gauge     |                     | Open sockets right now.                                                                                                                   |
+| `zombie_messages_rate_limited_total`      | counter   |                     | Messages dropped by the per-socket rate limit.                                                                                            |
+| `zombie_messages_malformed_total`         | counter   |                     | Messages that failed protocol decoding.                                                                                                   |
+| `zombie_handler_exceptions_total`         | counter   |                     | Handler exceptions (each is an error log line).                                                                                           |
+| `zombie_uncaught_exceptions_total`        | counter   |                     | Fatal process errors (the process exits after).                                                                                           |
+| `zombie_active_matches`, `zombie_lobbies` | gauge     |                     | Started matches / lobbies held in memory.                                                                                                 |
+| `zombie_connected_players`                | gauge     |                     | Player slots with a live socket.                                                                                                          |
+| `zombie_matches_started_total`            | counter   |                     | Matches started.                                                                                                                          |
+| `zombie_matches_completed_total`          | counter   | `outcome`           | `victory` or `defeat`.                                                                                                                    |
+| `zombie_matches_abandoned_total`          | counter   |                     | Matches dropped after the empty grace period.                                                                                             |
+| `zombie_matches_restored_total`           | counter   |                     | Matches restored from `STATE_DIR` at startup.                                                                                             |
+| `zombie_commands_total`                   | counter   | `outcome`, `reason` | Accepted, or rejected with its `CommandRejectionReason`.                                                                                  |
+| `zombie_command_duration_ms`              | histogram | `kind`              | Simulation time per accepted command (`player_only` or `with_zombie_phase`).                                                              |
+| `zombie_zombie_phase_duration_ms`         | histogram |                     | Simulation time of commands that ran a zombie phase.                                                                                      |
+| `zombie_map_generation_duration_ms`       | histogram |                     | City generation time per `start_match`.                                                                                                   |
+| `zombie_map_generation_failures_total`    | counter   |                     | Generator gave up (the host saw `INTERNAL_ERROR`).                                                                                        |
+| `zombie_persistence_failures_total`       | counter   |                     | Checkpoint writes to `STATE_DIR` that failed.                                                                                             |
+| `zombie_invariant_violations_total`       | counter   | `code`              | Mutations discarded because the resulting state broke an invariant. Alert on any.                                                         |
+| `zombie_snapshot_bytes`                   | histogram |                     | Size of one redacted `update` payload.                                                                                                    |
+| `zombie_outbound_bytes_total`             | counter   |                     | Bytes of `update` broadcast (payload × recipients).                                                                                       |
+| `zombie_reconnect_attempts_total`         | counter   |                     | `rejoin` messages received.                                                                                                               |
+| `zombie_reconnect_successes_total`        | counter   |                     | Rejoins that resumed a slot.                                                                                                              |
+| `zombie_reconnect_failures_total`         | counter   | `reason`            | Rejoins refused, by error code.                                                                                                           |
 
 Histograms use fixed buckets `1 5 10 25 50 100 250 500 1000 5000` and also expose `_min`
 and `_max`. Suggested alerts: `zombie_handler_exceptions_total` increasing at all;
