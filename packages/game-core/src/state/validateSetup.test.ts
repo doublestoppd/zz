@@ -15,6 +15,18 @@ function setup(overrides: Partial<MatchSetup> = {}): MatchSetup {
     rules: {
       moveCostPerTile: 1,
       visionRange: 8,
+      dynamicEvents: {
+        chancePerLevel: [0, 0, 0, 0, 0],
+        minRoundsBetween: 2,
+        pool: [{ type: "car_alarm", weight: 1, minThreat: 0 }],
+        alarmIntensity: 15,
+        alarmRounds: 3,
+        hordeSize: 3,
+        cacheSize: 2,
+        cacheTable: [{ type: "ammo_box", weight: 1 }],
+        cacheMinDistance: 2,
+        cacheMaxDistance: 6,
+      },
       pickUpActionPointCost: 1,
       searchActionPointCost: 2,
       searchNoise: 2,

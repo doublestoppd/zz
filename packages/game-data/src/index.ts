@@ -9,5 +9,6 @@ export { DEFAULT_SCENARIO, SCENARIOS } from "./scenarios.js";
 export { DEFAULT_SURVIVOR } from "./survivors.js";
 export { SPECIALTY_DEFINITIONS } from "./specialties.js";
 export { THREAT_RULES } from "./threat.js";
+export { DYNAMIC_EVENT_RULES } from "./dynamicEvents.js";
 export { WEAPON_DEFINITIONS } from "./weapons.js";
 export { ZOMBIE_DEFINITIONS, ZOMBIE_SPAWN_TABLE } from "./zombies.js";

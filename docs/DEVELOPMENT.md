@@ -212,6 +212,19 @@ event that carries a zombie position, or the position leaks. The client paints t
 in `BoardRenderer.drawFog` and must never decide visibility itself. Tests:
 `rules/visibility.test.ts` and the redaction test in `apps/server/src/server.test.ts`.
 
+## Add a dynamic event
+
+1. Add the name to `DYNAMIC_EVENT_TYPES` in `packages/game-core/src/state/types.ts` and a
+   pool entry (weight, `minThreat`) plus any numbers it needs to
+   `packages/game-data/src/dynamicEvents.ts` (`DynamicEventRules` in
+   `state/definitions.ts` if a new number is needed, checked in `validateSetup.ts`).
+2. Add a case to `fire` in `rules/dynamicEvents.ts` that calls an existing system
+   (`makeNoise`, `spawnWave`, ground items, a barrier change, an objective step) and returns
+   the events that system emits. Never invent a parallel mechanic for an event.
+3. The client log (`EVENT_LABELS` in `ui/eventLog.ts`) and the animation plan are records
+   over the type, so the compiler demands their entries.
+4. Tests in `rules/dynamicEvents.test.ts` with `chancePerLevel` forced to 100.
+
 ## Change how pressure escalates
 
 Everything is in `packages/game-data/src/threat.ts`: rounds and heat per level, the wave

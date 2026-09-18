@@ -171,6 +171,7 @@ export function createInitialState(setup: MatchSetup): GameState {
     heat: 0,
     reinforcementSpawns: layout.zombieSpawns,
     explored: [],
+    lastEventRound: 0,
     objective: createObjective(layout, setup.scenario),
   };
 

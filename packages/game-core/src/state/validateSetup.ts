@@ -154,6 +154,7 @@ export function validateMatchSetup(setup: MatchSetup): string[] {
   }
   checkScenario(issues, setup, layout);
   checkThreat(issues, rules);
+  checkDynamicEvents(issues, rules);
 
   if (layout.zombieSpawns.length > 0) {
     if (setup.zombieSpawnTable.length === 0)
@@ -252,6 +253,55 @@ function checkThreat(issues: string[], rules: GameRules): void {
       }
     }
   });
+}
+
+function checkDynamicEvents(issues: string[], rules: GameRules): void {
+  const d = rules.dynamicEvents;
+  if (d.chancePerLevel.length !== rules.threat.maxLevel + 1) {
+    issues.push(
+      `rules.dynamicEvents.chancePerLevel must have ${rules.threat.maxLevel + 1} entries`,
+    );
+  }
+  d.chancePerLevel.forEach((c, i) => {
+    if (!Number.isInteger(c) || c < 0 || c > 100) {
+      issues.push(
+        `rules.dynamicEvents.chancePerLevel[${i}] must be a percentage, got ${String(c)}`,
+      );
+    }
+  });
+  positiveInteger(issues, "rules.dynamicEvents.minRoundsBetween", d.minRoundsBetween, 0);
+  positiveInteger(issues, "rules.dynamicEvents.alarmIntensity", d.alarmIntensity, 1);
+  positiveInteger(issues, "rules.dynamicEvents.alarmRounds", d.alarmRounds, 1);
+  positiveInteger(issues, "rules.dynamicEvents.hordeSize", d.hordeSize, 1);
+  positiveInteger(issues, "rules.dynamicEvents.cacheSize", d.cacheSize, 1);
+  positiveInteger(issues, "rules.dynamicEvents.cacheMinDistance", d.cacheMinDistance, 0);
+  positiveInteger(
+    issues,
+    "rules.dynamicEvents.cacheMaxDistance",
+    d.cacheMaxDistance,
+    d.cacheMinDistance,
+  );
+  for (const entry of d.pool) {
+    positiveInteger(issues, `rules.dynamicEvents.pool weight for ${entry.type}`, entry.weight, 1);
+    positiveInteger(
+      issues,
+      `rules.dynamicEvents.pool minThreat for ${entry.type}`,
+      entry.minThreat,
+      0,
+    );
+  }
+  if (d.cacheTable.length === 0) issues.push("rules.dynamicEvents.cacheTable is empty");
+  for (const entry of d.cacheTable) {
+    positiveInteger(
+      issues,
+      `rules.dynamicEvents.cacheTable weight for ${entry.type}`,
+      entry.weight,
+      1,
+    );
+    if (!(entry.type in rules.itemDefinitions)) {
+      issues.push(`rules.dynamicEvents.cacheTable item "${entry.type}" has no definition`);
+    }
+  }
 }
 
 function checkPositions(

@@ -12,6 +12,7 @@ import type {
   ItemDefinition,
   LocationRef,
   SearchLootTable,
+  DynamicEventRules,
   SpecialtyDefinition,
   ThreatRules,
   WeaponDefinition,
@@ -62,6 +63,8 @@ export interface GameState {
    * by the whole team and never forgotten. The current view is derived, not stored.
    */
   readonly explored: readonly (readonly boolean[])[];
+  /** Round in which the last dynamic event fired; 0 before any. */
+  readonly lastEventRound: number;
   readonly objective: ObjectiveState;
 }
 
@@ -111,6 +114,8 @@ export interface GameRules {
   readonly threat: ThreatRules;
   /** Chebyshev distance a survivor sees, given line of sight. */
   readonly visionRange: number;
+  /** Which dynamic events can happen and how often. */
+  readonly dynamicEvents: DynamicEventRules;
 }
 
 /** Runtime list of location kinds; loot tables and templates are keyed by it. */
@@ -210,6 +215,10 @@ export interface PlayerState {
   readonly present: boolean;
 }
 
+/** Runtime list of dynamic events; each composes existing systems (rules/dynamicEvents.ts). */
+export const DYNAMIC_EVENT_TYPES = ["car_alarm", "horde", "supply_cache"] as const;
+export type DynamicEventType = (typeof DYNAMIC_EVENT_TYPES)[number];
+
 /** Runtime list of survivor specialties; the lobby offers them and decoders check them. */
 export const SPECIALTY_TYPES = [
   "survivor",
@@ -239,7 +248,7 @@ export interface ZombieState {
 }
 
 /** What made a noise. Drives client presentation and, later, per-source rules. */
-export type NoiseSourceType = "gunfire" | "melee" | "search" | "forced_entry";
+export type NoiseSourceType = "gunfire" | "melee" | "search" | "forced_entry" | "alarm";
 
 /**
  * A sound remembered by the world. `intensity` is the hearing radius in tiles (Chebyshev):

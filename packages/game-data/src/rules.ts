@@ -2,6 +2,7 @@ import type { GameRules } from "@zombie/game-core";
 import { SEARCH_LOOT_TABLES } from "./containers.js";
 import { ITEM_DEFINITIONS } from "./items.js";
 import { SPECIALTY_DEFINITIONS } from "./specialties.js";
+import { DYNAMIC_EVENT_RULES } from "./dynamicEvents.js";
 import { THREAT_RULES } from "./threat.js";
 import { WEAPON_DEFINITIONS } from "./weapons.js";
 import { ZOMBIE_DEFINITIONS } from "./zombies.js";
@@ -28,4 +29,5 @@ export const DEFAULT_GAME_RULES: GameRules = {
   threat: THREAT_RULES,
   /** A survivor sees eight tiles, one more than the rifle reaches, so no target is ever a surprise. */
   visionRange: 8,
+  dynamicEvents: DYNAMIC_EVENT_RULES,
 };

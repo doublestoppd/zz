@@ -25,9 +25,44 @@ import {
   type ServerMessage,
 } from "@zombie/protocol";
 import { sendError } from "../errors.js";
+import { log } from "../log.js";
 import type { ClientSession } from "../session/ClientSession.js";
 import { MatchRuntime } from "./MatchRuntime.js";
 import { redactEvents, redactState } from "./redact.js";
+
+/** Running totals of the events that describe how a match was played. */
+class MatchStats {
+  private readonly counts: Record<string, number> = {};
+  private readonly downs: { readonly round: number; readonly playerId: PlayerId }[] = [];
+
+  /** Event types whose counts describe the match's economy. */
+  private static readonly COUNTED: ReadonlySet<GameEvent["type"]> = new Set<GameEvent["type"]>([
+    "weapon_fired",
+    "weapon_swung",
+    "weapon_reloaded",
+    "item_used",
+    "container_searched",
+    "barrier_forced",
+    "door_opened",
+    "entity_died",
+    "zombie_attacked",
+    "dynamic_event",
+  ]);
+
+  record(events: readonly GameEvent[], round: number): void {
+    for (const event of events) {
+      if (event.type === "player_downed") {
+        this.downs.push({ round, playerId: event.playerId });
+      } else if (MatchStats.COUNTED.has(event.type)) {
+        this.counts[event.type] = (this.counts[event.type] ?? 0) + 1;
+      }
+    }
+  }
+
+  summary(): Record<string, unknown> {
+    return { ...this.counts, downs: this.downs };
+  }
+}
 
 /** Sources of non-determinism and the map source, injected so tests can pin them. */
 export interface MatchDependencies {
@@ -59,6 +94,8 @@ export class ServerMatch {
   private readonly members: Member[] = [];
   private runtime: MatchRuntime | undefined;
   private nextPlayerNumber = 1;
+  private readonly stats = new MatchStats();
+  private endLogged = false;
 
   constructor(
     code: string,
@@ -187,6 +224,13 @@ export class ServerMatch {
       players: this.members.map((m) => ({ id: m.playerId, name: m.name, specialty: m.specialty })),
     });
     this.runtime = new MatchRuntime(initial);
+    log("info", "match started", {
+      matchCode: this.code,
+      seed,
+      scenario,
+      playerCount: this.members.length,
+      specialties: this.members.map((m) => m.specialty),
+    });
     this.broadcastLobby();
     this.broadcast(this.mapMessage());
     this.broadcastUpdate([]);
@@ -303,6 +347,34 @@ export class ServerMatch {
   }
 
   private broadcastUpdate(events: readonly GameEvent[], except?: ClientSession): void {
+    this.recordForPlaytest(events);
     this.broadcast(this.updateMessage(events), except);
+  }
+
+  /**
+   * Alpha instrumentation: counts the events that describe a match's economy and, once
+   * the match is over, writes one structured log line with the seed, configuration,
+   * outcome, and totals (docs/BALANCE.md explains the fields). No analytics service.
+   */
+  private recordForPlaytest(events: readonly GameEvent[]): void {
+    if (this.runtime === undefined) return;
+    const state = this.runtime.getState();
+    this.stats.record(events, state.round);
+    if (state.phase.kind !== "finished" || this.endLogged) return;
+    this.endLogged = true;
+    log("info", "match ended", {
+      matchCode: this.code,
+      seed: state.seed,
+      scenario: state.objective.scenario,
+      playerCount: state.players.length,
+      specialties: state.players.map((p) => p.specialty),
+      outcome: state.phase.outcome,
+      rounds: state.round,
+      threat: state.threat,
+      heat: state.heat,
+      zombiesSpawned: state.zombieCounter,
+      zombiesLeft: state.zombies.length,
+      ...this.stats.summary(),
+    });
   }
 }

@@ -83,6 +83,25 @@ zombie spawn at least `spawnMinDistance` (4) tiles from every standing survivor.
 draws from the gameplay RNG, so it replays; it is judged after the objective, so it can
 never spoil a win. Numbers live in `packages/game-data/src/threat.ts`.
 
+## Dynamic events (`rules/dynamicEvents.ts`)
+
+At the end of every round, after the threat level is judged, one dynamic event may fire.
+The chance is `chancePerLevel[threat]` percent (0 at level 0, then 15, 25, 35, 45); no
+event fires within `minRoundsBetween` (2) rounds of the last; the event is drawn by
+weight from the pool entries whose `minThreat` the level meets. The draw uses the gameplay
+RNG, so a seed replays its events. Every event is made of systems that already exist:
+
+| Event          | What happens                                                                                         | Built from            |
+| -------------- | ---------------------------------------------------------------------------------------------------- | --------------------- |
+| `car_alarm`    | a noise of intensity 15 lasting 3 zombie phases at one of the zombie spawns; zombies converge on it  | noise + investigation |
+| `horde`        | up to 3 zombies from the current level's spawn table on free spawns out of sight (level 2 and above) | threat waves          |
+| `supply_cache` | 2 items from the cache table dropped on a free tile 3 to 7 tiles from a survivor                     | ground loot           |
+
+Each emits `dynamic_event` (with the position when it has one) followed by the ordinary
+events of its substance (`noise_made`, `zombie_spawned`, `item_dropped`), so the log and
+the board explain it without special cases. Numbers live in
+`packages/game-data/src/dynamicEvents.ts`; balance in [BALANCE.md](BALANCE.md).
+
 ## Specialties (`rules/specialties.ts`)
 
 Each player picks a specialty in the lobby (default `survivor`, no bonus). A specialty is

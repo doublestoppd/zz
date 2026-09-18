@@ -55,7 +55,8 @@ export {
 } from "./search.js";
 export { canHear, decayNoises, makeNoise, noiseScore, type NoiseOutcome } from "./noise.js";
 export { discounted, modifiersOf, NO_MODIFIERS } from "./specialties.js";
-export { applyThreat, computeThreat, type ThreatOutcome } from "./threat.js";
+export { applyThreat, computeThreat, spawnWave, type ThreatOutcome } from "./threat.js";
+export { rollDynamicEvent, type DynamicEventOutcome } from "./dynamicEvents.js";
 export {
   emptyGrid,
   isVisible,

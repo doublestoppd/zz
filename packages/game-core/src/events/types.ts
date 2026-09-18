@@ -3,6 +3,7 @@ import type { Position } from "../map/types.js";
 import type {
   AmmoType,
   BarrierKind,
+  DynamicEventType,
   ContainerCategory,
   GamePhase,
   ItemType,
@@ -46,6 +47,8 @@ export type GameEvent =
   | PlayerDownedEvent
   | ThreatChangedEvent
   | ZombieSpawnedEvent
+  | DynamicEventEvent
+  | ItemDroppedEvent
   | ObjectiveProgressEvent
   | ObjectiveStepCompletedEvent
   | ObjectiveStepStartedEvent
@@ -256,6 +259,21 @@ export interface ThreatChangedEvent {
   readonly type: "threat_changed";
   readonly level: number;
   readonly previous: number;
+}
+
+/** A dynamic event fired; the events that follow (noise, spawns, drops) are its substance. */
+export interface DynamicEventEvent {
+  readonly type: "dynamic_event";
+  readonly event: DynamicEventType;
+  readonly position: Position | undefined;
+}
+
+/** An item appeared on the ground (a supply cache). */
+export interface ItemDroppedEvent {
+  readonly type: "item_dropped";
+  readonly itemId: ItemId;
+  readonly itemType: ItemType;
+  readonly position: Position;
 }
 
 /** A reinforcement zombie appeared at a spawn out of sight. */

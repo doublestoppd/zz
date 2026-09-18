@@ -1,5 +1,6 @@
 import type {
   AmmoType,
+  DynamicEventType,
   GameEvent,
   GameState,
   NoiseSourceType,
@@ -20,6 +21,13 @@ const NOISE_LABELS: Readonly<Record<NoiseSourceType, string>> = {
   melee: "A scuffle",
   search: "Rummaging",
   forced_entry: "Splintering",
+  alarm: "A car alarm",
+};
+
+const EVENT_LABELS: Readonly<Record<DynamicEventType, string>> = {
+  car_alarm: "A car alarm goes off",
+  horde: "A horde arrives from the outskirts",
+  supply_cache: "A supply cache has been spotted",
 };
 
 /** "Runner z3" for a zombie still on the board, "Zombie z3" once it is gone. */
@@ -97,6 +105,12 @@ export function describeEvent(event: GameEvent, state: GameState): string {
       return `${nameOf(state, event.entityId)} has ${event.remainingHealth} HP left`;
     case "player_downed":
       return `${nameOf(state, event.playerId)} is down!`;
+    case "dynamic_event":
+      return event.position === undefined
+        ? EVENT_LABELS[event.event]
+        : `${EVENT_LABELS[event.event]} at (${event.position.x}, ${event.position.y})`;
+    case "item_dropped":
+      return `A ${event.itemType.replace("_", " ")} lies at (${event.position.x}, ${event.position.y})`;
     case "threat_changed":
       return event.level > event.previous
         ? `Threat rises to level ${event.level}`

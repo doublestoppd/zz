@@ -132,6 +132,11 @@ export function planAnimations(
       case "zombie_spawned":
         steps.push({ kind: "sound", name: "zombie" });
         break;
+      case "dynamic_event":
+        steps.push({ kind: "sound", name: event.event === "supply_cache" ? "pickup" : "crash" });
+        break;
+      case "item_dropped":
+        break;
       case "objective_step_started":
         steps.push({ kind: "sound", name: "your_turn" });
         break;

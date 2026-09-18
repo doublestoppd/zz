@@ -36,8 +36,15 @@ const DEFAULT_DEPS: MatchDependencies = {
   createSeed: () => randomInt(0, 2 ** 32),
   createRejoinToken: () => randomUUID(),
   // One spawn per player, so the player cap (protocol MAX_PLAYERS) is the only limit.
+  // Opposition and loot scale with the party (docs/BALANCE.md): 4 to 7 zombies, 3 to 6 items.
   createLayout: (seed, playerCount) =>
-    generateCity({ ...DEFAULT_CITY_OPTIONS, seed, survivorSpawns: playerCount }),
+    generateCity({
+      ...DEFAULT_CITY_OPTIONS,
+      seed,
+      survivorSpawns: playerCount,
+      zombieSpawns: 3 + playerCount,
+      lootSpawns: 2 + playerCount,
+    }),
 };
 
 /** Every live lobby and match, keyed by join code. Removes matches nobody can return to. */

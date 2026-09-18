@@ -4,6 +4,7 @@ import { chebyshevDistance, positionsEqual } from "../map/position.js";
 import type { Position } from "../map/types.js";
 import type { Rng } from "../random/rng.js";
 import { pickWeighted } from "../random/weighted.js";
+import type { ZombieSpawnTableEntry } from "../state/definitions.js";
 import type { GameState, ZombieState } from "../state/types.js";
 import { isOccupied } from "./occupancy.js";
 
@@ -49,6 +50,23 @@ export function applyThreat(state: GameState, rng: Rng): ThreatOutcome {
   }
   const table = rules.spawnTables[level] ?? rules.spawnTables[rules.spawnTables.length - 1];
   if (table === undefined || table.length === 0) return { state: current, events };
+  const wave = spawnWave(current, rng, count, table);
+  return { state: wave.state, events: [...events, ...wave.events] };
+}
+
+/**
+ * Spawns up to `count` zombies rolled from `table` on free reinforcement spawns out of
+ * sight of every standing survivor. Stops early when no spot is free. Shared by scheduled
+ * waves and by horde events.
+ */
+export function spawnWave(
+  state: GameState,
+  rng: Rng,
+  count: number,
+  table: readonly ZombieSpawnTableEntry[],
+): ThreatOutcome {
+  let current = state;
+  const events: GameEvent[] = [];
   for (let i = 0; i < count; i += 1) {
     const spots = freeSpawns(current);
     if (spots.length === 0) break;

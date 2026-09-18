@@ -3,6 +3,7 @@ import { parseAsciiMap, type MapLayout } from "../map/asciiMap.js";
 import { createInitialState } from "../state/createInitialState.js";
 import { NO_MODIFIERS } from "../rules/specialties.js";
 import type {
+  DynamicEventRules,
   FirearmDefinition,
   ItemDefinition,
   ScenarioDefinition,
@@ -67,6 +68,7 @@ export interface TestStateOptions {
   /** Overrides for the slow default escalation. */
   readonly threat?: Partial<ThreatRules>;
   readonly visionRange?: number;
+  readonly dynamicEvents?: Partial<DynamicEventRules>;
 }
 
 const DEFAULT_PISTOL: FirearmDefinition = {
@@ -135,6 +137,24 @@ export const TEST_SPECIALTIES: Readonly<Record<SpecialtyType, SpecialtyDefinitio
     description: "Searching costs 1 less and draws once more.",
     modifiers: { ...NO_MODIFIERS, searchActionPointDiscount: 1, searchExtraRolls: 1 },
   },
+};
+
+/** No events unless a test raises the chance. */
+export const TEST_EVENTS: DynamicEventRules = {
+  chancePerLevel: [0, 0, 0, 0, 0],
+  minRoundsBetween: 2,
+  pool: [
+    { type: "car_alarm", weight: 1, minThreat: 0 },
+    { type: "horde", weight: 1, minThreat: 1 },
+    { type: "supply_cache", weight: 1, minThreat: 0 },
+  ],
+  alarmIntensity: 15,
+  alarmRounds: 3,
+  hordeSize: 3,
+  cacheSize: 2,
+  cacheTable: [{ type: "ammo_box", weight: 1 }],
+  cacheMinDistance: 2,
+  cacheMaxDistance: 6,
 };
 
 /** Slow, quiet escalation so ordinary tests never see a wave unless they ask for one. */
@@ -221,6 +241,7 @@ export function makeTestState(options: TestStateOptions = {}): GameState {
       specialtyDefinitions: TEST_SPECIALTIES,
       threat: { ...TEST_THREAT, ...options.threat },
       visionRange: options.visionRange ?? 8,
+      dynamicEvents: { ...TEST_EVENTS, ...options.dynamicEvents },
       pickUpActionPointCost: 1,
       searchActionPointCost: options.searchActionPointCost ?? 2,
       searchNoise: options.searchNoise ?? 2,

@@ -1,5 +1,12 @@
 import type { WeightedEntry } from "../random/weighted.js";
-import type { AmmoType, ItemType, ScenarioType, WeaponType, ZombieType } from "./types.js";
+import type {
+  AmmoType,
+  DynamicEventType,
+  ItemType,
+  ScenarioType,
+  WeaponType,
+  ZombieType,
+} from "./types.js";
 
 /** One roll of a search: an item, or nothing. */
 export type SearchLoot = ItemType | "nothing";
@@ -156,6 +163,31 @@ export interface ThreatRules {
   readonly spawnTables: readonly (readonly ZombieSpawnTableEntry[])[];
   /** A wave never spawns within this Chebyshev distance of a standing survivor. */
   readonly spawnMinDistance: number;
+}
+
+/** One entry of the dynamic event pool. */
+export interface DynamicEventPoolEntry extends WeightedEntry<DynamicEventType> {
+  /** The event is only drawn at this threat level or above. */
+  readonly minThreat: number;
+}
+
+/** How dynamic events are scheduled and sized (rules/dynamicEvents.ts). */
+export interface DynamicEventRules {
+  /** Percent chance of an event at the end of a round, by threat level (`maxLevel + 1` entries). */
+  readonly chancePerLevel: readonly number[];
+  /** Rounds that must pass after an event before another can fire. */
+  readonly minRoundsBetween: number;
+  readonly pool: readonly DynamicEventPoolEntry[];
+  /** Car alarm: a noise this loud that lasts this many zombie phases. */
+  readonly alarmIntensity: number;
+  readonly alarmRounds: number;
+  /** Horde: zombies spawned by one horde, from the current threat level's table. */
+  readonly hordeSize: number;
+  /** Supply cache: items dropped, rolled from this table, this far from a survivor. */
+  readonly cacheSize: number;
+  readonly cacheTable: readonly WeightedEntry<ItemType>[];
+  readonly cacheMinDistance: number;
+  readonly cacheMaxDistance: number;
 }
 
 /** A place a scenario can name; resolved to tiles against the layout at match creation. */

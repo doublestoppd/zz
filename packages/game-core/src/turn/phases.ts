@@ -4,6 +4,7 @@ import { createRng, type Rng } from "../random/rng.js";
 import type { GamePhase, GameState, MatchOutcome } from "../state/types.js";
 import { evaluateObjective } from "../objectives/objective.js";
 import { decayNoises } from "../rules/noise.js";
+import { rollDynamicEvent } from "../rules/dynamicEvents.js";
 import { applyThreat } from "../rules/threat.js";
 import { runZombiePhase } from "../zombies/zombiePhase.js";
 import {
@@ -90,7 +91,8 @@ export function resolveEndOfRound(state: GameState): Transition {
   // Pressure rises after the objective is judged, so a wave never spoils a win already earned.
   const threatRng = createRng(evaluated.rngState);
   const threat = applyThreat(evaluated, threatRng);
-  const pressured: GameState = { ...threat.state, rngState: threatRng.getState() };
+  const happening = rollDynamicEvent(threat.state, threatRng);
+  const pressured: GameState = { ...happening.state, rngState: threatRng.getState() };
   const nextRound = state.round + 1;
   const refilled: GameState = {
     ...pressured,
@@ -107,7 +109,13 @@ export function resolveEndOfRound(state: GameState): Transition {
   const turn = startPlayerTurn(refilled, active);
   return {
     state: turn.state,
-    events: [...objective.events, ...threat.events, roundStarted, ...turn.events],
+    events: [
+      ...objective.events,
+      ...threat.events,
+      ...happening.events,
+      roundStarted,
+      ...turn.events,
+    ],
   };
 }
 

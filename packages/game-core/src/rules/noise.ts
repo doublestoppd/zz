@@ -19,6 +19,7 @@ export function makeNoise(
   position: Position,
   intensity: number,
   sourceType: NoiseSourceType,
+  durationRounds: number = state.rules.noiseDurationRounds,
 ): NoiseOutcome {
   if (intensity <= 0) return { state, events: [] };
   const counter = state.noiseCounter + 1;
@@ -26,7 +27,7 @@ export function makeNoise(
     id: noiseId(`n${counter}`),
     position,
     intensity,
-    remainingRounds: state.rules.noiseDurationRounds,
+    remainingRounds: durationRounds,
     sourceType,
   };
   return {

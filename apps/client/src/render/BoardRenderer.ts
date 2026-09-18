@@ -87,6 +87,7 @@ const NOISE_COLOURS: Readonly<Record<NoiseSourceType, number>> = {
   melee: COLOURS.noiseMelee,
   search: COLOURS.noiseSearch,
   forced_entry: COLOURS.noiseForcedEntry,
+  alarm: 0xff5252,
 };
 
 const ITEM_LABELS: Readonly<Record<ItemType, string>> = {
